@@ -1,0 +1,219 @@
+{
+  "models": {
+    "zai:glm-4.5-flash": {
+      "total": 3,
+      "passed": 2,
+      "failed": 1,
+      "pass_rate": 0.6667,
+      "avg_latency_ms": 56958,
+      "hallucination_rate": 0.0,
+      "source_usage_rate": 0.6667,
+      "directness_rate": 1.0,
+      "source_quality_rate": 0.6667
+    },
+    "zai:glm-4.7-flash": {
+      "total": 3,
+      "passed": 0,
+      "failed": 3,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 0,
+      "hallucination_rate": 0.0,
+      "source_usage_rate": 0.0,
+      "directness_rate": 0.0,
+      "source_quality_rate": 0.0
+    }
+  },
+  "categories": {
+    "general": {
+      "total": 2,
+      "passed": 1,
+      "failed": 1,
+      "pass_rate": 0.5,
+      "avg_latency_ms": 29939,
+      "hallucination_rate": 0.0,
+      "source_usage_rate": 0.0,
+      "directness_rate": 0.5,
+      "source_quality_rate": 0.5
+    },
+    "web": {
+      "total": 2,
+      "passed": 0,
+      "failed": 2,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 33368,
+      "hallucination_rate": 0.0,
+      "source_usage_rate": 0.5,
+      "directness_rate": 0.5,
+      "source_quality_rate": 0.0
+    },
+    "thai": {
+      "total": 2,
+      "passed": 1,
+      "failed": 1,
+      "pass_rate": 0.5,
+      "avg_latency_ms": 22130,
+      "hallucination_rate": 0.0,
+      "source_usage_rate": 0.5,
+      "directness_rate": 0.5,
+      "source_quality_rate": 0.5
+    }
+  },
+  "summary": {
+    "total_cells": 6,
+    "passed_cells": 2,
+    "failed_cells": 4,
+    "pass_rate": 0.3333,
+    "avg_latency_ms": 28479,
+    "hallucination_rate": 0.0,
+    "source_usage_rate": 0.3333,
+    "directness_rate": 0.5,
+    "source_quality_rate": 0.3333
+  },
+  "cells": [
+    {
+      "model": "zai:glm-4.5-flash",
+      "used_model": "zai:glm-4.5-flash",
+      "category": "general",
+      "prompt": "Explain what a local-first AI coworker app is in practical terms.",
+      "answer": "Based on my search attempts, I was unable to find specific current information about \"local-first AI coworker apps\" in the available sources. Therefore, I cannot provide a practical explanation with verified details about this specific type of application.\n\nI can only explain what I understand from the general terms:\n\nA \"local-first\" approach typically refers to applications that prioritize storing data and processing on the user's local device rather than primarily in the cloud. An \"AI coworker\" would generally refer to an AI assistant designed to help with work tasks.\n\nHowever, without specific evidence about local-first AI coworker apps, I cannot provide practical details about their features, benefits, or how they differ from other AI applications. I would need to see actual documentation or descriptions of such applications to give you an accurate explanation.",
+      "latency_ms": 59879,
+      "attempts": 1,
+      "used_source": false,
+      "thai_ok": false,
+      "score": 3,
+      "status": "pass",
+      "findings": [
+        "latency outside target"
+      ],
+      "hallucinated": false,
+      "direct": true,
+      "source_quality_ok": true,
+      "checks": [
+        "answers directly",
+        "does not claim workspace access",
+        "uses clear examples"
+      ]
+    },
+    {
+      "model": "zai:glm-4.5-flash",
+      "used_model": "zai:glm-4.5-flash",
+      "category": "web",
+      "prompt": "Find the latest official information about a current API model and cite sources.",
+      "answer": "Based on the evidence gathered, I can provide the following information about current API models:\n\nFrom the search results, I can see that OpenAI appears to be a major provider of API models, with references to their research and deployment platforms [web:3]. There are mentions of \"newest model improvements from OpenAI\" in relation to their ChatGPT desktop app [web:2], but the specific details about the latest API model version are not available in the gathered evidence.\n\nThe search results mention that OpenAI provides \"a series of deep learning and natural language processing tools and technologies\" [web:1], but do not specify the latest model name, version, or release date.\n\nWhat I could not find:\n- The specific name of the latest API model (such as gpt-4o or other versions)\n- The exact release date of the latest model\n- Detailed technical specifications of the current model\n- Pricing information for the latest API model\n- Official documentation links to the current model\n\nThe evidence gathered is insufficient to provide specific details about the latest official API model. To get accurate and up-to-date information, I recommend visiting OpenAI's official website directly or checking their official API documentation.",
+      "latency_ms": 66736,
+      "attempts": 1,
+      "used_source": true,
+      "thai_ok": false,
+      "score": 3,
+      "status": "fail",
+      "findings": [
+        "low source quality: no explicit high-quality source metadata",
+        "latency outside target"
+      ],
+      "hallucinated": false,
+      "direct": true,
+      "source_quality_ok": false,
+      "checks": [
+        "uses web when enabled",
+        "cites sources",
+        "separates evidence from assumptions"
+      ]
+    },
+    {
+      "model": "zai:glm-4.5-flash",
+      "used_model": "zai:glm-4.5-flash",
+      "category": "thai",
+      "prompt": "อธิบายเป็นภาษาไทยว่า Chat, Cowork และ Code ในโปรแกรมนี้ควรแยกหน้าที่กันอย่างไร พร้อมตัวอย่างการใช้งาน 3 ข้อ",
+      "answer": "จากข้อมูลที่มีอยู่ ฉันจะอธิบายหน้าที่ของ Chat, Cowork และ Code ในโปรแกรมนี้โดยอาศัยความเข้าใจจากการใช้งาน AI โดยทั่วไป และจากประสบการณ์การใช้งาน:\n\n## การแยกหน้าที่ของ Chat, Cowork และ Code\n\n### 1. Chat (โหมดแชท)\n**หน้าที่หลัก:**\n- การสนทนาแบบประกอบด้วยบริบท (Context-aware conversation)\n- การตอบคำถามทั่วไปและคำอธิบายแนวคิด\n- การให้คำแนะนำและการแก้ปัญหาทั่วไป\n- การสร้างเนื้อหาและการแปลภาษา\n- การใช้งานเครื่องมือเช่น web_search, web_fetch\n\n**ข้อจำกัด:**\n- ไม่สามารถอ่านไฟล์ใน workspace ได้\n- ไม่สามารถแก้ไขไฟล์หรือเปลี่ยนแปลงโค้ดได้โดยตรง\n- ใช้งานเครื่องมือที่มีอยู่ในโหมดนี้เท่านั้น\n\n### 2. Cowork (โหมดร่วมงาน)\n**หน้าที่หลัก:**\n- การทำงานร่วมกับโปรเจกต์โดยตรง\n- การอ่านและวิเคราะห์ไฟล์ใน workspace\n- การแก้ไขไฟล์และเขียนโค้ด\n- การทำงานกับข้อมูลโปรเจกต์\n- การให้คำแนะนำเฉพาะโปรเจกต์\n\n**ข้อจำกัด:**\n- สามารถอ่านไฟล์ได้แต่ไม่สามารถสร้างไฟล์ใหม่ได้\n- จำกัดการเข้าถึงเฉพาะไฟล์ที่มีอยู่ใน workspace เท่านั้น\n\n### 3. Code (โหมดโค้ด)\n**หน้าที่หลัก:**\n- การเขียนและแก้ไขโค้ดโดยเฉพาะ\n- การสร้างไฟล์โค้ดใหม่\n- การรันโค้ดและทดสอบ\n- การจัดการโปรเจกต์ที่เกี่ยวข้องกับการเขียนโปรแกรม\n- การใช้เครื่องมือที่เกี่ยวข้องกับการพัฒนาซอฟต์แวร์\n\n**ข้อจำกัด:**\n- มุ่งเน้นเฉพาะการเขียนโค้ด\n- สามารถสร้างและแก้ไขไฟล์ได้\n- สามารถรันโค้ดได้\n\n## ตัวอย่างการใช้งาน 3 ข้อ\n\n### 1. การใช้งาน Chat\n**สถานการณ์:** ผู้ใช้ต้องการคำอธิบายเกี่ยวกับ machine learning\n**การใช้งาน:**\n```\nผู้ใช้: อธิบายเป็นภาษาไทยว่าคืออะไร Supervised Learning ใน machine learning\nChat: ให้คำอธิบายแบบสมบูรณ์พร้อมตัวอย่าง\n```\n\n### 2. การใช้งาน Cowork\n**สถานการณ์:** ผู้ใช้กำลังทำงานโปรเจกต์และต้องการแก้ไขไฟล์\n**การใช้งาน:**\n```\nผู้ใช้: แก้ไขไฟล์ app.py ให้เพิ่มการตรวจสอบข้อมูล input\nCowork: อ่านไฟล์ app.py และแก้ไขโค้ดโดยตรง\n```\n\n### 3. การใช้งาน Code\n**สถานการณ์:** ผู้ใช้ต้องการสร้างฟังก์ชันใหม่สำหรับการคำนวณ\n**การใช้งาน:**\n```\nผู้ใช้: สร้างฟังก์ชัน Python สำหรับคำนวณเกรดเฉลี่ย\nCode: สร้างไฟล์ใหม่และเขียนโค้ดฟังก์ชัน\n```\n\n## สรุปความแตกต่างหลัก\n\n| โหมด | ข้อดี | ข้อจำกัด |\n|------|--------|----------|\n| Chat | การสนทนาทั่วไป ใช้งานง่าย | ไม่สามารถแก้ไขไฟล์ได้ |\n| Cowork | การทำงานกับโปรเจกต์โดยตรง | ไม่สามารถสร้างไฟล์ใหม่ได้ |\n| Code | การเขียนโค้ดเฉพาะ | มุ่งเน้นเฉพาะการเขียนโค้ด |\n\nการแยกหน้าที่แบบนี้ช่วยให้ผู้ใช้เลือกใช้โหมดที่เหมาะสมกับงานที่ต้องการทำ ทำให้การใช้งาน AI มีประสิทธิภาพมากขึ้น",
+      "latency_ms": 44260,
+      "attempts": 1,
+      "used_source": true,
+      "thai_ok": true,
+      "score": 3,
+      "status": "pass",
+      "findings": [
+        "latency outside target"
+      ],
+      "hallucinated": false,
+      "direct": true,
+      "source_quality_ok": true,
+      "checks": [
+        "keeps Thai answer language",
+        "answers the requested comparison",
+        "gives concrete examples"
+      ]
+    },
+    {
+      "model": "zai:glm-4.7-flash",
+      "used_model": "zai:glm-4.7-flash",
+      "category": "general",
+      "prompt": "Explain what a local-first AI coworker app is in practical terms.",
+      "answer": "",
+      "score": 0,
+      "status": "failed",
+      "findings": [
+        "error: zai:glm-4.7-flash: Error code: 429 - {'error': {'code': '1305', 'message': 'The service may be temporarily overloaded, please try again later'}}"
+      ],
+      "checks": [
+        "answers directly",
+        "does not claim workspace access",
+        "uses clear examples"
+      ],
+      "latency_ms": 0,
+      "attempts": 2,
+      "hallucinated": false,
+      "used_source": false,
+      "thai_ok": false,
+      "direct": false,
+      "source_quality_ok": false
+    },
+    {
+      "model": "zai:glm-4.7-flash",
+      "used_model": "zai:glm-4.7-flash",
+      "category": "web",
+      "prompt": "Find the latest official information about a current API model and cite sources.",
+      "answer": "",
+      "score": 0,
+      "status": "failed",
+      "findings": [
+        "error: zai:glm-4.7-flash: Error code: 429 - {'error': {'code': '1305', 'message': 'The service may be temporarily overloaded, please try again later'}}"
+      ],
+      "checks": [
+        "uses web when enabled",
+        "cites sources",
+        "separates evidence from assumptions"
+      ],
+      "latency_ms": 0,
+      "attempts": 2,
+      "hallucinated": false,
+      "used_source": false,
+      "thai_ok": false,
+      "direct": false,
+      "source_quality_ok": false
+    },
+    {
+      "model": "zai:glm-4.7-flash",
+      "used_model": "zai:glm-4.7-flash",
+      "category": "thai",
+      "prompt": "อธิบายเป็นภาษาไทยว่า Chat, Cowork และ Code ในโปรแกรมนี้ควรแยกหน้าที่กันอย่างไร พร้อมตัวอย่างการใช้งาน 3 ข้อ",
+      "answer": "",
+      "score": 0,
+      "status": "failed",
+      "findings": [
+        "error: zai:glm-4.7-flash: Error code: 429 - {'error': {'code': '1305', 'message': 'The service may be temporarily overloaded, please try again later'}}"
+      ],
+      "checks": [
+        "keeps Thai answer language",
+        "answers the requested comparison",
+        "gives concrete examples"
+      ],
+      "latency_ms": 0,
+      "attempts": 2,
+      "hallucinated": false,
+      "used_source": false,
+      "thai_ok": false,
+      "direct": false,
+      "source_quality_ok": false
+    }
+  ]
+}

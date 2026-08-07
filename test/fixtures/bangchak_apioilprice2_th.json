@@ -1,0 +1,11 @@
+[
+  {
+    "OilPriceID": 3399,
+    "OilDateNow": "29/06/2569",
+    "OilPriceDate": "24/06/2569",
+    "OilPriceTime": "21:15",
+    "OilRemark": "หมายเหตุ: ราคาขายปลีก กทม. ที่ยังไม่รวมภาษีบำรุงท้องถิ่น กทม.",
+    "OilRemark2": "ราคามีผล ณ วันที่ 25 มิ.ย. 69 เวลา 05.00 น.",
+    "OilList": "[{\"OilName\":\"ดีเซล B20\",\"PriceYesterday\":32.50,\"PriceToday\":32.50,\"PriceTomorrow\":32.50,\"PriceDifTomorrow\":0.00},{\"OilName\":\"ไฮดีเซล S\",\"PriceYesterday\":37.50,\"PriceToday\":37.50,\"PriceTomorrow\":37.50,\"PriceDifTomorrow\":0.00},{\"OilName\":\"ไฮ พรีเมียม ดีเซล พลัส\",\"PriceYesterday\":54.25,\"PriceToday\":54.25,\"PriceTomorrow\":54.25,\"PriceDifTomorrow\":0.00},{\"OilName\":\"แก๊สโซฮอล์ E85 S EVO\",\"PriceYesterday\":29.79,\"PriceToday\":28.99,\"PriceTomorrow\":28.99,\"PriceDifTomorrow\":0.00},{\"OilName\":\"แก๊สโซฮอล์ 95 S EVO\",\"PriceYesterday\":38.85,\"PriceToday\":38.05,\"PriceTomorrow\":38.05,\"PriceDifTomorrow\":0.00}]"
+  }
+]

@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-07-03T10:59:32+0700",
+  "runs": 3,
+  "domains": {
+    "www.eppo.go.th": {
+      "domain": "www.eppo.go.th",
+      "runs": 3,
+      "successes": 3,
+      "blocked": 0,
+      "empty": 0,
+      "tables": 3,
+      "total_evidence_len": 12816,
+      "total_quality_score": 15,
+      "success_rate": 1.0,
+      "blocked_rate": 0.0,
+      "avg_quality_score": 5.0,
+      "avg_evidence_len": 4272,
+      "layers": {
+        "adapter": 3
+      },
+      "best_layer": "adapter",
+      "last_url": "https://www.eppo.go.th/data-energy-statistic/energy-price-th/ราคาขายปลีกน้ำมัน/",
+      "last_layer": "adapter",
+      "last_source_type": "source-adapter",
+      "last_seen_at": "2026-07-03T10:59:32+0700"
+    },
+    "www.bangchak.co.th": {
+      "domain": "www.bangchak.co.th",
+      "runs": 3,
+      "successes": 2,
+      "blocked": 0,
+      "empty": 1,
+      "tables": 0,
+      "total_evidence_len": 3600,
+      "total_quality_score": 4,
+      "success_rate": 0.6667,
+      "blocked_rate": 0.0,
+      "avg_quality_score": 1.3333,
+      "avg_evidence_len": 1200,
+      "layers": {
+        "html": 2,
+        "empty": 1
+      },
+      "best_layer": "html",
+      "last_url": "https://www.bangchak.co.th/th/oilprice",
+      "last_layer": "html",
+      "last_source_type": "fetched-page",
+      "last_seen_at": "2026-07-03T10:59:32+0700"
+    },
+    "oil-price.bangchak.co.th": {
+      "domain": "oil-price.bangchak.co.th",
+      "runs": 3,
+      "successes": 3,
+      "blocked": 0,
+      "empty": 0,
+      "tables": 3,
+      "total_evidence_len": 1962,
+      "total_quality_score": 6,
+      "success_rate": 1.0,
+      "blocked_rate": 0.0,
+      "avg_quality_score": 2.0,
+      "avg_evidence_len": 654,
+      "layers": {
+        "adapter": 3
+      },
+      "best_layer": "adapter",
+      "last_url": "https://oil-price.bangchak.co.th/BcpOilPrice2/th",
+      "last_layer": "adapter",
+      "last_source_type": "source-adapter",
+      "last_seen_at": "2026-07-03T10:59:32+0700"
+    },
+    "www.globalpetrolprices.com": {
+      "domain": "www.globalpetrolprices.com",
+      "runs": 3,
+      "successes": 3,
+      "blocked": 0,
+      "empty": 0,
+      "tables": 3,
+      "total_evidence_len": 4893,
+      "total_quality_score": 6,
+      "success_rate": 1.0,
+      "blocked_rate": 0.0,
+      "avg_quality_score": 2.0,
+      "avg_evidence_len": 1631,
+      "layers": {
+        "html": 3
+      },
+      "best_layer": "html",
+      "last_url": "https://www.globalpetrolprices.com/Thailand/gasoline_prices/",
+      "last_layer": "html",
+      "last_source_type": "fetched-page",
+      "last_seen_at": "2026-07-03T10:59:32+0700"
+    }
+  }
+}

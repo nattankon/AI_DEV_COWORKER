@@ -1,0 +1,22 @@
+node_modules/
+.npm-cache/
+dist/
+release/
+build/
+__pycache__/
+*.pyc
+work_logs/preview.log
+
+# Provider-key / credential stores — never commit
+credentials.txt
+key.txt
+.env
+.env.*
+!.env.example
+
+# Runtime / personal / generated data — not source
+chat_memory/
+chat_artifacts/
+work_logs/sessions/
+ai_dev_coworker.egg-info/
+*.log

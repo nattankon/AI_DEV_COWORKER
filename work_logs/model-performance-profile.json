@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-08-06T16:29:18+00:00",
+  "models": {
+    "zai:glm-5.2": {
+      "overall": {
+        "total": 7,
+        "executed": 7,
+        "skipped": 0,
+        "passed": 6,
+        "failed": 1,
+        "pass_rate": 0.8571,
+        "avg_score": 4.0,
+        "avg_latency_ms": 13256,
+        "hallucination_rate": 0.0,
+        "source_quality_rate": 0.8571,
+        "router_score": 0.7324
+      },
+      "categories": {
+        "general": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 4.0,
+          "avg_latency_ms": 18055,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.7995
+        },
+        "web": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 0,
+          "failed": 1,
+          "pass_rate": 0.0,
+          "avg_score": 4.0,
+          "avg_latency_ms": 15029,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 0.0,
+          "router_score": 0.0748
+        },
+        "thai": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 4.0,
+          "avg_latency_ms": 25517,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.7374
+        },
+        "attachment": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 4.0,
+          "avg_latency_ms": 3027,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.9248
+        },
+        "coding": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 4.0,
+          "avg_latency_ms": 16251,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.8146
+        },
+        "memory": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 4.0,
+          "avg_latency_ms": 7082,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.891
+        },
+        "mcp": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 4.0,
+          "avg_latency_ms": 7832,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.8847
+        }
+      }
+    },
+    "zai:glm-4.5-flash": {
+      "overall": {
+        "total": 7,
+        "executed": 7,
+        "skipped": 0,
+        "passed": 6,
+        "failed": 1,
+        "pass_rate": 0.8571,
+        "avg_score": 3.2857,
+        "avg_latency_ms": 48077,
+        "hallucination_rate": 0.0,
+        "source_quality_rate": 0.8571,
+        "router_score": 0.5571
+      },
+      "categories": {
+        "general": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 4.0,
+          "avg_latency_ms": 9778,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.8685
+        },
+        "web": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 0,
+          "failed": 1,
+          "pass_rate": 0.0,
+          "avg_score": 3.0,
+          "avg_latency_ms": 89340,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 0.0,
+          "router_score": 0.0
+        },
+        "thai": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 3.0,
+          "avg_latency_ms": 90821,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.65
+        },
+        "attachment": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 4.0,
+          "avg_latency_ms": 15725,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.819
+        },
+        "coding": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 3.0,
+          "avg_latency_ms": 40281,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.65
+        },
+        "memory": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 3.0,
+          "avg_latency_ms": 53845,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.65
+        },
+        "mcp": {
+          "total": 1,
+          "executed": 1,
+          "skipped": 0,
+          "passed": 1,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "avg_score": 3.0,
+          "avg_latency_ms": 36749,
+          "hallucination_rate": 0.0,
+          "source_quality_rate": 1.0,
+          "router_score": 0.65
+        }
+      }
+    }
+  }
+}

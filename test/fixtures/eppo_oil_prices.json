@@ -1,0 +1,37 @@
+{
+  "status": "success",
+  "last_updated": "27 June 2026",
+  "data": {
+    "ptt": {
+      "oil_ptt_gl95": "47.64",
+      "oil_ptt_gh95": "38.05",
+      "oil_ptt_gh91": "37.68",
+      "oil_ptt_e20": "33.05",
+      "oil_ptt_e85": "28.99",
+      "oil_ptt_ds": "37.50",
+      "oil_ptt_pds": "50.05",
+      "oil_ptt_date": "2026-06-25",
+      "oil_ptt_time": "05:00"
+    },
+    "bcp": {
+      "oil_bcp_gl95": "-",
+      "oil_bcp_gh95": "38.05",
+      "oil_bcp_gh91": "37.68",
+      "oil_bcp_e20": "33.05",
+      "oil_bcp_e85": "28.99",
+      "oil_bcp_ds": "37.50",
+      "oil_bcp_pds": "54.25",
+      "oil_bcp_date": "2026-06-25",
+      "oil_bcp_time": "05:00"
+    },
+    "shell": {
+      "oil_shell_gh95": "38.55",
+      "oil_shell_gh91": "38.18",
+      "oil_shell_e20": "33.25",
+      "oil_shell_ds": "37.50",
+      "oil_shell_pds": "49.84",
+      "oil_shell_date": "2026-06-27",
+      "oil_shell_time": "05:00"
+    }
+  }
+}

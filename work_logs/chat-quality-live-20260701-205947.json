@@ -1,0 +1,180 @@
+{
+  "models": {
+    "zai:glm-4.5-flash": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "avg_latency_ms": 13787,
+      "hallucination_rate": 0.0,
+      "source_usage_rate": 0.6667
+    },
+    "zai:glm-4.7-flash": {
+      "total": 3,
+      "passed": 1,
+      "failed": 2,
+      "pass_rate": 0.3333,
+      "avg_latency_ms": 790,
+      "hallucination_rate": 0.0,
+      "source_usage_rate": 0.0
+    }
+  },
+  "categories": {
+    "general": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "avg_latency_ms": 6483,
+      "hallucination_rate": 0.0,
+      "source_usage_rate": 0.5
+    },
+    "web": {
+      "total": 2,
+      "passed": 1,
+      "failed": 1,
+      "pass_rate": 0.5,
+      "avg_latency_ms": 13065,
+      "hallucination_rate": 0.0,
+      "source_usage_rate": 0.5
+    },
+    "thai": {
+      "total": 2,
+      "passed": 1,
+      "failed": 1,
+      "pass_rate": 0.5,
+      "avg_latency_ms": 2318,
+      "hallucination_rate": 0.0,
+      "source_usage_rate": 0.0
+    }
+  },
+  "summary": {
+    "total_cells": 6,
+    "passed_cells": 4,
+    "failed_cells": 2,
+    "pass_rate": 0.6667,
+    "avg_latency_ms": 7288,
+    "hallucination_rate": 0.0,
+    "source_usage_rate": 0.3333
+  },
+  "cells": [
+    {
+      "model": "zai:glm-4.5-flash",
+      "used_model": "zai:glm-4.5-flash",
+      "category": "general",
+      "prompt": "Explain what a local-first AI coworker app is in practical terms.",
+      "answer": "Based on my search attempts, I was unable to find specific information about \"local-first AI coworker apps\" in the available search results. The search didn't return relevant sources that define or explain this specific concept.\n\nWithout access to current information about this term, I can't provide a factual explanation of what a local-first AI coworker app is in practical terms. I would need additional context or sources to accurately describe this concept.\n\nIf you have more specific information about this term or can provide context about where you encountered it, I might be able to help explain it based on general knowledge of similar concepts.",
+      "latency_ms": 10596,
+      "used_source": true,
+      "thai_ok": false,
+      "score": 4,
+      "status": "pass",
+      "findings": [],
+      "hallucinated": false,
+      "checks": [
+        "answers directly",
+        "does not claim workspace access",
+        "uses clear examples"
+      ]
+    },
+    {
+      "model": "zai:glm-4.5-flash",
+      "used_model": "zai:glm-4.5-flash",
+      "category": "web",
+      "prompt": "Find the latest official information about a current API model and cite sources.",
+      "answer": "Based on the evidence I've gathered, here's the latest official information about current API models:\n\n## Current API Model Information\n\n### OpenAI GPT-5.6 Series\nAccording to recent official information, OpenAI has released the GPT-5.6 series, which includes three models named Sol, Terra, and Luna [web:17]. This appears to be OpenAI's latest and most powerful AI model series as of the gathered evidence [web:16].\n\nKey details about GPT-5.6:\n- It is described as OpenAI's most powerful AI model to date [web:16]\n- The release has been subject to U.S. government review and intervention [web:16]\n- OpenAI is currently offering a \"limited preview\" of the GPT-5.6 series [web:15]\n- The models are named after celestial bodies: Sol (Sun), Terra (Earth), and Luna (Moon) [web:17]\n\n### OpenAI API Platform\nOpenAI maintains an official API platform that developers can access [web:11]. The company's website shows they are actively developing and deploying AI models, with research updates and product announcements [web:11].\n\n### Other Major AI Models\nWhile the search results mention other major AI model providers like Claude and Gemini, the specific details about their latest API models and release dates were not found in the gathered evidence.\n\n## Sources\n- [web:11] OpenAI official website - Research & Deployment\n- [web:15] GPT-5.6 release and usage guide\n- [web:16] Complete analysis of GPT-5.6\n- [web:17] TechNews.tw coverage of GPT-5.6 release with U.S. government involvement\n\nNote: The information about Claude and Gemini API models was not found in the gathered evidence, and I cannot provide details about their current models without additional verified sources.",
+      "latency_ms": 26130,
+      "used_source": true,
+      "thai_ok": false,
+      "score": 4,
+      "status": "pass",
+      "findings": [],
+      "hallucinated": false,
+      "checks": [
+        "uses web when enabled",
+        "cites sources",
+        "separates evidence from assumptions"
+      ]
+    },
+    {
+      "model": "zai:glm-4.5-flash",
+      "used_model": "zai:glm-4.5-flash",
+      "category": "thai",
+      "prompt": "ขอข้อมูลล่าสุดจากหลายแหล่ง แล้วสรุปเป็นภาษาไทยแบบละเอียด",
+      "answer": "เพื่อให้ได้ข้อมูลล่าสุดและสรุปให้ละเอียด ขอให้คุณระบุหัวข้อหรือข้อมูลเฉพาะที่คุณต้องการด้วยค่ะ เช่น:\n\n- ข่าวเศรษฐกิจล่าสุด\n- ข่าวการเมืองไทย\n- ข่าวเทคโนโลยี\n- ข่าวกีฬา\n- ข่าวสุขภาพ\n- หรือหัวข้ออื่นๆ ที่คุณสนใจ\n\nคุณสามารถระบุได้เลยว่าต้องการข้อมูลเกี่ยวกับอะไรค่ะ",
+      "latency_ms": 4636,
+      "used_source": false,
+      "thai_ok": true,
+      "score": 4,
+      "status": "pass",
+      "findings": [],
+      "hallucinated": false,
+      "checks": [
+        "keeps Thai answer language",
+        "may use English search variants",
+        "does not invent dates"
+      ]
+    },
+    {
+      "model": "zai:glm-4.7-flash",
+      "used_model": "zai:glm-4.7-flash",
+      "category": "general",
+      "prompt": "Explain what a local-first AI coworker app is in practical terms.",
+      "answer": "A local-first AI coworker app is a personal assistant that lives entirely on your device—no cloud accounts, no internet required for core tasks. It runs models and data locally, meaning your conversations and work stay private and load instantly. Think of it as a smart coworker who’s always there, never leaves your laptop or phone, and doesn’t need a network to help you write, code, research, or organize.",
+      "latency_ms": 2371,
+      "used_source": false,
+      "thai_ok": false,
+      "score": 4,
+      "status": "pass",
+      "findings": [],
+      "hallucinated": false,
+      "checks": [
+        "answers directly",
+        "does not claim workspace access",
+        "uses clear examples"
+      ]
+    },
+    {
+      "model": "zai:glm-4.7-flash",
+      "used_model": "zai:glm-4.7-flash",
+      "category": "web",
+      "prompt": "Find the latest official information about a current API model and cite sources.",
+      "answer": "",
+      "score": 0,
+      "status": "failed",
+      "findings": [
+        "error: zai:glm-4.7-flash: Error code: 429 - {'error': {'code': '1305', 'message': 'The service may be temporarily overloaded, please try again later'}}"
+      ],
+      "checks": [
+        "uses web when enabled",
+        "cites sources",
+        "separates evidence from assumptions"
+      ],
+      "latency_ms": 0,
+      "hallucinated": false,
+      "used_source": false,
+      "thai_ok": false
+    },
+    {
+      "model": "zai:glm-4.7-flash",
+      "used_model": "zai:glm-4.7-flash",
+      "category": "thai",
+      "prompt": "ขอข้อมูลล่าสุดจากหลายแหล่ง แล้วสรุปเป็นภาษาไทยแบบละเอียด",
+      "answer": "",
+      "score": 0,
+      "status": "failed",
+      "findings": [
+        "error: zai:glm-4.7-flash: Error code: 429 - {'error': {'code': '1305', 'message': 'The service may be temporarily overloaded, please try again later'}}"
+      ],
+      "checks": [
+        "keeps Thai answer language",
+        "may use English search variants",
+        "does not invent dates"
+      ],
+      "latency_ms": 0,
+      "hallucinated": false,
+      "used_source": false,
+      "thai_ok": false
+    }
+  ]
+}
