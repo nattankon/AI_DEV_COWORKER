@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "description": "Local-first AI coworker — chat, cowork, and code assistant.",
+  "author": "nattankon",
   "main": "electron/main.js",
   "scripts": {
     "build": "vite build --config vite.config.js",
