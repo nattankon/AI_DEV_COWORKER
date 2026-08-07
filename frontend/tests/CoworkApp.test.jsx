@@ -60,7 +60,8 @@ describe("CoworkApp", () => {
     expect(screen.getByPlaceholderText("How can I help you today?")).toBeInTheDocument();
     expect(screen.getByText(/Ask before write/i)).toBeInTheDocument();
     expect(screen.getByText(/Server:/i)).toBeInTheDocument();
-    expect(screen.getByText("v0.1.0")).toBeInTheDocument();
+    // Don't pin the exact release number — it changes every version bump.
+    expect(screen.getByText(/^v\d+\.\d+\.\d+$/)).toBeInTheDocument();
   });
 
   it("opens the Chat quality evaluation panel from the sidebar", async () => {

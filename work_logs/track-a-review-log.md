@@ -1412,6 +1412,17 @@
 - Pending release note: the installed v0.1.0 app now trails TWO shipped features (in-app key entry, UX
   fixes) - cutting v0.1.1 would deliver both and double as the first live auto-update test.
 
+## 2026-08-07 - v0.1.1 released (first auto-update-deliverable release)
+
+- Final green check (backend 391/391, frontend 140/140) -> committed the two feature batches as separate
+  commits (in-app key entry 25b423b; click-outside + Enter-to-send 65cbede) -> bumped 0.1.0->0.1.1
+  (9692448) -> pushed -> npm run dist -> gh release create v0.1.1 with Setup exe (~105MB) + blockmap +
+  latest.yml. Verified published, not draft, 3 assets.
+- This is the FIRST release an installed app (v0.1.0) can discover: expected flow = open app (checks
+  feed, downloads in background) -> quit -> reopen -> title shows v0.1.1 with the key UI + UX fixes.
+  Awaiting the user's confirmation that the auto-update actually applied - that closes the loop on the
+  entire packaging/auto-update milestone.
+
 ## 2026-08-05 - Live gated scorecard run (glm-5.2 + flash) - analysis
 
 - Report: work_logs/chat-quality-live-20260805-084406.{md,json}. Variant default:gated. 14/14 executed,
