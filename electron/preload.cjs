@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   fetchModels: () => ipcRenderer.invoke("fetch-models"),
   fetchRegisteredSkills: () => ipcRenderer.invoke("fetch-registered-skills"),
   loadApiKeys: () => ipcRenderer.invoke("load-api-keys"),
+  setProviderKey: (provider, key) => ipcRenderer.invoke("set-provider-key", provider, key),
   listChatMemory: () => ipcRenderer.invoke("chat-memory-list"),
   createChatMemory: (payload) => ipcRenderer.invoke("chat-memory-create", payload),
   updateChatMemory: (id, text) => ipcRenderer.invoke("chat-memory-update", id, text),

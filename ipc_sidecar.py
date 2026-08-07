@@ -17,11 +17,11 @@ from urllib.parse import urlparse
 
 try:
     from .cli_config import DEFAULT_LOCAL_AI_BASE_URL, DEFAULT_LOCAL_AI_MODEL
-    from .model_catalog import CATALOG_SOURCE_DATE, catalog_model_ids, provider_statuses, read_provider_api_key, catalog_model_supports_vision, catalog_model_metadata
+    from .model_catalog import CATALOG_SOURCE_DATE, catalog_model_ids, provider_statuses, read_provider_api_key, save_provider_key, catalog_model_supports_vision, catalog_model_metadata
 except ImportError:
     try:
         from cli_config import DEFAULT_LOCAL_AI_BASE_URL, DEFAULT_LOCAL_AI_MODEL
-        from model_catalog import CATALOG_SOURCE_DATE, catalog_model_ids, provider_statuses, read_provider_api_key, catalog_model_supports_vision, catalog_model_metadata
+        from model_catalog import CATALOG_SOURCE_DATE, catalog_model_ids, provider_statuses, read_provider_api_key, save_provider_key, catalog_model_supports_vision, catalog_model_metadata
     except ImportError:
         DEFAULT_LOCAL_AI_BASE_URL = "http://127.0.0.1:1234/v1"
         DEFAULT_LOCAL_AI_MODEL = "local:qwen/qwen3.5-9b"
@@ -35,6 +35,9 @@ except ImportError:
 
         def read_provider_api_key(_app_root, _provider_id) -> str:
             return ""
+
+        def save_provider_key(_app_root, _provider_id, _key) -> bool:
+            return False
 
         def catalog_model_supports_vision(_model_id: str) -> bool:
             return False
@@ -177,16 +180,15 @@ class IpcSidecar:
             elif command == "fetch_registered_skills":
                 self._emit("registered_skills", {"skills": []})
             elif command == "load_api_keys":
-                self._emit(
-                    "api_keys_loaded",
-                    {
-                        "localAiBaseUrl": self.dependencies.base_url,
-                        "hasLocalAiApiKey": bool(self.dependencies.api_key),
-                        "providers": provider_statuses(self._runtime_root()),
-                        "search": self._search_capabilities(),
-                        "catalog_source_date": CATALOG_SOURCE_DATE,
-                    },
+                self._emit_api_keys_loaded()
+            elif command == "set_provider_key":
+                # The key value flows straight to the key store; never echo it back.
+                saved = save_provider_key(
+                    self._runtime_root(),
+                    str(payload.get("provider") or ""),
+                    str(payload.get("key") or ""),
                 )
+                self._emit_api_keys_loaded(saved=saved, provider=str(payload.get("provider") or ""))
             elif command == "set_api_keys":
                 self._emit("api_keys_loaded", {"saved": False, "reason": "not_persisted_by_sidecar"})
             elif command == "chat_memory_list":
@@ -1681,6 +1683,19 @@ class IpcSidecar:
         if created:
             self._emit_chat_artifacts_state()
         return created
+
+    def _emit_api_keys_loaded(self, **extra: Any) -> None:
+        self._emit(
+            "api_keys_loaded",
+            {
+                "localAiBaseUrl": self.dependencies.base_url,
+                "hasLocalAiApiKey": bool(self.dependencies.api_key),
+                "providers": provider_statuses(self._runtime_root()),
+                "search": self._search_capabilities(),
+                "catalog_source_date": CATALOG_SOURCE_DATE,
+                **extra,
+            },
+        )
 
     def _search_capabilities(self) -> dict[str, Any]:
         has_brave_key = bool(str(self.dependencies.chat_config.search_api_key or "").strip())

@@ -420,6 +420,7 @@ export default function CoworkApp({
     const unsubscribe = typeof coworkBridge.subscribeApiKeys === "function"
       ? coworkBridge.subscribeApiKeys((payload = {}) => {
         if (payload.search) setSearchCapabilities(payload.search);
+        if (Array.isArray(payload.providers)) setModelProviders(payload.providers);
       })
       : undefined;
     void coworkBridge.loadApiKeys?.();
@@ -918,6 +919,8 @@ export default function CoworkApp({
                   focusSignal={composerFocusSignal}
                   modelLabel={selectedModelLabel}
                   modelProviders={modelProviders}
+                  onSaveProviderKey={(provider, key) => coworkBridge.setProviderKey?.(provider, key)}
+                  onRefreshProviders={() => coworkBridge.loadApiKeys?.()}
                   routeReason={activeRouteReason}
                   contextUsage={contextUsage}
                   searchCapabilities={searchCapabilities}
@@ -994,6 +997,8 @@ export default function CoworkApp({
               focusSignal={composerFocusSignal}
               modelLabel={selectedModelLabel}
               modelProviders={modelProviders}
+              onSaveProviderKey={(provider, key) => coworkBridge.setProviderKey?.(provider, key)}
+              onRefreshProviders={() => coworkBridge.loadApiKeys?.()}
               routeReason={activeRouteReason}
               contextUsage={contextUsage}
               searchCapabilities={searchCapabilities}

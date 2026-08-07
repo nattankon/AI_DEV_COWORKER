@@ -94,9 +94,9 @@ GitHub Release; if they match, it sees no update. No bump = no update detected.
 
 ## First-run setup for the INSTALLED app (one time)
 
-The installed app reads credentials from `%APPDATA%\AI Dev Co-worker\`, not the project
+The installed app reads credentials from `%APPDATA%\ai-dev-coworker\`, not the project
 folder. So place your key file there once:
-- Create `credentials.txt` in `%APPDATA%\AI Dev Co-worker\` with your provider keys
+- Create `credentials.txt` in `%APPDATA%\ai-dev-coworker\` with your provider keys
   (one per line), and set `COWORK_SEARCH_API_KEY` as a user env var (you already did).
 - Everything else (memory, connectors, artifacts, logs) already lives in that same folder
   and survives updates.

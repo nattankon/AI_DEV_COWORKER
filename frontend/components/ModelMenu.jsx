@@ -1,5 +1,6 @@
 import { Check, ChevronDown, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import useClickOutside from "../lib/useClickOutside";
 
 const MODEL_OPTIONS = ["qwen/qwen3.5-9b", "qwen2.5-7b-instruct"];
 const EFFORT_OPTIONS = ["Low", "Medium", "High"];
@@ -24,9 +25,19 @@ function recommendedLabel(model) {
   return modelBadge(model);
 }
 
-export default function ModelMenu({ effort, modelLabel, modelProviders = [], onEffortChange, onModelChange }) {
+export default function ModelMenu({ effort, modelLabel, modelProviders = [], onEffortChange, onModelChange, onSaveProviderKey, onRefreshProviders }) {
   const [open, setOpen] = useState(false);
   const [activeProviderId, setActiveProviderId] = useState("");
+  const [keyInput, setKeyInput] = useState("");
+  const rootRef = useRef(null);
+  const openProvider = (id) => {
+    setActiveProviderId(id);
+    setKeyInput("");
+  };
+  useClickOutside(rootRef, open, () => {
+    setOpen(false);
+    setActiveProviderId("");
+  });
   const providerGroups = Array.isArray(modelProviders)
     ? modelProviders.filter((provider) => Array.isArray(provider?.models) && provider.models.length > 0)
     : [];
@@ -37,7 +48,7 @@ export default function ModelMenu({ effort, modelLabel, modelProviders = [], onE
   const activeProvider = providerGroups.find((provider) => provider.id === activeProviderId);
 
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       <button
         type="button"
         aria-label="Model and effort"
@@ -63,12 +74,58 @@ export default function ModelMenu({ effort, modelLabel, modelProviders = [], onE
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={() => setActiveProviderId("")}
+                  onClick={() => openProvider("")}
                   className="flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] hover:bg-[#f0efeb]"
                 >
                   <ChevronDown size={13} className="rotate-90 text-[#8a877f]" />
                   <span className="font-medium">{activeProvider.label}</span>
                 </button>
+                {onSaveProviderKey && (
+                  <div className="mb-1 border-b border-[#ebe8df] px-2 pb-2 pt-1">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className={activeProvider.configured ? "text-[11px] text-[#3f8f62]" : "text-[11px] text-[#b44b3d]"}>
+                        {activeProvider.configured ? "✓ Key saved" : "No key yet"}
+                      </span>
+                      {onRefreshProviders && (
+                        <button
+                          type="button"
+                          aria-label="Refresh provider keys"
+                          onClick={() => onRefreshProviders()}
+                          className="rounded-md px-1.5 py-0.5 text-[11px] text-[#6f6b63] hover:bg-[#f0efeb]"
+                        >
+                          Refresh
+                        </button>
+                      )}
+                    </div>
+                    <form
+                      className="flex gap-1"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const value = keyInput.trim();
+                        if (!value) return;
+                        onSaveProviderKey(activeProvider.id, value);
+                        setKeyInput("");
+                      }}
+                    >
+                      <input
+                        type="password"
+                        aria-label={`${activeProvider.label} API key`}
+                        value={keyInput}
+                        onChange={(event) => setKeyInput(event.target.value)}
+                        placeholder={activeProvider.configured ? "Replace key…" : "Paste API key…"}
+                        className="h-7 min-w-0 flex-1 rounded-md border border-[#dedbd2] px-2 text-[12px] text-[#2f2f2d] outline-none focus:ring-2 focus:ring-[#d8d5cc]"
+                      />
+                      <button
+                        type="submit"
+                        aria-label={`Save ${activeProvider.label} key`}
+                        disabled={!keyInput.trim()}
+                        className="h-7 shrink-0 rounded-md bg-[#2f2f2d] px-2.5 text-[11px] font-medium text-white hover:bg-[#1f1f1d] disabled:cursor-not-allowed disabled:bg-[#d8d5cc]"
+                      >
+                        Save
+                      </button>
+                    </form>
+                  </div>
+                )}
                 <div role="menu" aria-label={`${activeProvider.label} models`} className="pt-1">
                   {activeProvider.models.map((model) => (
                     <button
@@ -128,7 +185,7 @@ export default function ModelMenu({ effort, modelLabel, modelProviders = [], onE
                     type="button"
                     role="menuitem"
                     aria-label={`${provider.label} ${provider.configured ? "ready" : "no key"}`}
-                    onClick={() => setActiveProviderId(provider.id)}
+                    onClick={() => openProvider(provider.id)}
                     className="flex h-8 w-full items-center justify-between gap-2 rounded-lg px-2 text-left text-[13px] hover:bg-[#f0efeb]"
                   >
                     <span className="min-w-0 truncate">{provider.label}</span>

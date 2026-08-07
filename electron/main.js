@@ -382,6 +382,12 @@ ipcMain.handle("answer-question", async (_event, answer) => {
     : { answer: typeof answer === "string" ? answer : "" };
   return sendCommandToPython("answer_question", answerPayload);
 });
+ipcMain.handle("set-provider-key", async (_event, provider, key) =>
+  sendCommandToPython("set_provider_key", {
+    provider: typeof provider === "string" ? provider : "",
+    key: typeof key === "string" ? key : "",
+  }),
+);
 ipcMain.handle("set-api-keys", async (_event, geminiKey, openaiKey, localAiBaseUrl, localAiApiKey) =>
   sendCommandToPython("set_api_keys", {
     geminiKey: typeof geminiKey === "string" ? geminiKey : "",

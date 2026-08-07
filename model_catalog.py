@@ -358,6 +358,37 @@ def read_provider_api_key(app_root: str | Path, provider_id: str) -> str:
     return ""
 
 
+_SAVEABLE_PROVIDERS = {"openai", "deepseek", "zai", "gemini"}
+
+
+def save_provider_key(app_root: str | Path, provider_id: str, key: str) -> bool:
+    # Persist a provider API key to the key store, replacing any existing key for
+    # the same provider. The key is written with a provider-name hint so it always
+    # classifies back to the intended provider (even if the user pastes a key whose
+    # prefix does not match the usual shape). Writes atomically; never logs the key.
+    provider = str(provider_id or "").strip().casefold()
+    clean_key = str(key or "").strip()
+    if provider not in _SAVEABLE_PROVIDERS or not clean_key or any(ch in clean_key for ch in "\r\n"):
+        return False
+    key_file = _resolve_key_file(app_root)
+    existing = key_file.read_text(encoding="utf-8").splitlines() if key_file.is_file() else []
+    kept: list[str] = []
+    for line in existing:
+        stored_key, hint = _credential_parts(line)
+        if not stored_key or line.strip().startswith("#"):
+            kept.append(line)
+            continue
+        if _classify_key(stored_key, hint=hint) == provider:
+            continue  # drop the previous key for this provider
+        kept.append(line)
+    kept.append(f"{clean_key} {provider}")
+    key_file.parent.mkdir(parents=True, exist_ok=True)
+    temp = key_file.with_name(key_file.name + ".tmp")
+    temp.write_text("\n".join(kept).strip("\n") + "\n", encoding="utf-8")
+    temp.replace(key_file)
+    return True
+
+
 def provider_statuses(app_root: str | Path) -> list[dict[str, Any]]:
     detected = detect_provider_keys(app_root)
     slots_by_provider: dict[str, list[int]] = {}

@@ -3082,6 +3082,49 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertNotIn("AIzaSy", json.dumps(event))
         self.assertNotIn("sk-" + "d" * 48, json.dumps(event))
 
+    def test_set_provider_key_persists_key_and_reports_configured_without_echoing_it(self):
+        output = StringIO()
+        temp_dir = Path(self.workspace)
+        sidecar = IpcSidecar(
+            IpcDependencies(
+                workspace=self.workspace,
+                app_root=temp_dir,
+                output=output,
+                model_lister=lambda: [],
+                chat_config=ChatRuntimeConfig(search_api_key=""),
+            )
+        )
+
+        sidecar.handle_line(json.dumps({"command": "set_provider_key", "provider": "zai", "key": "zaikeyABC123"}))
+
+        # key persisted to the runtime credential store
+        self.assertIn("zaikeyABC123", (temp_dir / "credentials.txt").read_text(encoding="utf-8"))
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
+        event = next(item for item in events if item["__ipc_type"] == "api_keys_loaded")
+        self.assertTrue(event["saved"])
+        providers = {provider["id"]: provider for provider in event["providers"]}
+        self.assertTrue(providers["zai"]["configured"])
+        # the raw key must NEVER be echoed back to the UI
+        self.assertNotIn("zaikeyABC123", json.dumps(event))
+
+    def test_set_provider_key_rejects_unknown_provider(self):
+        output = StringIO()
+        sidecar = IpcSidecar(
+            IpcDependencies(
+                workspace=self.workspace,
+                app_root=Path(self.workspace),
+                output=output,
+                model_lister=lambda: [],
+                chat_config=ChatRuntimeConfig(search_api_key=""),
+            )
+        )
+
+        sidecar.handle_line(json.dumps({"command": "set_provider_key", "provider": "bogus", "key": "whatever"}))
+
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
+        event = next(item for item in events if item["__ipc_type"] == "api_keys_loaded")
+        self.assertFalse(event["saved"])
+
     def test_chat_memory_ipc_list_update_enable_delete(self):
         output = StringIO()
         sidecar = IpcSidecar(

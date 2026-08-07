@@ -210,6 +210,7 @@ function invokeBridgeMethod(method, args = []) {
     chat_mcp_tool_run: bridge.runChatMcpTool,
     cancel_cowork: bridge.cancelCowork,
     load_api_keys: bridge.loadApiKeys,
+    set_provider_key: bridge.setProviderKey,
     resolve_hitl: bridge.resolveHitl,
     select_folder: bridge.selectFolder,
     send_brainstorm: bridge.sendBrainstorm,
@@ -269,6 +270,10 @@ export function snapViewport() {
 
 export function loadApiKeys() {
   return invokeBridgeMethod("load_api_keys");
+}
+
+export function setProviderKey(provider, key) {
+  return invokeBridgeMethod("set_provider_key", provider, key);
 }
 
 export function listChatMemory() {

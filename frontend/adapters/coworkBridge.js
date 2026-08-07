@@ -219,6 +219,11 @@ export function createCoworkBridge(legacyBridge, overrides = {}) {
         await legacyBridge.loadApiKeys();
       }
     },
+    async setProviderKey(provider, key) {
+      if (typeof legacyBridge?.setProviderKey === "function") {
+        await legacyBridge.setProviderKey(provider, key);
+      }
+    },
     async listChatMemory() {
       if (typeof legacyBridge?.listChatMemory === "function") {
         await legacyBridge.listChatMemory();
