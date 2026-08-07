@@ -74,7 +74,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "YOUR_GITHUB_USERNAME",
+        "owner": "nattankon",
         "repo": "AI_DEV_COWORKER"
       }
     ]
