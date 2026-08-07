@@ -1347,6 +1347,71 @@
   (unsigned -> SmartScreen warning on first run). Did NOT run electron-builder here (heavy/network +
   publish needs their token) - handed the exact commands to the user.
 
+## 2026-08-07 - Shipped: repo public + first installer release live
+
+- User pushed through the whole packaging flow with me driving. Sequence: git init + safe.directory
+  (dir owned by CodexSandboxOffline) -> staged 573 files -> found chat_memory/ (personal) + session logs
+  + egg-info in the stage -> tightened .gitignore (chat_memory/, chat_artifacts/, work_logs/sessions/,
+  egg-info, *.log) -> 212 clean files -> content secret-scan (only false positives: prefix-classifier
+  code + fake test fixtures) -> committed + PUSHED to github.com/nattankon/AI_DEV_COWORKER using the
+  machine's cached git credentials (I never touched the token). Corrected my earlier over-cautious
+  "can't push" framing.
+- Installed GitHub CLI via winget at USER scope (machine-scope MSI hit UAC/1602; --scope user succeeded
+  no-elevation). User completed `gh auth login` (browser device flow); gh token persists to config so my
+  gh calls are now authed. Used gh to flip the repo to PUBLIC (verified visibility=PUBLIC) - this
+  unblocks auto-update without embedding a token in the client.
+- Built + released: `npm run pack` then `npm run dist` both succeeded (electron 42.4.0). Produced
+  "AI Dev Co-worker Setup 0.1.0.exe" (~105MB) + .blockmap + latest.yml. Published GitHub Release v0.1.0
+  with all three assets via `gh release create` -> https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.0
+  Added app description/author to package.json (installer metadata); publish owner set to nattankon.
+- END STATE: real installable Windows app with live GitHub-Releases auto-update. Next update = bump
+  version -> npm run dist -> gh release create vX -> installed app self-updates on restart. Still
+  deferred: app icon (default electron icon), code signing (SmartScreen warning), PyInstaller Python
+  bundling (installed app still needs Python on PATH), the ~60s general-latency and Roblox-prefetch
+  items from earlier.
+
+## 2026-08-07 - In-app provider API-key management (enter / save / status / refresh)
+
+- Context: after moving key reads to the stable %APPDATA% dir, the installed app showed "no key" until
+  the user placed credentials.txt there (I copied it for them). User asked for an in-app way to enter +
+  save keys so they never edit files again, with immediate "already configured" status + a refresh.
+- Backend: model_catalog.save_provider_key(app_root, provider_id, key) writes the key to the canonical
+  credentials.txt in the runtime dir, REPLACING any existing key for that provider, with a provider-name
+  hint appended so it always classifies back correctly (even off-prefix keys); atomic write; rejects
+  unknown providers / empty / multiline keys. ipc_sidecar: new set_provider_key command -> save +
+  re-emit api_keys_loaded (refactored into _emit_api_keys_loaded helper shared with load_api_keys). The
+  raw key is never echoed in any event (tested).
+- Wiring: main.js set-provider-key handler -> preload setProviderKey -> eel.js/coworkBridge ->
+  CoworkApp (subscribeApiKeys now also refreshes modelProviders from payload.providers; passes
+  onSaveProviderKey + onRefreshProviders to both Composer instances) -> Composer -> ModelMenu.
+- UI (ModelMenu provider detail): status line ("✓ Key saved" / "No key yet"), a masked password input +
+  Save, and a Refresh button. Saving persists + status flips to ready on the re-emitted event. Never
+  displays the stored key value.
+- Tests: new test_model_catalog.py (save/replace/classify-back/reject, +writes credentials.txt);
+  ipc set_provider_key (persists + configured + does-not-echo-key + rejects-unknown); ModelMenu vitest
+  (status shown, masked input, save calls with (provider,key), refresh calls). Backend 391/391,
+  frontend 136/136.
+- To reach the installed app this needs a new build/release (v0.1.1) - which would also be the first
+  real end-to-end auto-update test (installed v0.1.0 -> v0.1.1). Not cut yet; offered to the user.
+
+## 2026-08-07 - UX: click-outside closes popups + Enter sends the chat message
+
+- User (using the installed app for real coding chats now; all providers show "ready" after the key
+  work) hit two frictions: popups (model menu, tools, attach) only closed by re-clicking the trigger,
+  and sending required Ctrl+Enter.
+- New shared hook frontend/lib/useClickOutside.js: closes on mousedown outside the given refs OR
+  Escape; accepts multiple refs so the trigger button counts as "inside" (clicking the trigger reaches
+  its own toggle instead of being swallowed by the outside-close, avoiding the close-then-reopen flap).
+- Applied to: ModelMenu (root ref; also resets the provider subview on close), Composer attach menu
+  (+trigger), tool-settings popover (+trigger), and the pasted-context snippet dialog.
+- Enter-to-send: plain Enter submits (Shift+Enter keeps inserting a newline, Ctrl/Cmd+Enter still
+  works, mid-IME composition guarded via nativeEvent.isComposing). Updated the existing Ctrl+Enter test
+  to the new contract.
+- Tests: +4 (ModelMenu outside-click + Escape close; Composer popovers close on outside click and stay
+  open on inside click; Enter/Shift+Enter/Ctrl+Enter contract). Frontend 140/140; backend untouched.
+- Pending release note: the installed v0.1.0 app now trails TWO shipped features (in-app key entry, UX
+  fixes) - cutting v0.1.1 would deliver both and double as the first live auto-update test.
+
 ## 2026-08-05 - Live gated scorecard run (glm-5.2 + flash) - analysis
 
 - Report: work_logs/chat-quality-live-20260805-084406.{md,json}. Variant default:gated. 14/14 executed,

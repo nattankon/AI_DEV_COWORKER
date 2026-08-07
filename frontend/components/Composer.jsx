@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState } from "react";
+import useClickOutside from "../lib/useClickOutside";
 import { ArrowUp, FolderPlus, GitBranch, Globe2, Mic, Paperclip, Palette, Plus, Puzzle, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import ModelMenu from "./ModelMenu";
 
@@ -79,6 +80,8 @@ export default function Composer({
   workspaceLabel,
   onChooseWorkspace,
   onEffortChange,
+  onSaveProviderKey,
+  onRefreshProviders,
   onOpenMemoryManager,
   onOpenConnectors,
   onModelChange,
@@ -107,6 +110,14 @@ export default function Composer({
   const [mcpToolArgDrafts, setMcpToolArgDrafts] = useState({});
   const fileInputRef = useRef(null);
   const textAreaRef = useRef(null);
+  const attachButtonRef = useRef(null);
+  const attachMenuRef = useRef(null);
+  const toolsButtonRef = useRef(null);
+  const toolsMenuRef = useRef(null);
+  const snippetRef = useRef(null);
+  useClickOutside([attachMenuRef, attachButtonRef], attachMenuOpen, () => setAttachMenuOpen(false));
+  useClickOutside([toolsMenuRef, toolsButtonRef], toolSettingsOpen, () => setToolSettingsOpen(false));
+  useClickOutside(snippetRef, snippetOpen, () => setSnippetOpen(false));
   const canSubmit = draft.trim().length > 0 && !disabled;
   const skillsOpen = draft.trim().startsWith("/");
 
@@ -449,10 +460,12 @@ export default function Composer({
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
-          if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-            event.preventDefault();
-            submit();
-          }
+          if (event.key !== "Enter") return;
+          // Shift+Enter inserts a newline; plain Enter (and Ctrl/Cmd+Enter) sends.
+          if (event.shiftKey) return;
+          if (event.nativeEvent?.isComposing) return; // don't send mid-IME composition
+          event.preventDefault();
+          submit();
         }}
         placeholder="How can I help you today?"
         rows={3}
@@ -496,6 +509,7 @@ export default function Composer({
       )}
       <div className="flex min-h-[53px] items-center gap-2 px-4 pb-3">
         <button
+          ref={attachButtonRef}
           type="button"
           aria-label="Attach context"
           onClick={() => setAttachMenuOpen((value) => !value)}
@@ -505,6 +519,7 @@ export default function Composer({
         </button>
         {attachMenuOpen && (
           <div
+            ref={attachMenuRef}
             role="menu"
             aria-label="Add context"
             className="absolute bottom-12 left-2 z-40 w-64 rounded-xl border border-[#dedbd2] bg-white p-1.5 text-[13px] shadow-[0_14px_38px_rgba(0,0,0,0.16)]"
@@ -566,6 +581,7 @@ export default function Composer({
         )}
         {snippetOpen && (
           <div
+            ref={snippetRef}
             role="dialog"
             aria-label="Add pasted context"
             className="absolute bottom-12 left-2 z-40 w-[320px] rounded-xl border border-[#dedbd2] bg-white p-3 text-[13px] shadow-[0_14px_38px_rgba(0,0,0,0.16)]"
@@ -692,6 +708,8 @@ export default function Composer({
           )}
           <ContextUsageIndicator usage={contextUsage} />
           <ModelMenu
+            onSaveProviderKey={onSaveProviderKey}
+            onRefreshProviders={onRefreshProviders}
             effort={effort}
             modelLabel={modelLabel}
             modelProviders={modelProviders}
@@ -707,6 +725,7 @@ export default function Composer({
           <Mic size={17} strokeWidth={2} />
         </button>
         <button
+          ref={toolsButtonRef}
           type="button"
           aria-label="Tool settings"
           onClick={() => setToolSettingsOpen((value) => !value)}
@@ -716,6 +735,7 @@ export default function Composer({
         </button>
         {toolSettingsOpen && (
           <div
+            ref={toolsMenuRef}
             role="menu"
             aria-label="Tool settings menu"
             className="absolute bottom-12 right-12 z-40 w-[260px] rounded-xl border border-[#dedbd2] bg-white p-2 text-[13px] shadow-[0_14px_38px_rgba(0,0,0,0.16)]"

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import Composer from "../components/Composer";
 
 describe("Composer", () => {
-  it("submits with Ctrl+Enter and keeps Shift+Enter for new lines", () => {
+  it("submits with plain Enter, keeps Shift+Enter for new lines, still allows Ctrl+Enter", () => {
     const onSubmit = vi.fn();
     render(
       <Composer
@@ -19,9 +19,36 @@ describe("Composer", () => {
     fireEvent.keyDown(textbox, { key: "Enter", shiftKey: true });
     expect(onSubmit).not.toHaveBeenCalled();
 
-    fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
+    fireEvent.keyDown(textbox, { key: "Enter" });
     expect(onSubmit).toHaveBeenCalledWith("Inspect architecture");
     expect(textbox).toHaveValue("");
+
+    fireEvent.change(textbox, { target: { value: "Second message" } });
+    fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
+    expect(onSubmit).toHaveBeenCalledWith("Second message");
+  });
+
+  it("closes the attach and tool-settings popovers when clicking outside", () => {
+    render(<Composer disabled={false} modelLabel="model" workspaceLabel="workspace" onSubmit={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Attach context" }));
+    expect(screen.getByRole("menu", { name: "Add context" })).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("menu", { name: "Add context" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tool settings" }));
+    expect(screen.getByRole("menu", { name: "Tool settings menu" })).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("menu", { name: "Tool settings menu" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a popover open when clicking inside it", () => {
+    render(<Composer disabled={false} modelLabel="model" workspaceLabel="workspace" onSubmit={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Tool settings" }));
+    const menu = screen.getByRole("menu", { name: "Tool settings menu" });
+    fireEvent.mouseDown(menu);
+    expect(screen.getByRole("menu", { name: "Tool settings menu" })).toBeInTheDocument();
   });
 
   it("does not submit an empty prompt", () => {
