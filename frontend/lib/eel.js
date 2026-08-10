@@ -1,5 +1,6 @@
 const eelEvents = {
   apiKeysLoaded: "eel:api_keys_loaded",
+  appUpdate: "eel:app_update",
   availableModels: "eel:available_models",
   brainstormLog: "eel:brainstorm_log",
   backendLog: "eel:backend_log",
@@ -29,6 +30,7 @@ const eelEvents = {
 
 const ipcEventMap = {
   api_keys_loaded: eelEvents.apiKeysLoaded,
+  "app-update": eelEvents.appUpdate,
   available_models: eelEvents.availableModels,
   "backend-log": eelEvents.backendLog,
   chat_memory_state: eelEvents.chatMemoryState,
@@ -211,6 +213,7 @@ function invokeBridgeMethod(method, args = []) {
     cancel_cowork: bridge.cancelCowork,
     load_api_keys: bridge.loadApiKeys,
     set_provider_key: bridge.setProviderKey,
+    install_update_now: bridge.installUpdateNow,
     resolve_hitl: bridge.resolveHitl,
     select_folder: bridge.selectFolder,
     send_brainstorm: bridge.sendBrainstorm,
@@ -274,6 +277,10 @@ export function loadApiKeys() {
 
 export function setProviderKey(provider, key) {
   return invokeBridgeMethod("set_provider_key", provider, key);
+}
+
+export function installUpdateNow() {
+  return invokeBridgeMethod("install_update_now");
 }
 
 export function listChatMemory() {

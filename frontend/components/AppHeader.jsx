@@ -1,7 +1,37 @@
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Bot, Maximize2, Menu, Minus, PanelLeft, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bot, Download, Loader2, Maximize2, Menu, Minus, PanelLeft, Search, X } from "lucide-react";
 import packageInfo from "../../package.json";
 import ShellMenu from "./ShellMenu";
+
+function UpdateControl({ appUpdate, onInstallUpdate }) {
+  const state = appUpdate?.state || "idle";
+  if (state === "downloading" || state === "available") {
+    return (
+      <span
+        className="app-no-drag inline-flex items-center gap-1.5 rounded-full border border-[#e6e4dd] bg-white px-2 py-1 text-[11px] text-[#77766f]"
+        title="Downloading update…"
+      >
+        <Loader2 size={12} strokeWidth={2.2} className="animate-spin" />
+        {state === "downloading" && Number(appUpdate?.percent) > 0 ? `${Math.round(appUpdate.percent)}%` : "update"}
+      </span>
+    );
+  }
+  if (state === "ready") {
+    return (
+      <button
+        type="button"
+        aria-label={`Install update${appUpdate?.version ? ` v${appUpdate.version}` : ""} and restart`}
+        onClick={() => onInstallUpdate?.()}
+        title={`Update to v${appUpdate?.version || ""} — installs and restarts`}
+        className="app-no-drag inline-flex items-center gap-1.5 rounded-full border border-[#cfe6d5] bg-[#eef8f0] px-2 py-1 text-[11px] font-medium text-[#2f7d4f] transition hover:bg-[#e2f2e6]"
+      >
+        <Download size={12} strokeWidth={2.2} />
+        Update{appUpdate?.version ? ` v${appUpdate.version}` : ""}
+      </button>
+    );
+  }
+  return null;
+}
 
 function callWindowControl(controlName) {
   window.electronAPI?.[controlName]?.();
@@ -15,6 +45,8 @@ export default function AppHeader({
   modelLabel,
   runStatus,
   workspaceLabel,
+  appUpdate,
+  onInstallUpdate,
   onBack,
   onForward,
   onSearch,
@@ -52,6 +84,7 @@ export default function AppHeader({
       </div>
 
       <div className="hidden h-full items-center justify-end gap-3 pr-5 text-[#2e2d2b] lg:flex">
+        <UpdateControl appUpdate={appUpdate} onInstallUpdate={onInstallUpdate} />
         {appVersion ? (
           <span className="app-no-drag text-[11px] font-medium text-[#aaa79f]" title={`AI Dev Co-worker ${appVersion}`}>
             {appVersion}

@@ -456,7 +456,12 @@ function runUpdateGate() {
   const proceed = () => {
     if (finished) return;
     finished = true;
+    // Drop the gate's listeners before starting the app: otherwise the gate's
+    // update-downloaded handler (which force-installs) would fire on a later
+    // in-app background download and restart without the user clicking.
+    autoUpdater.removeAllListeners();
     startMainApp();
+    startBackgroundUpdater();
     // Open the main window BEFORE destroying the gate so window-all-closed
     // never sees zero windows mid-transition (that would quit the app).
     setTimeout(() => {
@@ -502,9 +507,42 @@ function runUpdateGate() {
   });
 }
 
+// After the app is running, keep checking in the background. When a newer
+// version finishes downloading we notify the UI (state "ready") and wait — the
+// user clicks the in-app Update button to install + relaunch immediately, no
+// need to close the app first. If they never click, autoInstallOnAppQuit applies
+// it on the next quit anyway.
+let backgroundUpdaterStarted = false;
+let pendingUpdateReady = false;
+
+function startBackgroundUpdater() {
+  if (!app.isPackaged || backgroundUpdaterStarted) return;
+  backgroundUpdaterStarted = true;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  const notify = (state, extra = {}) =>
+    dispatchRendererEvent("app-update", { state, ...extra, timestamp: new Date().toISOString() });
+
+  autoUpdater.on("update-available", (info) => notify("available", { version: info?.version ?? "" }));
+  autoUpdater.on("download-progress", (progress) => notify("downloading", { percent: Math.round(progress?.percent ?? 0) }));
+  autoUpdater.on("update-downloaded", (info) => {
+    pendingUpdateReady = true;
+    notify("ready", { version: info?.version ?? "" });
+  });
+  autoUpdater.on("error", (error) => emitBackendLog("stderr", `Background update error: ${error?.message ?? error}`));
+
+  const check = () =>
+    autoUpdater.checkForUpdates().catch((error) => emitBackendLog("stderr", `Background update check failed: ${error?.message ?? error}`));
+  setTimeout(check, 10_000); // shortly after the app is up
+  setInterval(check, 30 * 60_000); // then every 30 minutes
+}
+
 ipcMain.handle("install-update-now", async () => {
   if (!app.isPackaged) return { ok: false, reason: "not-packaged" };
-  autoUpdater.quitAndInstall();
+  if (!pendingUpdateReady) return { ok: false, reason: "not-downloaded" };
+  autoUpdater.quitAndInstall(true, true); // silent install + relaunch on the new version
   return { ok: true };
 });
 

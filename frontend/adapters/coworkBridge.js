@@ -303,6 +303,16 @@ export function createCoworkBridge(legacyBridge, overrides = {}) {
       if (typeof subscribe !== "function") return () => {};
       return subscribe("api_keys_loaded", (event) => listener(event?.detail ?? event ?? {}));
     },
+    subscribeAppUpdate(listener) {
+      const subscribe = legacyBridge?.subscribe;
+      if (typeof subscribe !== "function") return () => {};
+      return subscribe("app-update", (event) => listener(event?.detail ?? event ?? {}));
+    },
+    async installUpdateNow() {
+      if (typeof legacyBridge?.installUpdateNow === "function") {
+        await legacyBridge.installUpdateNow();
+      }
+    },
     subscribeChatMemory(listener) {
       const subscribe = legacyBridge?.subscribe;
       if (typeof subscribe !== "function") return () => {};

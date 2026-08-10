@@ -1423,6 +1423,57 @@
   Awaiting the user's confirmation that the auto-update actually applied - that closes the loop on the
   entire packaging/auto-update milestone.
 
+## 2026-08-08 - v0.1.2: visible update-gate window (replaces silent background update)
+
+- v0.1.0 did not visibly update for the user. Diagnosis: app-update.yml IS embedded and correct
+  (owner/repo/github), so the feed is fine; the silent checkForUpdatesAndNotify + autoInstallOnAppQuit
+  path is easy to miss (native toast only, applies only on a real quit) and the user's window showed
+  "Server: Preview", so they may not have been running the packaged app at all.
+- Per the user's request ("show an updating window before the app opens, not background"): replaced
+  setupAutoUpdater with runUpdateGate() called at app.whenReady. It opens a small frameless window
+  ("Checking for updates… / Downloading X% / Installing…"), and: update-available -> shows progress;
+  update-downloaded -> quitAndInstall(true, true) immediately (installs + relaunches on the new version);
+  update-not-available/error/20s-check-timeout -> starts the main app normally. Main window opens before
+  the gate is destroyed so window-all-closed never quits mid-transition. Dev (non-packaged) skips the
+  gate entirely.
+- IMPORTANT for the transition: the visible gate lives in v0.1.2+; the installed v0.1.0 still has the
+  OLD silent updater. Cleanest path onto the new mechanism = install the v0.1.2 Setup.exe once (keys in
+  %APPDATA% survive). After that every future update shows the window.
+- CoworkApp version test de-pinned from "v0.1.0" to /^v\d+\.\d+\.\d+$/ so version bumps don't break it.
+  Frontend 140/140. Released v0.1.2 (Setup + blockmap + latest.yml), verified published.
+- CONFIRMED: user installed v0.1.2 (title shows v0.1.2). Packaging + self-update loop closed end to end.
+
+## 2026-08-08 - Moved API-key management from the model menu into Settings > Providers
+
+- User: the key entry buried in the model menu is hard to find; move it to Settings. Agreed (matches
+  where GPT/Claude keep keys, and shows all providers at once).
+- New ProvidersPanel.jsx: all four providers (OpenAI/DeepSeek/Z.ai/Gemini) with status
+  (Key saved / No key yet), a masked key input + Save per provider, and one Refresh. Reuses the existing
+  set_provider_key / api_keys_loaded backend - no backend change.
+- Added a "Providers" section to the SettingsModal nav; CoworkApp passes modelProviders +
+  onSaveProviderKey + onRefreshProviders through, and opening that section triggers loadApiKeys.
+- ModelMenu decluttered: provider subview now shows only the read-only status line + a "Manage keys"
+  button that opens Settings > Providers (onManageKeys). Inline input/save/refresh removed from the menu.
+- Tests: ModelMenu updated (status shown, no inline input, Manage-keys fires); new ProvidersPanel test
+  (lists providers, masked save clears input, refresh, disabled-until-typed). Frontend 143/143; backend
+  untouched (391). UI-only - ships next release, the first real exercise of the v0.1.2 update gate.
+
+## 2026-08-08 - In-app "Update" button (install while running, no manual close/reopen)
+
+- User wanted a second update path: while the app is running, if an update lands, show a clickable
+  button that installs + relaunches on click (no manual quit), on top of the existing launch gate.
+- main.js: startBackgroundUpdater() runs AFTER the app opens (packaged only). Checks 10s after start +
+  every 30 min, downloads automatically, emits "app-update" events (available/downloading{percent}/
+  ready{version}) to the renderer - but does NOT auto-install while running; waits for the click.
+  Critical fix: proceed() now calls autoUpdater.removeAllListeners() before starting the app so the
+  launch-gate's force-install update-downloaded handler can't fire on a later background download.
+  install-update-now guarded to quitAndInstall(true,true) only once a download completed.
+- Wiring: preload installUpdateNow + "app-update" channel -> eel.js -> coworkBridge (subscribeAppUpdate +
+  installUpdateNow) -> CoworkApp (subscribes, tracks {state,version,percent}) -> AppHeader.
+- AppHeader UpdateControl next to the version badge: spinner+percent while downloading, green "Update vX"
+  button when ready (click -> install + restart), nothing when idle. New AppHeader.test.jsx. Frontend
+  146/146; backend untouched. Launch gate + in-app button now cover both "update on open" and "while running".
+
 ## 2026-08-05 - Live gated scorecard run (glm-5.2 + flash) - analysis
 
 - Report: work_logs/chat-quality-live-20260805-084406.{md,json}. Variant default:gated. 14/14 executed,
