@@ -44,6 +44,9 @@ const ipcEventMap = {
   cowork_interactive_question: eelEvents.coworkInteractiveQuestion,
   brainstorm_ui_state: eelEvents.brainstormUiState,
   cowork_log: eelEvents.coworkLog,
+  cowork_log_delta: "cowork_log_delta",
+  cowork_status: "cowork_status",
+  cowork_completion: "cowork_completion",
   cowork_ui_state: eelEvents.coworkUiState,
   factory_attach_label: eelEvents.factoryAttachLabel,
   factory_log: eelEvents.factoryLog,
@@ -95,13 +98,19 @@ function finalizeBridgeRegistration() {
     bridgeRegistered = true;
 
     for (const [ipcType, eventName] of Object.entries(ipcEventMap)) {
-      bridge.onIpcEvent(ipcType, (payload) => {
-        window.dispatchEvent(
-          new CustomEvent(eventName, {
-            detail: buildEventDetail(payload),
-          }),
-        );
-      });
+      // A single disallowed/broken channel must never abort registration and
+      // white-screen the app — isolate each subscription.
+      try {
+        bridge.onIpcEvent(ipcType, (payload) => {
+          window.dispatchEvent(
+            new CustomEvent(eventName, {
+              detail: buildEventDetail(payload),
+            }),
+          );
+        });
+      } catch (error) {
+        console.error(`[eel] Failed to subscribe to IPC channel "${ipcType}":`, error);
+      }
     }
   }
 

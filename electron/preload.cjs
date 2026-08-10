@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 const inboundChannels = new Set([
   "api_keys_loaded",
+  "app-update",
   "available_models",
   "backend-log",
   "chat_memory_state",
@@ -16,6 +17,9 @@ const inboundChannels = new Set([
   "brainstorm_ui_state",
   "cowork_interactive_question",
   "cowork_log",
+  "cowork_log_delta",
+  "cowork_status",
+  "cowork_completion",
   "cowork_ui_state",
   "factory_attach_label",
   "factory_log",
