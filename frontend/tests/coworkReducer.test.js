@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { coworkReducer, createInitialCoworkState } from "../model/coworkReducer";
-import { selectChangedFiles, selectPendingApprovals, selectTimeline, selectTransientStatus } from "../model/coworkSelectors";
+import {
+  selectChangedFiles,
+  selectCompletionEvidence,
+  selectPendingApprovals,
+  selectTimeline,
+  selectTransientStatus,
+} from "../model/coworkSelectors";
 
 function event(overrides = {}) {
   return {
@@ -238,5 +244,63 @@ describe("cowork reducer", () => {
 
     expect(selectTransientStatus(withFinal, "session-1", "Chat")).toBeNull();
     expect(selectTimeline(withFinal).map((item) => item.id)).toEqual(["final-answer"]);
+  });
+
+  it("stores completion evidence without polluting the timeline", () => {
+    const state = coworkReducer(createInitialCoworkState(), {
+      type: "event.received",
+      event: event({
+        id: "completion-1",
+        type: "verification.finished",
+        status: "complete",
+        payload: {
+          mode: "Cowork",
+          writesPerformed: true,
+          verificationObserved: true,
+          verificationPassed: true,
+          verificationStatuses: ["passed"],
+          verificationRuns: [{ name: "python-tests", status: "passed" }],
+        },
+      }),
+    });
+
+    expect(selectTimeline(state)).toHaveLength(0);
+    expect(selectCompletionEvidence(state, "session-1", "Cowork")).toMatchObject({
+      writesPerformed: true,
+      verificationPassed: true,
+      verificationRuns: [{ name: "python-tests", status: "passed" }],
+    });
+  });
+
+  it("clears prior completion evidence when a new run goes busy", () => {
+    const withEvidence = coworkReducer(createInitialCoworkState(), {
+      type: "event.received",
+      event: event({
+        id: "completion-1",
+        type: "verification.finished",
+        status: "complete",
+        payload: {
+          mode: "Cowork",
+          writesPerformed: true,
+          verificationObserved: false,
+          verificationPassed: false,
+          verificationStatuses: [],
+          verificationRuns: [],
+        },
+      }),
+    });
+    expect(selectCompletionEvidence(withEvidence, "session-1", "Cowork")).not.toBeNull();
+
+    const newRun = coworkReducer(withEvidence, {
+      type: "event.received",
+      event: event({
+        id: "busy-1",
+        type: "agent.status",
+        status: "running",
+        payload: { state: "busy", mode: "Cowork" },
+      }),
+    });
+
+    expect(selectCompletionEvidence(newRun, "session-1", "Cowork")).toBeNull();
   });
 });

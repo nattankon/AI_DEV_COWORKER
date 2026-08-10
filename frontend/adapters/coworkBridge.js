@@ -112,6 +112,32 @@ function normalizeLegacyStatus(payload, sessionId, options) {
   });
 }
 
+function normalizeLegacyCompletion(payload, sessionId, options) {
+  const mode = normalizeMode(payload?.mode);
+  const targetSessionId = String(payload?.client_session_id ?? payload?.clientSessionId ?? sessionId);
+  const runs = Array.isArray(payload?.verification_runs) ? payload.verification_runs : [];
+  return createCoworkEvent({
+    id: options.createId(),
+    sessionId: targetSessionId,
+    timestamp: payload?.timestamp || options.now(),
+    type: "verification.finished",
+    status: "complete",
+    payload: {
+      ...(mode ? { mode } : {}),
+      writesPerformed: Boolean(payload?.writes_performed),
+      verificationObserved: Boolean(payload?.verification_observed),
+      verificationPassed: Boolean(payload?.verification_passed),
+      verificationStatuses: Array.isArray(payload?.verification_statuses)
+        ? payload.verification_statuses.map(String)
+        : [],
+      verificationRuns: runs.map((run) => ({
+        name: String(run?.name ?? ""),
+        status: String(run?.status ?? ""),
+      })),
+    },
+  });
+}
+
 function normalizeMcpToolResult(payload, sessionId, options) {
   const mode = normalizeMode(payload?.mode) || "Chat";
   return createCoworkEvent({
@@ -383,6 +409,9 @@ export function createCoworkBridge(legacyBridge, overrides = {}) {
         }),
         subscribe("cowork_status", (event) => {
           listener(normalizeLegacyStatus(event?.detail ?? event ?? {}, sessionId, options));
+        }),
+        subscribe("cowork_completion", (event) => {
+          listener(normalizeLegacyCompletion(event?.detail ?? event ?? {}, sessionId, options));
         }),
         subscribe("chat_mcp_tool_result", (event) => {
           listener(normalizeMcpToolResult(event?.detail ?? event ?? {}, sessionId, options));

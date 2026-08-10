@@ -9,6 +9,7 @@ class AgentRunState:
         self.stages: list[str] = []
         self._writes_performed = False
         self._verification_statuses: list[str] = []
+        self._verification_runs: list[dict] = []
 
     @classmethod
     def from_snapshot(cls, snapshot: dict) -> "AgentRunState":
@@ -33,6 +34,7 @@ class AgentRunState:
         state.stages = [stage.strip() for stage in stages]
         state._writes_performed = writes_performed
         state._verification_statuses = list(verification_statuses)
+        state._verification_runs = _coerce_verification_runs(snapshot.get("verification_runs"))
         return state
 
     def record_stage(self, stage: str) -> dict | None:
@@ -54,6 +56,9 @@ class AgentRunState:
             self._writes_performed = True
         elif tool_name == "run_verification":
             self._verification_statuses.append(status)
+            self._verification_runs.append(
+                {"name": str(payload.get("name") or ""), "status": status}
+            )
 
     def requires_verification_before_report(self) -> bool:
         return self._writes_performed and not self._verification_passed()
@@ -64,6 +69,7 @@ class AgentRunState:
             "verification_observed": bool(self._verification_statuses),
             "verification_passed": self._verification_passed(),
             "verification_statuses": list(self._verification_statuses),
+            "verification_runs": [dict(run) for run in self._verification_runs],
         }
 
     def to_snapshot(self) -> dict:
@@ -75,6 +81,22 @@ class AgentRunState:
 
     def _verification_passed(self) -> bool:
         return any(status == "passed" for status in self._verification_statuses)
+
+
+def _coerce_verification_runs(value) -> list[dict]:
+    if not isinstance(value, list):
+        return []
+    runs: list[dict] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        runs.append(
+            {
+                "name": str(item.get("name") or ""),
+                "status": str(item.get("status") or ""),
+            }
+        )
+    return runs
 
 
 def _decode_result(result: str) -> dict:

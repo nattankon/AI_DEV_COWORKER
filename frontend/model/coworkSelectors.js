@@ -36,3 +36,8 @@ export function selectTransientStatus(state, sessionId, mode = "") {
   const key = `${sessionId || ""}::${mode || ""}`;
   return state?.transientStatus?.[key] ?? null;
 }
+
+export function selectCompletionEvidence(state, sessionId, mode = "") {
+  const key = `${sessionId || ""}::${mode || ""}`;
+  return state?.completionEvidence?.[key] ?? null;
+}

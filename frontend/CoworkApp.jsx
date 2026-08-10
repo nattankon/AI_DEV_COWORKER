@@ -10,6 +10,7 @@ import ConnectorsPanel from "./components/ConnectorsPanel";
 import MemoryManager from "./components/MemoryManager";
 import ProjectsView from "./components/ProjectsView";
 import ProcessingIndicator from "./components/ProcessingIndicator";
+import VerificationPanel from "./components/VerificationPanel";
 import QualityEvalPanel from "./components/QualityEvalPanel";
 import SessionRail from "./components/SessionRail";
 import SettingsModal from "./components/SettingsModal";
@@ -18,7 +19,7 @@ import WorkspacePanel from "./components/WorkspacePanel";
 import { createCoworkEvent } from "./model/coworkEvents";
 import { buildContextUsage } from "./model/contextUsage";
 import { coworkReducer, createInitialCoworkState } from "./model/coworkReducer";
-import { selectTimeline, selectTransientStatus } from "./model/coworkSelectors";
+import { selectCompletionEvidence, selectTimeline, selectTransientStatus } from "./model/coworkSelectors";
 import { ArrowDown, BookOpen, Code2, HeartHandshake, PenLine, Sparkles } from "lucide-react";
 
 function createId() {
@@ -327,6 +328,7 @@ export default function CoworkApp({
   );
   const timeline = selectTimeline(state);
   const transientStatus = selectTransientStatus(state, activeSessionId, activeMode);
+  const completionEvidence = selectCompletionEvidence(state, activeSessionId, activeMode);
   const hasTimeline = timeline.length > 0;
   const pendingApproval = [...timeline]
     .reverse()
@@ -339,6 +341,7 @@ export default function CoworkApp({
   const canGoBack = activeSessionIndex >= 0 && activeSessionIndex < modeSessions.length - 1;
   const canGoForward = activeSessionIndex > 0;
   const canRegenerate = activeMode === "Chat" && runStatus !== "busy" && sessionEvents.some((event) => event.type === "message.user");
+  const canRetry = activeMode !== "Chat" && runStatus !== "busy" && sessionEvents.some((event) => event.type === "message.user");
   const quickActions = [
     { id: "code", label: "Code", icon: Code2, mode: "Code", prompt: "Inspect this project and suggest the next safe coding step" },
     { id: "write", label: "Write", icon: PenLine, mode: "Chat", prompt: "Draft release notes for this project" },
@@ -772,6 +775,19 @@ export default function CoworkApp({
     void submitPrompt(prompt, [], { echoUser: false, historyEvents });
   };
 
+  const retryLastRequest = () => {
+    if (activeMode === "Chat" || runStatus === "busy") return;
+    const events = sessionStore.eventsBySessionId[activeSessionId] ?? [];
+    const lastUserIndex = events.findLastIndex((event) => event.type === "message.user");
+    if (lastUserIndex < 0) return;
+    const prompt = String(events[lastUserIndex].payload?.text || "").trim();
+    if (!prompt) return;
+    const keptEvents = events.slice(0, lastUserIndex + 1);
+    setSessionStore((current) => replaceSessionEvents(current, activeSessionId, keptEvents));
+    dispatch({ type: "session.hydrate", events: keptEvents });
+    void submitPrompt(prompt, [], { echoUser: false });
+  };
+
   const editAndResendUserMessage = (event) => {
     if (activeMode !== "Chat" || runStatus === "busy") return;
     const currentText = String(event?.payload?.text || "");
@@ -991,6 +1007,7 @@ export default function CoworkApp({
         {activeView === "chat" && hasTimeline && (
           <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-5">
             <ProcessingIndicator active={runStatus === "busy"} waitingForApproval={Boolean(pendingApproval)} statusText={transientStatus?.text ?? ""} />
+            {activeMode !== "Chat" && runStatus !== "busy" ? <VerificationPanel evidence={completionEvidence} /> : null}
             <div className="mb-2 flex justify-end gap-2">
               {runStatus === "busy" && (
                 <button
@@ -1008,6 +1025,15 @@ export default function CoworkApp({
                   className="h-8 rounded-lg border border-[#ded9ce] bg-white px-3 text-[12px] font-medium text-[#4f4b43] shadow-sm hover:bg-[#f7f5ef]"
                 >
                   Regenerate
+                </button>
+              )}
+              {canRetry && (
+                <button
+                  type="button"
+                  onClick={retryLastRequest}
+                  className="h-8 rounded-lg border border-[#ded9ce] bg-white px-3 text-[12px] font-medium text-[#4f4b43] shadow-sm hover:bg-[#f7f5ef]"
+                >
+                  Retry
                 </button>
               )}
             </div>

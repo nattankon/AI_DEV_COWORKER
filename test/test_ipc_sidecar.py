@@ -18,16 +18,19 @@ from workspace_tools import WriteProposal
 class FakeAgent:
     def __init__(self, answer: str):
         self.answer = answer
+        self.run_kwargs = []
         self.prompts = []
 
-    def run(self, prompt: str) -> str:
+    def run(self, prompt: str, **kwargs) -> str:
         self.prompts.append(prompt)
+        self.run_kwargs.append(kwargs)
         return self.answer
 
 
 class RaisingAgent(FakeAgent):
-    def run(self, prompt: str) -> str:
+    def run(self, prompt: str, **kwargs) -> str:
         self.prompts.append(prompt)
+        self.run_kwargs.append(kwargs)
         raise RuntimeError("model unavailable")
 
 
@@ -38,12 +41,41 @@ class RecordingAgent(FakeAgent):
         self.answer = answer
         self.calls = calls
 
-    def run(self, prompt: str) -> str:
+    def run(self, prompt: str, **kwargs) -> str:
         self.prompts.append(prompt)
+        self.run_kwargs.append(kwargs)
         self.calls.append((self.model, prompt))
         if isinstance(self.answer, Exception):
             raise self.answer
         return str(self.answer)
+
+
+class StreamingAgent(FakeAgent):
+    """Fake agent that exercises the observability callbacks the sidecar passes in."""
+
+    def run(self, prompt: str, **kwargs) -> str:
+        self.prompts.append(prompt)
+        self.run_kwargs.append(kwargs)
+        on_status = kwargs.get("on_status")
+        on_delta = kwargs.get("on_delta")
+        if on_status:
+            on_status("Inspecting the project…")
+            on_status("Editing app.py…")
+        if on_delta:
+            on_delta("Done")
+            on_delta(".")
+        on_evidence = kwargs.get("on_evidence")
+        if on_evidence:
+            on_evidence(
+                {
+                    "writes_performed": True,
+                    "verification_observed": True,
+                    "verification_passed": True,
+                    "verification_statuses": ["passed"],
+                    "verification_runs": [{"name": "python-tests", "status": "passed"}],
+                }
+            )
+        return self.answer
 
 
 class RecordingChatModel:
@@ -319,6 +351,55 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertEqual(events[2]["client_session_id"], "cowork-1")
         self.assertEqual(events[3]["state"], "idle")
         self.assertNotIn("api_key", json.dumps(events).casefold())
+
+    def test_send_cowork_streams_status_and_deltas(self):
+        output = StringIO()
+        agent = StreamingAgent("final answer")
+        sidecar = self._sidecar(output, agent)
+
+        sidecar.handle_line(
+            json.dumps(
+                {
+                    "command": "send_cowork",
+                    "prompt": "hello",
+                    "model": "local:test",
+                    "client_session_id": "cowork-9",
+                    "mode": "Cowork",
+                }
+            )
+        )
+        sidecar.wait_for_idle(timeout=1)
+
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
+
+        # The sidecar wired the observability callbacks into agent.run.
+        self.assertEqual(
+            set(agent.run_kwargs[0]),
+            {"on_delta", "on_status", "on_stream_reset", "on_evidence"},
+        )
+
+        status_events = [event for event in events if event["__ipc_type"] == "cowork_status"]
+        self.assertEqual([event["text"] for event in status_events], ["Inspecting the project…", "Editing app.py…"])
+        self.assertTrue(all(event["mode"] == "Cowork" for event in status_events))
+        self.assertTrue(all(event["client_session_id"] == "cowork-9" for event in status_events))
+
+        delta_events = [event for event in events if event["__ipc_type"] == "cowork_log_delta"]
+        self.assertEqual("".join(event["delta"] for event in delta_events), "Done.")
+        self.assertTrue(all(event["mode"] == "Cowork" for event in delta_events))
+
+        # A completion-evidence event carries the verification result for the panel.
+        completion_events = [event for event in events if event["__ipc_type"] == "cowork_completion"]
+        self.assertEqual(len(completion_events), 1)
+        completion = completion_events[0]
+        self.assertEqual(completion["mode"], "Cowork")
+        self.assertEqual(completion["client_session_id"], "cowork-9")
+        self.assertTrue(completion["writes_performed"])
+        self.assertTrue(completion["verification_passed"])
+        self.assertEqual(completion["verification_runs"], [{"name": "python-tests", "status": "passed"}])
+
+        # The final AI answer is still emitted after the stream.
+        ai_event = next(event for event in events if event.get("role") == "AI")
+        self.assertEqual(ai_event["text"], "final answer")
 
     def test_send_cowork_emits_mode_metadata(self):
         output = StringIO()
@@ -3517,9 +3598,9 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertEqual(created_models[0]["extra_body"], {"thinking": {"type": "disabled"}})
         self.assertTrue(created_models[0]["api_key"])
         self.assertNotIn("local:fallback/model", json.dumps(events))
-        self.assertEqual(events[2]["role"], "AI")
-        self.assertEqual(events[2]["text"], "zai answer")
-        self.assertEqual(events[2]["model"], "zai:glm-4.7-flash")
+        ai_event = next(event for event in events if event.get("role") == "AI")
+        self.assertEqual(ai_event["text"], "zai answer")
+        self.assertEqual(ai_event["model"], "zai:glm-4.7-flash")
 
     def test_send_cowork_uses_deepseek_runtime_without_local_fallback(self):
         output = StringIO()
@@ -3562,9 +3643,9 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertEqual(created_models[0]["extra_body"], None)
         self.assertTrue(created_models[0]["api_key"])
         self.assertNotIn("local:fallback/model", json.dumps(events))
-        self.assertEqual(events[2]["role"], "AI")
-        self.assertEqual(events[2]["text"], "deepseek answer")
-        self.assertEqual(events[2]["model"], "deepseek:deepseek-v4-flash")
+        ai_event = next(event for event in events if event.get("role") == "AI")
+        self.assertEqual(ai_event["text"], "deepseek answer")
+        self.assertEqual(ai_event["model"], "deepseek:deepseek-v4-flash")
 
     def test_malformed_json_emits_backend_error_and_keeps_running(self):
         output = StringIO()

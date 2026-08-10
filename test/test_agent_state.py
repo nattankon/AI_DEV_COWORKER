@@ -27,6 +27,7 @@ class AgentRunStateTests(unittest.TestCase):
                 "verification_observed": False,
                 "verification_passed": False,
                 "verification_statuses": [],
+                "verification_runs": [],
             },
         )
 
@@ -52,6 +53,7 @@ class AgentRunStateTests(unittest.TestCase):
                 "verification_observed": True,
                 "verification_passed": True,
                 "verification_statuses": ["passed"],
+                "verification_runs": [{"name": "python-tests", "status": "passed"}],
             },
         )
 
@@ -67,6 +69,13 @@ class AgentRunStateTests(unittest.TestCase):
         self.assertTrue(evidence["verification_observed"])
         self.assertFalse(evidence["verification_passed"])
         self.assertEqual(evidence["verification_statuses"], ["denied", "failed"])
+        self.assertEqual(
+            evidence["verification_runs"],
+            [
+                {"name": "python-tests", "status": "denied"},
+                {"name": "python-tests", "status": "failed"},
+            ],
+        )
 
     def test_state_snapshot_round_trips_resume_data(self):
         state = AgentRunState()
@@ -87,6 +96,7 @@ class AgentRunStateTests(unittest.TestCase):
                 "verification_observed": True,
                 "verification_passed": False,
                 "verification_statuses": ["failed"],
+                "verification_runs": [{"name": "python-tests", "status": "failed"}],
             },
         )
 

@@ -738,6 +738,50 @@ describe("CoworkApp", () => {
     }));
   });
 
+  it("retries the last Cowork request without echoing a duplicate user message", async () => {
+    let listener;
+    const sendPrompt = vi.fn();
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{
+          sendPrompt,
+          subscribe(_sessionId, nextListener) {
+            listener = nextListener;
+            return () => {};
+          },
+        }}
+        sessionStorageAdapter={createSessionStorageAdapter(createMemoryStorage())}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Mode Cowork" }));
+
+    const textbox = screen.getByPlaceholderText("How can I help you today?");
+    fireEvent.change(textbox, { target: { value: "Refactor this module" } });
+    fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
+
+    expect(sendPrompt).toHaveBeenCalledWith(expect.objectContaining({ prompt: "Refactor this module", mode: "Cowork" }));
+    const sessionId = sendPrompt.mock.calls[0][0].sessionId;
+    listener({
+      id: "cowork-assistant-1",
+      sessionId,
+      timestamp: new Date().toISOString(),
+      type: "message.assistant",
+      status: "complete",
+      payload: { text: "done", mode: "Cowork" },
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+
+    expect(sendPrompt).toHaveBeenCalledTimes(2);
+    expect(sendPrompt).toHaveBeenLastCalledWith(expect.objectContaining({ prompt: "Refactor this module", mode: "Cowork" }));
+    expect(screen.getAllByText("Refactor this module", { selector: ".whitespace-pre-wrap" })).toHaveLength(1);
+  });
+
   it("edits a prior Chat user message, truncates later messages, and resends", async () => {
     const originalPrompt = window.prompt;
     window.prompt = vi.fn(() => "edited question");

@@ -99,6 +99,49 @@ describe("cowork bridge adapter", () => {
     });
   });
 
+  it("normalizes sidecar completion evidence into a verification.finished event", () => {
+    let completionHandler;
+    const bridge = createCoworkBridge({
+      subscribe(eventName, handler) {
+        if (eventName === "cowork_completion") completionHandler = handler;
+        return () => {};
+      },
+    }, {
+      createId: () => "generated-id",
+      now: () => "2026-06-30T01:02:00.000Z",
+    });
+    const listener = vi.fn();
+
+    bridge.subscribe("cowork-1", listener);
+    completionHandler({
+      detail: {
+        client_session_id: "cowork-1",
+        mode: "Cowork",
+        writes_performed: true,
+        verification_observed: true,
+        verification_passed: false,
+        verification_statuses: ["failed"],
+        verification_runs: [{ name: "python-tests", status: "failed" }],
+      },
+    });
+
+    expect(listener).toHaveBeenCalledWith({
+      id: "generated-id",
+      sessionId: "cowork-1",
+      timestamp: "2026-06-30T01:02:00.000Z",
+      type: "verification.finished",
+      status: "complete",
+      payload: {
+        mode: "Cowork",
+        writesPerformed: true,
+        verificationObserved: true,
+        verificationPassed: false,
+        verificationStatuses: ["failed"],
+        verificationRuns: [{ name: "python-tests", status: "failed" }],
+      },
+    });
+  });
+
   it("normalizes MCP tool results into persistent result events", () => {
     let resultHandler;
     const bridge = createCoworkBridge({

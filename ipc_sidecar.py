@@ -340,7 +340,56 @@ class IpcSidecar:
             else:
                 self._raise_if_cancelled(client_session_id)
                 role_prompt = self._format_mode_role_prompt(prompt, client_session_id, mode)
-                answer, used_model = self._run_with_fallback(role_prompt, model, client_session_id, mode)
+
+                def on_cowork_delta(delta: str) -> None:
+                    self._raise_if_cancelled(client_session_id)
+                    if delta:
+                        self._emit(
+                            "cowork_log_delta",
+                            {"client_session_id": client_session_id, "mode": mode, "delta": delta},
+                        )
+
+                def on_cowork_status(text: str) -> None:
+                    self._raise_if_cancelled(client_session_id)
+                    clean = str(text or "").strip()
+                    if clean:
+                        self._emit(
+                            "cowork_status",
+                            {"client_session_id": client_session_id, "mode": mode, "text": clean},
+                        )
+
+                def on_cowork_reset() -> None:
+                    self._raise_if_cancelled(client_session_id)
+                    self._emit(
+                        "cowork_log_delta",
+                        {"client_session_id": client_session_id, "mode": mode, "delta": "", "reset": True},
+                    )
+
+                def on_cowork_evidence(evidence: dict) -> None:
+                    payload = evidence if isinstance(evidence, dict) else {}
+                    self._emit(
+                        "cowork_completion",
+                        {
+                            "client_session_id": client_session_id,
+                            "mode": mode,
+                            "writes_performed": bool(payload.get("writes_performed")),
+                            "verification_observed": bool(payload.get("verification_observed")),
+                            "verification_passed": bool(payload.get("verification_passed")),
+                            "verification_statuses": list(payload.get("verification_statuses") or []),
+                            "verification_runs": list(payload.get("verification_runs") or []),
+                        },
+                    )
+
+                answer, used_model = self._run_with_fallback(
+                    role_prompt,
+                    model,
+                    client_session_id,
+                    mode,
+                    on_delta=on_cowork_delta,
+                    on_status=on_cowork_status,
+                    on_stream_reset=on_cowork_reset,
+                    on_evidence=on_cowork_evidence,
+                )
                 web_sources = []
             self._raise_if_cancelled(client_session_id)
             assistant_payload = {
@@ -428,13 +477,31 @@ class IpcSidecar:
             payload["local_models_error"] = local_models_error
         self._emit("available_models", payload)
 
-    def _run_with_fallback(self, prompt: str, requested_model: str, client_session_id: str, mode: str = "Cowork") -> tuple[str, str]:
+    def _run_with_fallback(
+        self,
+        prompt: str,
+        requested_model: str,
+        client_session_id: str,
+        mode: str = "Cowork",
+        on_delta: Callable[[str], None] | None = None,
+        on_status: Callable[[str], None] | None = None,
+        on_stream_reset: Callable[[], None] | None = None,
+        on_evidence: Callable[[dict], None] | None = None,
+    ) -> tuple[str, str]:
         candidates = self._model_candidates(requested_model)
         failures: list[str] = []
         for index, model in enumerate(candidates):
             try:
                 agent = self._create_agent(model)
-                return str(agent.run(prompt)), model
+                return str(
+                    agent.run(
+                        prompt,
+                        on_delta=on_delta,
+                        on_status=on_status,
+                        on_stream_reset=on_stream_reset,
+                        on_evidence=on_evidence,
+                    )
+                ), model
             except Exception as exc:
                 message = str(exc).strip() or "model request failed"
                 failures.append(f"{model}: {message}")

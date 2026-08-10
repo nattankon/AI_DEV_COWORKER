@@ -1593,3 +1593,35 @@
   - Mark Z.ai paid API execution as live-verified.
   - Treat GLM-5.2 as usable strong tier but not an automatic replacement for Flash in all Chat routes because latency is higher.
   - Do not change global default `tool_research_routes` from this run alone; gated routing improved aggregate score, but GLM-5.2 general remained slow without entering the tool loop.
+
+## 2026-08-10 - Cowork "whole set" (observability + evidence + retry)
+
+- Scope: user chose "ให้คุณแนะมาทั้งชุด" — develop the Cowork side before the next release (v0.1.3).
+  Delivered three paired features so Cowork stops being a UI black box.
+- Item 1 - Cowork observability (live status + streaming):
+  - `cowork_agent.py`: `CoworkAgent.run()` now accepts `on_delta`/`on_status`/`on_stream_reset`;
+    added `_STAGE_STATUS` + `_tool_status_text` so each stage (Inspecting/Planning/Working/Running
+    verification/Writing response) and each tool call ("Editing X…", "Reading X…", "Running <preset>…")
+    emits a human status. Streaming wired via `run_tool_loop(on_final_delta=…, on_stream_reset=…)`.
+  - `ipc_sidecar.py`: Cowork branch defines `on_cowork_delta`/`on_cowork_status`/`on_cowork_reset`
+    and emits mode-aware `cowork_log_delta` + `cowork_status` (same event names Chat already uses).
+  - Frontend needed NO new rendering: reducer keys `transientStatus`/streaming assistant by
+    (session, mode), so `ProcessingIndicator` + `Timeline` already show Cowork live.
+- Item 2 - Completion evidence + verification panel:
+  - `agent_state.py`: `AgentRunState` now tracks `verification_runs` (name+status), lenient snapshot
+    round-trip; `completion_evidence()` carries it.
+  - `cowork_agent.py`: `run(on_evidence=…)` fires the evidence dict once at completion.
+  - `ipc_sidecar.py`: emits mode-aware `cowork_completion`.
+  - Frontend: bridge normalizes to `verification.finished`; reducer stores `completionEvidence`
+    per (session, mode) and clears it when the next run goes busy; `selectCompletionEvidence`;
+    new `VerificationPanel.jsx` renders a pass/warn headline + per-preset ✓/✗ list. Shown in
+    Cowork/Code mode when idle and files were changed.
+- Item 3 - Retry control:
+  - `CoworkApp.jsx`: `retryLastRequest()` re-runs the last user prompt for Cowork/Code (echoUser:false,
+    truncates prior answer, clears stale evidence via session.hydrate). New "Retry" button next to Stop.
+- Tests: backend `python -m unittest discover -s test` -> 392/392 (one timing-only flake in
+  test_chat_web_connector passes in isolation). Frontend `npx vitest run` -> 21 files / 155 green.
+  New/updated: test_ipc_sidecar streaming+completion, test_agent_state/test_cowork_agent evidence
+  shape, coworkReducer (evidence store/clear), coworkBridge (completion normalize), VerificationPanel,
+  CoworkApp retry.
+- Not committed/released yet: accumulating Cowork features for v0.1.3 per the user's request.

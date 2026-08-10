@@ -6,6 +6,7 @@ export function createInitialCoworkState() {
     events: [],
     runStatus: "idle",
     transientStatus: {},
+    completionEvidence: {},
   };
 }
 
@@ -48,6 +49,20 @@ function clearTransientStatusForEvent(transientStatus, event) {
   return next;
 }
 
+function clearCompletionEvidenceForNewRun(completionEvidence, event) {
+  if (!(event.type === "agent.status" && event.payload?.state === "busy")) {
+    return completionEvidence;
+  }
+  const mode = event.payload?.mode ?? "";
+  const key = transientStatusKey(event.sessionId, mode);
+  if (!Object.prototype.hasOwnProperty.call(completionEvidence, key)) {
+    return completionEvidence;
+  }
+  const next = { ...completionEvidence };
+  delete next[key];
+  return next;
+}
+
 export function coworkReducer(state, action) {
   if (!state) return createInitialCoworkState();
   if (action?.type === "session.hydrate") {
@@ -57,6 +72,7 @@ export function coworkReducer(state, action) {
       events: hydratedEvents,
       runStatus: "idle",
       transientStatus: {},
+      completionEvidence: {},
     };
   }
   if (action?.type !== "event.received") return state;
@@ -84,6 +100,29 @@ export function coworkReducer(state, action) {
     };
   }
 
+  if (event.type === "verification.finished") {
+    const mode = event.payload?.mode ?? "";
+    return {
+      ...state,
+      completionEvidence: {
+        ...(state.completionEvidence ?? {}),
+        [transientStatusKey(event.sessionId, mode)]: {
+          mode,
+          sessionId: event.sessionId,
+          writesPerformed: Boolean(event.payload?.writesPerformed),
+          verificationObserved: Boolean(event.payload?.verificationObserved),
+          verificationPassed: Boolean(event.payload?.verificationPassed),
+          verificationStatuses: Array.isArray(event.payload?.verificationStatuses)
+            ? event.payload.verificationStatuses
+            : [],
+          verificationRuns: Array.isArray(event.payload?.verificationRuns)
+            ? event.payload.verificationRuns
+            : [],
+        },
+      },
+    };
+  }
+
   const isStreamingAssistant =
     event.type === "message.assistant" && event.status === "running" && event.payload?.streaming === true;
   const shouldClearTransientStatus =
@@ -92,6 +131,7 @@ export function coworkReducer(state, action) {
   const transientStatus = shouldClearTransientStatus
     ? clearTransientStatusForEvent(state.transientStatus ?? {}, event)
     : state.transientStatus ?? {};
+  const completionEvidence = clearCompletionEvidenceForNewRun(state.completionEvidence ?? {}, event);
 
   if (state.eventIds.has(event.id)) {
     if (!isStreamingAssistant) return state;
@@ -111,6 +151,7 @@ export function coworkReducer(state, action) {
       events: sortEvents(events),
       runStatus: runStatusForEvent(event, state.runStatus),
       transientStatus,
+      completionEvidence,
     };
   }
 
@@ -139,5 +180,6 @@ export function coworkReducer(state, action) {
     events: sortEvents([...events, event]),
     runStatus: runStatusForEvent(event, state.runStatus),
     transientStatus,
+    completionEvidence,
   };
 }

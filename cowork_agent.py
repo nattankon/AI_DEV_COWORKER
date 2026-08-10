@@ -143,6 +143,31 @@ class OpenAIChatModel:
         return request
 
 
+_STAGE_STATUS = {
+    "inspect": "Inspecting the project…",
+    "plan": "Planning the change…",
+    "act": "Working…",
+    "verify": "Running verification…",
+    "report": "Writing response…",
+}
+
+
+def _tool_status_text(tool_name: str, arguments: dict) -> str:
+    name = str(tool_name or "")
+    args = arguments if isinstance(arguments, dict) else {}
+    path = str(args.get("path") or args.get("relative_path") or "").strip()
+    if name == "write_file":
+        return f"Editing {path}…" if path else "Editing a file…"
+    if name == "read_file":
+        return f"Reading {path}…" if path else "Reading a file…"
+    if name == "run_verification":
+        preset = str(args.get("name") or "").strip()
+        return f"Running {preset}…" if preset else "Running verification…"
+    if name in {"list_directory", "search_files"}:
+        return "Searching the project…"
+    return f"Using {name}…" if name else "Working…"
+
+
 class CoworkAgent:
     def __init__(
         self,
@@ -166,10 +191,26 @@ class CoworkAgent:
     def clear_history(self) -> None:
         self._history.clear()
 
-    def run(self, prompt: str, initial_run_state: AgentRunState | dict | None = None) -> str:
+    def run(
+        self,
+        prompt: str,
+        initial_run_state: AgentRunState | dict | None = None,
+        on_delta: Callable[[str], None] | None = None,
+        on_status: Callable[[str], None] | None = None,
+        on_stream_reset: Callable[[], None] | None = None,
+        on_evidence: Callable[[dict], None] | None = None,
+    ) -> str:
         normalized_prompt = str(prompt or "").strip()
         if not normalized_prompt:
             raise ValueError("Prompt cannot be empty.")
+
+        def emit_status(text: str) -> None:
+            if on_status and text:
+                on_status(text)
+
+        def record_stage(stage: str) -> None:
+            self._record_stage(run_state, stage)
+            emit_status(_STAGE_STATUS.get(stage, ""))
 
         memory_context = load_cowork_memory_context(
             prompt="",
@@ -185,18 +226,19 @@ class CoworkAgent:
         self.recorder.record("message_user", {"content": normalized_prompt})
         run_state = _coerce_run_state(initial_run_state)
         self._record_state_snapshot(run_state)
-        self._record_stage(run_state, "inspect")
-        self._record_stage(run_state, "plan")
+        record_stage("inspect")
+        record_stage("plan")
 
         try:
             def on_loop_event(event_type: str, payload: dict) -> None:
                 self.recorder.record(event_type, payload)
                 if event_type == "tool_execution":
                     self.event_sink(event_type, payload)
+                    emit_status(_tool_status_text(payload.get("tool_name", ""), payload.get("arguments") or {}))
 
             def on_tool_result(tool_name: str, _arguments: dict, result: str) -> None:
                 stage = "verify" if tool_name == "run_verification" else "act"
-                self._record_stage(run_state, stage)
+                record_stage(stage)
                 run_state.observe_tool_result(tool_name, result)
                 self._record_state_snapshot(run_state)
 
@@ -217,11 +259,16 @@ class CoworkAgent:
                 tools=self.tools,
                 max_iterations=self.max_iterations,
                 on_event=on_loop_event,
+                on_final_delta=on_delta,
+                on_stream_reset=on_stream_reset,
                 hooks=LoopHooks(before_finalize=before_finalize, on_tool_result=on_tool_result),
             )
             content = outcome.answer
-            self._record_stage(run_state, "report")
-            self.recorder.record("completion_evidence", run_state.completion_evidence())
+            record_stage("report")
+            evidence = run_state.completion_evidence()
+            self.recorder.record("completion_evidence", evidence)
+            if on_evidence:
+                on_evidence(evidence)
             self._record_state_snapshot(run_state)
             self._history.extend(
                 [
