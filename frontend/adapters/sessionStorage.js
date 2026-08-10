@@ -14,8 +14,19 @@ function normalizeMode(value, fallback = "Cowork") {
   return MODES.includes(value) ? value : fallback;
 }
 
+function normalizeSessionProject(value) {
+  if (!value || typeof value !== "object") return null;
+  const path = typeof value.path === "string" ? value.path.trim() : "";
+  if (!path) return null;
+  const name = typeof value.name === "string" && value.name.trim()
+    ? value.name.trim()
+    : path.split(/[\\/]/).filter(Boolean).at(-1) || path;
+  return { path, name };
+}
+
 function normalizeSessionRecord(value, fallbackMode = "Cowork") {
   if (!value || typeof value !== "object") return null;
+  const project = normalizeSessionProject(value.project);
   return {
     id: typeof value.id === "string" && value.id ? value.id : null,
     mode: normalizeMode(value.mode, fallbackMode),
@@ -23,6 +34,7 @@ function normalizeSessionRecord(value, fallbackMode = "Cowork") {
     createdAt: typeof value.createdAt === "string" ? value.createdAt : new Date().toISOString(),
     updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : new Date().toISOString(),
     eventCount: Number.isFinite(value.eventCount) ? value.eventCount : 0,
+    ...(project ? { project } : {}),
     ...(value.pinned ? { pinned: true } : {}),
   };
 }

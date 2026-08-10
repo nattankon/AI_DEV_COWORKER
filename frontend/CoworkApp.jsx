@@ -57,8 +57,19 @@ function normalizeModelForRequest(modelLabel, coworkModelLabel, coworkModel) {
   return /^(local|openai|deepseek|zai|gemini):/.test(modelLabel) ? modelLabel : `local:${modelLabel}`;
 }
 
-function createSessionRecord(id, title = "New task", mode = "Cowork") {
+function normalizeProject(project) {
+  if (!project || typeof project !== "object") return null;
+  const path = typeof project.path === "string" ? project.path.trim() : "";
+  if (!path) return null;
+  const name = typeof project.name === "string" && project.name.trim()
+    ? project.name.trim()
+    : path.split(/[\\/]/).filter(Boolean).at(-1) || path;
+  return { path, name };
+}
+
+function createSessionRecord(id, title = "New task", mode = "Cowork", project = null) {
   const now = new Date().toISOString();
+  const normalizedProject = normalizeProject(project);
   return {
     id,
     mode: CHAT_MODES.includes(mode) ? mode : "Cowork",
@@ -66,6 +77,7 @@ function createSessionRecord(id, title = "New task", mode = "Cowork") {
     createdAt: now,
     updatedAt: now,
     eventCount: 0,
+    ...(normalizedProject ? { project: normalizedProject } : {}),
   };
 }
 
@@ -132,6 +144,18 @@ function summarizeSession(session, events = []) {
     eventCount,
     updatedAt: events.at(-1)?.timestamp || session?.updatedAt || new Date().toISOString(),
   };
+}
+
+function tagSessionProject(store, sessionId, project) {
+  const normalized = normalizeProject(project);
+  if (!normalized) return store;
+  let changed = false;
+  const sessions = store.sessions.map((session) => {
+    if (session.id !== sessionId || session.project) return session;
+    changed = true;
+    return { ...session, project: normalized };
+  });
+  return changed ? { ...store, sessions } : store;
 }
 
 function appendEventToSessionStore(store, sessionId, event) {
@@ -308,6 +332,10 @@ export default function CoworkApp({
   const activeSession = modeSessions.find((session) => session.id === activeSessionId) ?? modeSessions[0];
   const sessionEvents = sessionStore.eventsBySessionId[activeSession?.id ?? activeSessionId] ?? [];
   const workspaceLabel = workingDirectory ? workingDirectory.split(/[\\/]/).filter(Boolean).at(-1) : "";
+  const currentProject = useMemo(
+    () => (workingDirectory ? { path: workingDirectory, name: workspaceLabel || workingDirectory } : null),
+    [workingDirectory, workspaceLabel],
+  );
   const runStatus = coworkUiState === "busy" || busySessionIds.has(activeSessionId) || state.runStatus === "busy" ? "busy" : "idle";
   const selectedModelLabel = modelRoutes[activeMode] || coworkModelLabel || DEFAULT_MODEL_LABEL;
   const activeRouteReason = modelRouteReasons[`${activeMode}:${activeSessionId}`] || modelRouteReasons[activeMode] || "";
@@ -584,7 +612,7 @@ export default function CoworkApp({
       ...current,
       activeSessionId: activeMode === "Cowork" ? sessionId : current.activeSessionId,
       activeSessionIdsByMode: { ...current.activeSessionIdsByMode, [activeMode]: sessionId },
-      sessions: [createSessionRecord(sessionId, "New task", activeMode), ...current.sessions],
+      sessions: [createSessionRecord(sessionId, "New task", activeMode, currentProject), ...current.sessions],
       eventsBySessionId: {
         ...current.eventsBySessionId,
         [sessionId]: [],
@@ -812,6 +840,9 @@ export default function CoworkApp({
     const targetMode = options.mode || activeMode;
     const shouldEchoUser = options.echoUser !== false;
     const historyEvents = Array.isArray(options.historyEvents) ? options.historyEvents : sessionStore.eventsBySessionId[targetSessionId] ?? [];
+    if (currentProject) {
+      setSessionStore((current) => tagSessionProject(current, targetSessionId, currentProject));
+    }
     setBusySessionIds((current) => new Set([...current, targetSessionId]));
     if (shouldEchoUser) {
       const userEvent = createCoworkEvent({
@@ -872,6 +903,7 @@ export default function CoworkApp({
       />
       <SessionRail
         activeMode={activeMode}
+        activeProjectName={workspaceLabel}
         activeSessionId={activeSessionId}
         sessions={modeSessions}
         visible={sidebarOpen}

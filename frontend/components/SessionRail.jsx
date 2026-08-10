@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Activity, Bot, ChevronDown, Code2, FolderOpen, Globe2, HelpCircle, LayoutPanelTop, LogOut, MessageSquare, MoreVertical, Palette, Pin, Plug, Plus, Search, Settings, Sparkles, Trash2 } from "lucide-react";
+import { Activity, Bot, ChevronDown, Code2, Folder, FolderOpen, Globe2, HelpCircle, LayoutPanelTop, LogOut, MessageSquare, MoreVertical, Palette, Pin, Plug, Plus, Search, Settings, Sparkles, Trash2 } from "lucide-react";
 
 function formatSessionMeta(session) {
   const eventCount = Number.isFinite(session?.eventCount) ? session.eventCount : 0;
@@ -12,8 +12,38 @@ const modeTabs = [
   { label: "Code", icon: Code2 },
 ];
 
+function groupSessionsByProject(sessions, activeProjectName) {
+  const hasProjects = sessions.some((session) => session.project?.name);
+  if (!hasProjects) {
+    return [{ key: "__recents__", name: "Recents", isProject: false, sessions }];
+  }
+  const byProject = new Map();
+  const noProject = [];
+  for (const session of sessions) {
+    const name = session.project?.name;
+    if (!name) {
+      noProject.push(session);
+      continue;
+    }
+    if (!byProject.has(name)) byProject.set(name, []);
+    byProject.get(name).push(session);
+  }
+  const projectGroups = [...byProject.entries()]
+    .map(([name, groupSessions]) => ({ key: `project:${name}`, name, isProject: true, sessions: groupSessions }))
+    .sort((left, right) => {
+      if (left.name === activeProjectName) return -1;
+      if (right.name === activeProjectName) return 1;
+      return left.name.localeCompare(right.name);
+    });
+  if (noProject.length) {
+    projectGroups.push({ key: "__no_project__", name: "No project", isProject: false, sessions: noProject });
+  }
+  return projectGroups;
+}
+
 export default function SessionRail({
   activeMode = "Chat",
+  activeProjectName = "",
   sessions = [],
   activeSessionId,
   visible = true,
@@ -38,9 +68,18 @@ export default function SessionRail({
   const [renameDraft, setRenameDraft] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
   const filteredSessions = searchDraft.trim()
     ? shownSessions.filter((session) => String(session.title || "").toLowerCase().includes(searchDraft.trim().toLowerCase()))
     : shownSessions;
+  const sessionGroups = groupSessionsByProject(filteredSessions, activeProjectName);
+  const toggleGroup = (key) =>
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   return (
     <aside
@@ -141,9 +180,24 @@ export default function SessionRail({
             className="min-w-0 flex-1 bg-transparent text-[12px] text-[#2f2f2d] outline-none placeholder:text-[#aaa69c]"
           />
         </label>
-        <div className="px-2 pb-2 pt-1 text-[12px] text-[#aaa69c]">Recents</div>
-        <div className="grid gap-0.5">
-          {filteredSessions.map((session) => {
+        {sessionGroups.map((group) => {
+          const collapsed = collapsedGroups.has(group.key);
+          return (
+            <div key={group.key} className="mb-1">
+              <button
+                type="button"
+                aria-expanded={!collapsed}
+                onClick={() => toggleGroup(group.key)}
+                className="flex w-full items-center gap-1 rounded-md px-2 py-1 text-[12px] text-[#8a877f] transition hover:bg-[#ecece7]"
+              >
+                <ChevronDown size={12} strokeWidth={2} className={`shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
+                {group.isProject ? <Folder size={12} strokeWidth={2} className="shrink-0 text-[#a5906a]" /> : null}
+                <span className="min-w-0 flex-1 truncate text-left">{group.name}</span>
+                <span className="shrink-0 text-[11px] text-[#b6b3aa]">{group.sessions.length}</span>
+              </button>
+              {collapsed ? null : (
+                <div className="grid gap-0.5">
+                  {group.sessions.map((session) => {
             const active = session.id === activeSessionId;
             return (
               <div key={session.id} className="relative flex min-w-0 items-center">
@@ -210,8 +264,12 @@ export default function SessionRail({
                 )}
               </div>
             );
-          })}
-        </div>
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid gap-3 px-3 pb-3">

@@ -35,6 +35,37 @@ describe("session storage adapter", () => {
     expect(storage.load()).toMatchObject(state);
   });
 
+  it("round-trips a session's project so sidebar groups survive restart", () => {
+    const backingStore = createMemoryStorage();
+    const storage = createSessionStorageAdapter(backingStore);
+    const state = {
+      activeSessionIdsByMode: { Chat: "chat-1", Cowork: "cowork-1", Code: "code-1" },
+      sessions: [
+        { id: "cowork-1", mode: "Cowork", title: "Config edit", project: { path: "C:/DragonNest", name: "DragonNest" } },
+      ],
+      eventsBySessionId: { "cowork-1": [] },
+    };
+
+    storage.save(state);
+
+    const restored = storage.load();
+    const restoredSession = restored.sessions.find((session) => session.id === "cowork-1");
+    expect(restoredSession.project).toEqual({ path: "C:/DragonNest", name: "DragonNest" });
+  });
+
+  it("drops a malformed session project instead of persisting it", () => {
+    const backingStore = createMemoryStorage();
+    const storage = createSessionStorageAdapter(backingStore);
+    storage.save({
+      activeSessionIdsByMode: { Cowork: "cowork-1" },
+      sessions: [{ id: "cowork-1", mode: "Cowork", title: "x", project: { name: "no path" } }],
+      eventsBySessionId: { "cowork-1": [] },
+    });
+
+    const restoredSession = storage.load().sessions.find((session) => session.id === "cowork-1");
+    expect(restoredSession.project).toBeUndefined();
+  });
+
   it("saves per-mode model routes with session state", () => {
     const storage = createSessionStorageAdapter(createMemoryStorage());
     const state = {
