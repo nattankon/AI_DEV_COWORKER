@@ -80,8 +80,7 @@ export default function Composer({
   workspaceLabel,
   onChooseWorkspace,
   onEffortChange,
-  onSaveProviderKey,
-  onRefreshProviders,
+  onManageKeys,
   onOpenMemoryManager,
   onOpenConnectors,
   onModelChange,
@@ -708,8 +707,7 @@ export default function Composer({
           )}
           <ContextUsageIndicator usage={contextUsage} />
           <ModelMenu
-            onSaveProviderKey={onSaveProviderKey}
-            onRefreshProviders={onRefreshProviders}
+            onManageKeys={onManageKeys}
             effort={effort}
             modelLabel={modelLabel}
             modelProviders={modelProviders}

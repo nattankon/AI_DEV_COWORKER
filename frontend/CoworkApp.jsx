@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { answerQuestion, cancelCowork, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setChatMemoryEnabled, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
+import { answerQuestion, cancelCowork, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setChatMemoryEnabled, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
 import { createCoworkBridge } from "./adapters/coworkBridge";
 import { createSessionStorageAdapter } from "./adapters/sessionStorage";
 import ApprovalPrompt from "./components/ApprovalPrompt";
@@ -223,10 +223,12 @@ function createDefaultBridge() {
     sendPrompt: sendCowork,
     setWorkspace,
     workspaceAction,
+    installUpdateNow,
     subscribe: (eventName, handler) => {
       const mappedEventName = {
         available_models: eelEvents.availableModels,
         api_keys_loaded: eelEvents.apiKeysLoaded,
+        "app-update": eelEvents.appUpdate,
         chat_memory_state: eelEvents.chatMemoryState,
         chat_artifacts_state: eelEvents.chatArtifactsState,
         chat_connectors_state: eelEvents.chatConnectorsState,
@@ -282,6 +284,7 @@ export default function CoworkApp({
   const [searchCapabilities, setSearchCapabilities] = useState(null);
   const [memoryManagerOpen, setMemoryManagerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [appUpdate, setAppUpdate] = useState({ state: "idle", version: "", percent: 0 });
   const [settingsSection, setSettingsSection] = useState("developer");
   const [chatMemoryEntries, setChatMemoryEntries] = useState([]);
   const [chatArtifacts, setChatArtifacts] = useState([]);
@@ -660,11 +663,27 @@ export default function CoworkApp({
     focusComposer();
   };
 
+  useEffect(() => {
+    const unsubscribe = typeof coworkBridge.subscribeAppUpdate === "function"
+      ? coworkBridge.subscribeAppUpdate((payload = {}) => {
+        setAppUpdate({
+          state: String(payload.state || "idle"),
+          version: String(payload.version || ""),
+          percent: Number(payload.percent || 0),
+        });
+      })
+      : undefined;
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, [coworkBridge]);
+
   const openSettings = (section = "developer") => {
     const targetSection = section || "developer";
     setSettingsSection(targetSection);
     setSettingsOpen(true);
     if (targetSection === "developer" || targetSection === "connectors") void coworkBridge.listChatConnectors?.();
+    if (targetSection === "providers") void coworkBridge.loadApiKeys?.();
   };
 
   const seedComposerPrompt = ({ id, mode, prompt }) => {
@@ -828,6 +847,8 @@ export default function CoworkApp({
         modelLabel={selectedModelLabel}
         runStatus={runStatus}
         workspaceLabel={workspaceLabel}
+        appUpdate={appUpdate}
+        onInstallUpdate={() => coworkBridge.installUpdateNow?.()}
         onBack={() => selectAdjacentSession(1)}
         onForward={() => selectAdjacentSession(-1)}
         onSearch={openChatComposer}
@@ -919,8 +940,7 @@ export default function CoworkApp({
                   focusSignal={composerFocusSignal}
                   modelLabel={selectedModelLabel}
                   modelProviders={modelProviders}
-                  onSaveProviderKey={(provider, key) => coworkBridge.setProviderKey?.(provider, key)}
-                  onRefreshProviders={() => coworkBridge.loadApiKeys?.()}
+                  onManageKeys={() => openSettings("providers")}
                   routeReason={activeRouteReason}
                   contextUsage={contextUsage}
                   searchCapabilities={searchCapabilities}
@@ -997,8 +1017,7 @@ export default function CoworkApp({
               focusSignal={composerFocusSignal}
               modelLabel={selectedModelLabel}
               modelProviders={modelProviders}
-              onSaveProviderKey={(provider, key) => coworkBridge.setProviderKey?.(provider, key)}
-              onRefreshProviders={() => coworkBridge.loadApiKeys?.()}
+              onManageKeys={() => openSettings("providers")}
               routeReason={activeRouteReason}
               contextUsage={contextUsage}
               searchCapabilities={searchCapabilities}
@@ -1043,11 +1062,14 @@ export default function CoworkApp({
           connectorState={chatConnectorsState}
           connectorTestResult={chatConnectorTestResult}
           connectorDiscoveryResult={chatConnectorDiscoveryResult}
+          modelProviders={modelProviders}
           onClose={() => setSettingsOpen(false)}
           onRefreshConnectors={() => coworkBridge.listChatConnectors?.()}
           onSaveConnectors={(connectors) => coworkBridge.saveChatConnectors?.(connectors)}
           onTestConnector={(connector) => coworkBridge.testChatConnector?.(connector)}
           onDiscoverConnector={(target) => coworkBridge.discoverChatConnector?.(target)}
+          onSaveProviderKey={(provider, key) => coworkBridge.setProviderKey?.(provider, key)}
+          onRefreshProviders={() => coworkBridge.loadApiKeys?.()}
         />
 
         {activeView === "chat" && hasTimeline && showJumpToLatest && (

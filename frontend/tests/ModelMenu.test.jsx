@@ -62,9 +62,8 @@ describe("ModelMenu", () => {
     expect(onModelChange).toHaveBeenCalledWith("zai:glm-4.7-flash");
   });
 
-  it("shows key status and saves a pasted key for a provider", () => {
-    const onSaveProviderKey = vi.fn();
-    const onRefreshProviders = vi.fn();
+  it("shows key status and links to key management in settings (no inline input)", () => {
+    const onManageKeys = vi.fn();
     const withMissing = [
       { id: "openai", label: "OpenAI", configured: false, models: [{ id: "openai:gpt-x", label: "GPT-X" }] },
       ...providers,
@@ -76,25 +75,18 @@ describe("ModelMenu", () => {
         modelProviders={withMissing}
         onModelChange={vi.fn()}
         onEffortChange={vi.fn()}
-        onSaveProviderKey={onSaveProviderKey}
-        onRefreshProviders={onRefreshProviders}
+        onManageKeys={onManageKeys}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Model and effort" }));
     fireEvent.click(screen.getByRole("menuitem", { name: /OpenAI no key/i }));
 
-    // status reflects the missing key, and there is a masked input + save
+    // status is shown; the full key entry now lives in Settings, not here
     expect(screen.getByText("No key yet")).toBeInTheDocument();
-    const input = screen.getByLabelText("OpenAI API key");
-    expect(input).toHaveAttribute("type", "password");
-    fireEvent.change(input, { target: { value: "sk-proj-secret" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save OpenAI key" }));
-
-    expect(onSaveProviderKey).toHaveBeenCalledWith("openai", "sk-proj-secret");
-
-    fireEvent.click(screen.getByRole("button", { name: "Refresh provider keys" }));
-    expect(onRefreshProviders).toHaveBeenCalled();
+    expect(screen.queryByLabelText("OpenAI API key")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Manage API keys in settings" }));
+    expect(onManageKeys).toHaveBeenCalled();
   });
 
   it("closes when clicking anywhere outside the menu", () => {
@@ -139,7 +131,7 @@ describe("ModelMenu", () => {
         modelProviders={providers}
         onModelChange={vi.fn()}
         onEffortChange={vi.fn()}
-        onSaveProviderKey={vi.fn()}
+        onManageKeys={vi.fn()}
       />,
     );
 

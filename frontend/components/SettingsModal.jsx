@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { BarChart3, BriefcaseBusiness, Code2, CreditCard, Download, Globe2, HelpCircle, Monitor, Plug, Settings, Shield, SlidersHorizontal, UserCircle, Wrench, X } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, Code2, CreditCard, Download, Globe2, HelpCircle, KeyRound, Monitor, Plug, Settings, Shield, SlidersHorizontal, UserCircle, Wrench, X } from "lucide-react";
 import ConnectorsPanel from "./ConnectorsPanel";
+import ProvidersPanel from "./ProvidersPanel";
 
 const settingsGroups = [
   {
@@ -12,6 +13,7 @@ const settingsGroups = [
       { key: "billing", label: "Billing", icon: CreditCard },
       { key: "usage", label: "Usage", icon: BarChart3 },
       { key: "capabilities", label: "Capabilities", icon: BriefcaseBusiness },
+      { key: "providers", label: "Providers", icon: KeyRound },
       { key: "connectors", label: "Connectors", icon: Plug },
       { key: "code", label: "Code", icon: Code2 },
       { key: "cowork", label: "Cowork", icon: SlidersHorizontal },
@@ -44,11 +46,14 @@ export default function SettingsModal({
   connectorState,
   connectorTestResult,
   connectorDiscoveryResult,
+  modelProviders,
   onClose,
   onRefreshConnectors,
   onSaveConnectors,
   onTestConnector,
   onDiscoverConnector,
+  onSaveProviderKey,
+  onRefreshProviders,
 }) {
   const [activeSection, setActiveSection] = useState(initialSection || "developer");
   if (!open) return null;
@@ -56,6 +61,7 @@ export default function SettingsModal({
   const activeItem = settingsGroups.flatMap((group) => group.items).find((item) => item.key === activeSection);
   const activeLabel = activeItem?.label || "Developer";
   const showDeveloperConnectors = activeSection === "developer" || activeSection === "connectors";
+  const showProviders = activeSection === "providers";
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 py-8 backdrop-blur-[1px]">
@@ -106,7 +112,13 @@ export default function SettingsModal({
           >
             <X size={17} />
           </button>
-          {showDeveloperConnectors ? (
+          {showProviders ? (
+            <ProvidersPanel
+              modelProviders={modelProviders}
+              onSaveProviderKey={onSaveProviderKey}
+              onRefreshProviders={onRefreshProviders}
+            />
+          ) : showDeveloperConnectors ? (
             <ConnectorsPanel
               embedded
               connectorState={connectorState}

@@ -25,14 +25,12 @@ function recommendedLabel(model) {
   return modelBadge(model);
 }
 
-export default function ModelMenu({ effort, modelLabel, modelProviders = [], onEffortChange, onModelChange, onSaveProviderKey, onRefreshProviders }) {
+export default function ModelMenu({ effort, modelLabel, modelProviders = [], onEffortChange, onModelChange, onManageKeys }) {
   const [open, setOpen] = useState(false);
   const [activeProviderId, setActiveProviderId] = useState("");
-  const [keyInput, setKeyInput] = useState("");
   const rootRef = useRef(null);
   const openProvider = (id) => {
     setActiveProviderId(id);
-    setKeyInput("");
   };
   useClickOutside(rootRef, open, () => {
     setOpen(false);
@@ -80,52 +78,25 @@ export default function ModelMenu({ effort, modelLabel, modelProviders = [], onE
                   <ChevronDown size={13} className="rotate-90 text-[#8a877f]" />
                   <span className="font-medium">{activeProvider.label}</span>
                 </button>
-                {onSaveProviderKey && (
-                  <div className="mb-1 border-b border-[#ebe8df] px-2 pb-2 pt-1">
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <span className={activeProvider.configured ? "text-[11px] text-[#3f8f62]" : "text-[11px] text-[#b44b3d]"}>
-                        {activeProvider.configured ? "✓ Key saved" : "No key yet"}
-                      </span>
-                      {onRefreshProviders && (
-                        <button
-                          type="button"
-                          aria-label="Refresh provider keys"
-                          onClick={() => onRefreshProviders()}
-                          className="rounded-md px-1.5 py-0.5 text-[11px] text-[#6f6b63] hover:bg-[#f0efeb]"
-                        >
-                          Refresh
-                        </button>
-                      )}
-                    </div>
-                    <form
-                      className="flex gap-1"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        const value = keyInput.trim();
-                        if (!value) return;
-                        onSaveProviderKey(activeProvider.id, value);
-                        setKeyInput("");
+                <div className="mb-1 flex items-center justify-between border-b border-[#ebe8df] px-2 pb-2 pt-1">
+                  <span className={activeProvider.configured ? "text-[11px] text-[#3f8f62]" : "text-[11px] text-[#b44b3d]"}>
+                    {activeProvider.configured ? "✓ Key saved" : "No key yet"}
+                  </span>
+                  {onManageKeys && (
+                    <button
+                      type="button"
+                      aria-label="Manage API keys in settings"
+                      onClick={() => {
+                        setOpen(false);
+                        setActiveProviderId("");
+                        onManageKeys();
                       }}
+                      className="rounded-md px-1.5 py-0.5 text-[11px] text-[#6f6b63] hover:bg-[#f0efeb]"
                     >
-                      <input
-                        type="password"
-                        aria-label={`${activeProvider.label} API key`}
-                        value={keyInput}
-                        onChange={(event) => setKeyInput(event.target.value)}
-                        placeholder={activeProvider.configured ? "Replace key…" : "Paste API key…"}
-                        className="h-7 min-w-0 flex-1 rounded-md border border-[#dedbd2] px-2 text-[12px] text-[#2f2f2d] outline-none focus:ring-2 focus:ring-[#d8d5cc]"
-                      />
-                      <button
-                        type="submit"
-                        aria-label={`Save ${activeProvider.label} key`}
-                        disabled={!keyInput.trim()}
-                        className="h-7 shrink-0 rounded-md bg-[#2f2f2d] px-2.5 text-[11px] font-medium text-white hover:bg-[#1f1f1d] disabled:cursor-not-allowed disabled:bg-[#d8d5cc]"
-                      >
-                        Save
-                      </button>
-                    </form>
-                  </div>
-                )}
+                      Manage keys
+                    </button>
+                  )}
+                </div>
                 <div role="menu" aria-label={`${activeProvider.label} models`} className="pt-1">
                   {activeProvider.models.map((model) => (
                     <button
