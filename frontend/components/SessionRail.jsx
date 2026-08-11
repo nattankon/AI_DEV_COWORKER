@@ -29,7 +29,13 @@ function groupSessionsByProject(sessions, activeProjectName) {
     byProject.get(name).push(session);
   }
   const projectGroups = [...byProject.entries()]
-    .map(([name, groupSessions]) => ({ key: `project:${name}`, name, isProject: true, sessions: groupSessions }))
+    .map(([name, groupSessions]) => ({
+      key: `project:${name}`,
+      name,
+      isProject: true,
+      project: groupSessions.find((session) => session.project?.path)?.project ?? { name },
+      sessions: groupSessions,
+    }))
     .sort((left, right) => {
       if (left.name === activeProjectName) return -1;
       if (right.name === activeProjectName) return 1;
@@ -51,6 +57,7 @@ export default function SessionRail({
   onCustomize,
   onDeleteSession,
   onNewSession,
+  onNewSessionInProject,
   onOpenArtifacts,
   onOpenConnectors,
   onOpenQuality,
@@ -183,18 +190,31 @@ export default function SessionRail({
         {sessionGroups.map((group) => {
           const collapsed = collapsedGroups.has(group.key);
           return (
-            <div key={group.key} className="mb-1">
-              <button
-                type="button"
-                aria-expanded={!collapsed}
-                onClick={() => toggleGroup(group.key)}
-                className="flex w-full items-center gap-1 rounded-md px-2 py-1 text-[12px] text-[#8a877f] transition hover:bg-[#ecece7]"
-              >
-                <ChevronDown size={12} strokeWidth={2} className={`shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
-                {group.isProject ? <Folder size={12} strokeWidth={2} className="shrink-0 text-[#a5906a]" /> : null}
-                <span className="min-w-0 flex-1 truncate text-left">{group.name}</span>
-                <span className="shrink-0 text-[11px] text-[#b6b3aa]">{group.sessions.length}</span>
-              </button>
+            <div key={group.key} className="group/head mb-1">
+              <div className="flex items-center gap-0.5 rounded-md pr-1 text-[12px] text-[#8a877f] transition hover:bg-[#ecece7]">
+                <button
+                  type="button"
+                  aria-expanded={!collapsed}
+                  onClick={() => toggleGroup(group.key)}
+                  className="flex min-w-0 flex-1 items-center gap-1 px-2 py-1 text-left"
+                >
+                  <ChevronDown size={12} strokeWidth={2} className={`shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
+                  {group.isProject ? <Folder size={12} strokeWidth={2} className="shrink-0 text-[#a5906a]" /> : null}
+                  <span className="min-w-0 flex-1 truncate">{group.name}</span>
+                  <span className="shrink-0 text-[11px] text-[#b6b3aa]">{group.sessions.length}</span>
+                </button>
+                {group.isProject ? (
+                  <button
+                    type="button"
+                    aria-label={`New chat in ${group.name}`}
+                    title={`New chat in ${group.name}`}
+                    onClick={() => onNewSessionInProject?.(group.project)}
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[#8b877f] opacity-0 transition hover:bg-[#deddd6] focus-visible:opacity-100 group-hover/head:opacity-100"
+                  >
+                    <Plus size={13} strokeWidth={2} />
+                  </button>
+                ) : null}
+              </div>
               {collapsed ? null : (
                 <div className="grid gap-0.5">
                   {group.sessions.map((session) => {

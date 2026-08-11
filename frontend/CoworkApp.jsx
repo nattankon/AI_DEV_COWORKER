@@ -606,13 +606,13 @@ export default function CoworkApp({
     });
   }, [activeSessionId, coworkBridge, sessionStore.sessions]);
 
-  const startNewSession = () => {
+  const openNewSession = (project) => {
     const sessionId = createId();
     setSessionStore((current) => ({
       ...current,
       activeSessionId: activeMode === "Cowork" ? sessionId : current.activeSessionId,
       activeSessionIdsByMode: { ...current.activeSessionIdsByMode, [activeMode]: sessionId },
-      sessions: [createSessionRecord(sessionId, "New task", activeMode, currentProject), ...current.sessions],
+      sessions: [createSessionRecord(sessionId, "New task", activeMode, project), ...current.sessions],
       eventsBySessionId: {
         ...current.eventsBySessionId,
         [sessionId]: [],
@@ -620,6 +620,17 @@ export default function CoworkApp({
     }));
     dispatch({ type: "session.hydrate", events: [] });
     setActiveView("chat");
+  };
+
+  const startNewSession = () => openNewSession(currentProject);
+
+  const startNewSessionInProject = async (project) => {
+    const normalized = normalizeProject(project);
+    if (normalized && normalized.path && normalized.path !== workingDirectory) {
+      setWorkingDirectory(normalized.path);
+      await coworkBridge.setWorkspace?.(normalized.path);
+    }
+    openNewSession(normalized);
   };
 
   const selectSession = (sessionId) => {
@@ -916,6 +927,7 @@ export default function CoworkApp({
           })
         }
         onNewSession={startNewSession}
+        onNewSessionInProject={startNewSessionInProject}
         onOpenArtifacts={() => setActiveView("artifacts")}
         onOpenConnectors={() => setActiveView("connectors")}
         onOpenQuality={() => setActiveView("quality")}

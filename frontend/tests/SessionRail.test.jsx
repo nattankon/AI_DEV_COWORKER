@@ -55,7 +55,7 @@ describe("SessionRail", () => {
     );
 
     // Active project first, then other projects, then the ungrouped bucket.
-    const dragon = screen.getByRole("button", { name: /DragonNest/ });
+    const dragon = screen.getByRole("button", { name: "DragonNest1" });
     expect(dragon).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "PB1" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /No project/ })).toBeInTheDocument();
@@ -65,5 +65,38 @@ describe("SessionRail", () => {
     fireEvent.click(dragon);
     expect(screen.queryByText("Config edit")).not.toBeInTheDocument();
     expect(screen.getByText("PB tweak")).toBeInTheDocument();
+  });
+
+  it("creates a new chat inside a specific project from its header button", () => {
+    const onNewSessionInProject = vi.fn();
+    render(
+      <SessionRail
+        activeMode="Cowork"
+        activeProjectName="DragonNest"
+        activeSessionId="s1"
+        sessions={[
+          { id: "s1", title: "Config edit", eventCount: 3, project: { path: "C:/DragonNest", name: "DragonNest" } },
+          { id: "s3", title: "PB tweak", eventCount: 2, project: { path: "C:/PB", name: "PB" } },
+        ]}
+        onNewSessionInProject={onNewSessionInProject}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "New chat in PB" }));
+
+    expect(onNewSessionInProject).toHaveBeenCalledWith({ path: "C:/PB", name: "PB" });
+  });
+
+  it("does not offer a per-project new-chat button on the ungrouped Recents list", () => {
+    render(
+      <SessionRail
+        activeMode="Cowork"
+        activeSessionId="s1"
+        sessions={[{ id: "s1", title: "Untitled", eventCount: 0 }]}
+        onNewSessionInProject={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /New chat in/ })).not.toBeInTheDocument();
   });
 });
