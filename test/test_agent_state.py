@@ -31,6 +31,14 @@ class AgentRunStateTests(unittest.TestCase):
             },
         )
 
+    def test_edit_file_write_requires_passing_verification_before_report(self):
+        state = AgentRunState()
+
+        state.observe_tool_result("edit_file", json.dumps({"status": "written", "path": "app.py"}))
+
+        self.assertTrue(state.requires_verification_before_report())
+        self.assertTrue(state.completion_evidence()["writes_performed"])
+
     def test_restore_requires_passing_verification_before_report(self):
         state = AgentRunState()
 

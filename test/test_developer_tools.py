@@ -6,7 +6,14 @@ import time
 import tempfile
 import unittest
 
-from developer_tools import CommandProposal, DeveloperTools, VerificationCommand
+import json
+
+from developer_tools import (
+    CommandProposal,
+    DeveloperTools,
+    VerificationCommand,
+    load_project_verification_commands,
+)
 
 
 class DeveloperToolsTests(unittest.TestCase):
@@ -34,6 +41,37 @@ class DeveloperToolsTests(unittest.TestCase):
         (self.root / ".env").write_text("TOKEN=before\n", encoding="utf-8")
         self._git("add", "app.py", ".env")
         self._git("commit", "-m", "baseline")
+
+    def _write_project_presets(self, presets: dict) -> None:
+        config_dir = self.root / ".cowork"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        (config_dir / "verify.json").write_text(json.dumps({"presets": presets}), encoding="utf-8")
+
+    def test_project_presets_extend_the_allowlist_and_run(self):
+        self._write_project_presets({
+            "smoke": {"argv": [sys.executable, "-c", "print('ok')"], "timeout_seconds": 30},
+        })
+        tools = DeveloperTools(self.root, approve_command=lambda proposal: True)
+
+        # The project preset joins the default allowlist and is runnable.
+        self.assertIn("smoke", tools.verification_names)
+        self.assertIn("python-tests", tools.verification_names)
+        result = tools.run_verification("smoke")
+        self.assertEqual(result["status"], "passed")
+        self.assertIn("ok", result.get("stdout", ""))
+
+    def test_malformed_project_presets_are_ignored(self):
+        self._write_project_presets({
+            "": {"argv": ["echo", "x"]},
+            "bad_argv": {"argv": "not-a-list"},
+            "empty_argv": {"argv": []},
+            "good": {"argv": [sys.executable, "-c", "print(1)"]},
+        })
+        commands = load_project_verification_commands(self.root)
+        self.assertEqual(set(commands), {"good"})
+
+    def test_missing_project_config_is_a_no_op(self):
+        self.assertEqual(load_project_verification_commands(self.root), {})
 
     def test_git_status_and_diff_report_changes_without_secret_paths(self):
         self._initialize_repository()

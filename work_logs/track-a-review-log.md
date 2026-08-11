@@ -1625,3 +1625,23 @@
   shape, coworkReducer (evidence store/clear), coworkBridge (completion normalize), VerificationPanel,
   CoworkApp retry.
 - Not committed/released yet: accumulating Cowork features for v0.1.3 per the user's request.
+
+## 2026-08-11 - Cowork tool-gap fixes (edit_file, project verify presets, ranged read)
+
+- Trigger: live probe (single buggy stats.py, free zai:glm-4.5-flash) surfaced gaps —
+  write_file rewrote the whole file for a 3-line change; verify presets were Python/JS-only
+  so C/C++/Lua could not verify; read_file was whole-file with a hard 500KB reject.
+- #1 edit_file: new WorkspaceTools.edit_file(path, old_string, new_string, replace_all) that
+  replaces an exact snippet (unique unless replace_all). Refactored write_file to share
+  _write_new_content (same approval/backup/atomic-write/audit path). AgentRunState and
+  _tool_status_text now treat edit_file as a write; system prompt prefers edit_file for edits.
+- #2 per-project presets: developer_tools.load_project_verification_commands reads
+  <root>/.cowork/verify.json {"presets":{name:{argv,timeout_seconds}}}, merged over defaults
+  (still approval-gated). Unlocks verification for any language. Doc: docs/COWORK_VERIFY_PRESETS.md.
+- #4 ranged read: read_file(path, start_line, end_line) streams a slice (cap 2000 lines /
+  500KB); over-cap files now tell the model to request a slice instead of hard-failing.
+- Tests: backend 401/401 (+9: edit_file replace/ambiguous/denied/dispatch, ranged read,
+  project preset load/merge/run, edit_file-as-write gate).
+- Live re-test before release: probe now uses edit_file (not full rewrite) for the median fix,
+  verify passes, independent check PASS; separate Lua run via a real .cowork/verify.json "run"
+  preset passes end-to-end (allowlist = [frontend-build, frontend-tests, python-tests, run]).

@@ -19,6 +19,7 @@ except ImportError:
 
 _SKIPPED_DIRECTORIES = {".git", ".npm-cache", "__pycache__", "dist", "node_modules", "release"}
 _MAX_READ_BYTES = 500_000
+_MAX_READ_LINES = 2000
 _MAX_SEARCH_RESULTS = 50
 
 
@@ -74,18 +75,36 @@ class WorkspaceTools:
             ),
             _tool_schema(
                 "read_file",
-                "Read a UTF-8 text file inside the selected workspace.",
-                {"path": _string_property("Workspace-relative file path.")},
+                "Read a UTF-8 text file inside the selected workspace. Pass start_line and end_line (1-indexed, inclusive) to read only a slice — required for files larger than the size limit.",
+                {
+                    "path": _string_property("Workspace-relative file path."),
+                    "start_line": {"type": "integer", "description": "1-indexed first line to read. Optional."},
+                    "end_line": {"type": "integer", "description": "1-indexed last line to read, inclusive. Optional."},
+                },
                 ["path"],
             ),
             _tool_schema(
                 "write_file",
-                "Propose a complete UTF-8 file write. The user must approve before the filesystem changes.",
+                "Propose a complete UTF-8 file write. Use this to CREATE a new file or fully rewrite one. For a small change to an existing file, prefer edit_file. The user must approve before the filesystem changes.",
                 {
                     "path": _string_property("Workspace-relative file path."),
                     "content": _string_property("Complete replacement file content."),
                 },
                 ["path", "content"],
+            ),
+            _tool_schema(
+                "edit_file",
+                "Replace an exact snippet inside an existing file. Prefer this over write_file for edits — only the matched text changes, so you never resend the whole file. old_string must match the file byte-for-byte (including indentation) and be unique unless replace_all is true. The user must approve before the filesystem changes.",
+                {
+                    "path": _string_property("Workspace-relative file path."),
+                    "old_string": _string_property("Exact text to replace. Must appear verbatim in the file."),
+                    "new_string": _string_property("Replacement text."),
+                    "replace_all": {
+                        "type": "boolean",
+                        "description": "Replace every occurrence instead of requiring a unique match. Defaults to false.",
+                    },
+                },
+                ["path", "old_string", "new_string"],
             ),
             _tool_schema(
                 "list_backups",
@@ -155,14 +174,46 @@ class WorkspaceTools:
             entries.append(f"{entry.name}{suffix}")
         return sorted(entries, key=str.casefold)
 
-    def read_file(self, path: str) -> str:
+    def read_file(self, path: str, start_line: int | None = None, end_line: int | None = None) -> str:
         target = self._resolve(path)
         self._require_non_secret(target)
         if not target.is_file():
             raise FileNotFoundError(f"File not found: {self._relative(target)}")
-        if target.stat().st_size > _MAX_READ_BYTES:
-            raise ValueError(f"File exceeds {_MAX_READ_BYTES} bytes: {self._relative(target)}")
-        return target.read_text(encoding="utf-8")
+        if start_line is None and end_line is None:
+            if target.stat().st_size > _MAX_READ_BYTES:
+                raise ValueError(
+                    f"File exceeds {_MAX_READ_BYTES} bytes: {self._relative(target)}. "
+                    "Read a slice instead by passing start_line and end_line."
+                )
+            return target.read_text(encoding="utf-8")
+        try:
+            start = max(1, int(start_line) if start_line is not None else 1)
+        except (TypeError, ValueError):
+            raise ValueError("start_line must be an integer.")
+        if end_line is None:
+            end = start + _MAX_READ_LINES - 1
+        else:
+            try:
+                end = int(end_line)
+            except (TypeError, ValueError):
+                raise ValueError("end_line must be an integer.")
+        if end < start:
+            raise ValueError("end_line must be greater than or equal to start_line.")
+        end = min(end, start + _MAX_READ_LINES - 1)
+        selected: list[str] = []
+        total_bytes = 0
+        with target.open("r", encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                if line_number < start:
+                    continue
+                if line_number > end:
+                    break
+                total_bytes += len(line.encode("utf-8"))
+                if total_bytes > _MAX_READ_BYTES:
+                    selected.append("… (truncated: requested slice exceeds the size limit)")
+                    break
+                selected.append(line.rstrip("\n"))
+        return "\n".join(selected)
 
     def search_files(self, query: str) -> list[dict]:
         normalized_query = str(query or "").strip().casefold()
@@ -206,9 +257,39 @@ class WorkspaceTools:
         self._require_non_secret(target)
         if target.exists() and not target.is_file():
             raise IsADirectoryError(f"Target is not a file: {self._relative(target)}")
+        return self._write_new_content(target, str(content))
 
+    def edit_file(self, path: str, old_string: str, new_string: str, replace_all: bool = False) -> dict:
+        target = self._resolve(path)
+        self._require_non_secret(target)
+        if not target.is_file():
+            raise FileNotFoundError(f"File not found: {self._relative(target)}")
+        old_string = str(old_string)
+        new_string = str(new_string)
+        if not old_string:
+            raise ValueError("old_string cannot be empty; use write_file to create a new file.")
+        if old_string == new_string:
+            raise ValueError("old_string and new_string are identical; nothing to change.")
+        content = target.read_text(encoding="utf-8")
+        occurrences = content.count(old_string)
+        if occurrences == 0:
+            raise ValueError(
+                f"old_string was not found in {self._relative(target)}. "
+                "Read the file and copy an exact snippet (including whitespace)."
+            )
+        if occurrences > 1 and not replace_all:
+            raise ValueError(
+                f"old_string appears {occurrences} times in {self._relative(target)}. "
+                "Include more surrounding context to make it unique, or set replace_all to true."
+            )
+        new_content = content.replace(old_string, new_string) if replace_all else content.replace(old_string, new_string, 1)
+        result = self._write_new_content(target, new_content)
+        if result.get("status") == "written":
+            result["replacements"] = occurrences if replace_all else 1
+        return result
+
+    def _write_new_content(self, target: Path, new_content: str) -> dict:
         old_content = target.read_text(encoding="utf-8") if target.exists() else ""
-        new_content = str(content)
         relative_path = self._relative(target)
         diff = "".join(
             difflib.unified_diff(
@@ -411,9 +492,23 @@ class WorkspaceTools:
             elif tool_name == "search_files":
                 payload = {"status": "ok", "matches": self.search_files(arguments.get("query", ""))}
             elif tool_name == "read_file":
-                payload = {"status": "ok", "content": self.read_file(arguments.get("path", ""))}
+                payload = {
+                    "status": "ok",
+                    "content": self.read_file(
+                        arguments.get("path", ""),
+                        arguments.get("start_line"),
+                        arguments.get("end_line"),
+                    ),
+                }
             elif tool_name == "write_file":
                 payload = self.write_file(arguments.get("path", ""), arguments.get("content", ""))
+            elif tool_name == "edit_file":
+                payload = self.edit_file(
+                    arguments.get("path", ""),
+                    arguments.get("old_string", ""),
+                    arguments.get("new_string", ""),
+                    bool(arguments.get("replace_all", False)),
+                )
             elif tool_name == "list_backups":
                 payload = {"status": "ok", "backups": self.list_backups()}
             elif tool_name == "restore_backup":

@@ -156,7 +156,7 @@ def _tool_status_text(tool_name: str, arguments: dict) -> str:
     name = str(tool_name or "")
     args = arguments if isinstance(arguments, dict) else {}
     path = str(args.get("path") or args.get("relative_path") or "").strip()
-    if name == "write_file":
+    if name in {"write_file", "edit_file"}:
         return f"Editing {path}…" if path else "Editing a file…"
     if name == "read_file":
         return f"Reading {path}…" if path else "Reading a file…"

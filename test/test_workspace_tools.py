@@ -27,6 +27,51 @@ class WorkspaceToolsTests(unittest.TestCase):
         self.assertEqual(matches[0]["path"], "README.md")
         self.assertIn("Cowork workspace", matches[0]["snippet"])
 
+    def test_edit_file_replaces_unique_snippet_and_keeps_the_rest(self):
+        tools = WorkspaceTools(self.root, approve_write=lambda proposal: True)
+
+        result = tools.edit_file("README.md", "Cowork workspace", "Cowork workspace v2")
+
+        self.assertEqual(result["status"], "written")
+        self.assertEqual(result["replacements"], 1)
+        self.assertEqual((self.root / "README.md").read_text(encoding="utf-8"), "# Example\nCowork workspace v2\n")
+
+    def test_edit_file_errors_when_snippet_missing_or_ambiguous(self):
+        (self.root / "dup.txt").write_text("x\nx\n", encoding="utf-8")
+        tools = WorkspaceTools(self.root, approve_write=lambda proposal: True)
+
+        with self.assertRaisesRegex(ValueError, "was not found"):
+            tools.edit_file("README.md", "not present", "y")
+        with self.assertRaisesRegex(ValueError, "appears 2 times"):
+            tools.edit_file("dup.txt", "x", "y")
+
+        # replace_all handles the ambiguous case explicitly.
+        result = tools.edit_file("dup.txt", "x", "y", replace_all=True)
+        self.assertEqual(result["replacements"], 2)
+        self.assertEqual((self.root / "dup.txt").read_text(encoding="utf-8"), "y\ny\n")
+
+    def test_denied_edit_leaves_file_unchanged(self):
+        tools = WorkspaceTools(self.root, approve_write=lambda proposal: False)
+
+        result = tools.edit_file("src/app.py", "hello cowork", "goodbye")
+
+        self.assertEqual(result["status"], "denied")
+        self.assertEqual((self.root / "src" / "app.py").read_text(encoding="utf-8"), "print('hello cowork')\n")
+
+    def test_read_file_returns_requested_line_slice(self):
+        (self.root / "many.txt").write_text("".join(f"line{n}\n" for n in range(1, 11)), encoding="utf-8")
+        tools = WorkspaceTools(self.root, approve_write=lambda proposal: True)
+
+        self.assertEqual(tools.read_file("many.txt", 3, 5), "line3\nline4\nline5")
+
+    def test_edit_file_and_read_file_are_dispatchable(self):
+        tools = WorkspaceTools(self.root, approve_write=lambda proposal: True)
+
+        edited = json.loads(tools.dispatch("edit_file", {"path": "src/app.py", "old_string": "hello cowork", "new_string": "hi"}))
+        self.assertEqual(edited["status"], "written")
+        sliced = json.loads(tools.dispatch("read_file", {"path": "src/app.py", "start_line": 1, "end_line": 1}))
+        self.assertEqual(sliced["content"], "print('hi')")
+
     def test_rejects_traversal_and_absolute_paths_outside_workspace(self):
         tools = WorkspaceTools(self.root, approve_write=lambda proposal: True)
         outside = self.root.parent / "outside.txt"

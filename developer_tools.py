@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
 import shutil
@@ -58,6 +59,40 @@ def default_verification_commands() -> dict[str, VerificationCommand]:
     }
 
 
+def load_project_verification_commands(root: str | Path) -> dict[str, VerificationCommand]:
+    """Read optional per-project verification presets from <root>/.cowork/verify.json.
+
+    Format: {"presets": {"<name>": {"argv": ["cmd", "arg", ...], "timeout_seconds": 60}}}.
+    Invalid entries are skipped. Every preset still runs through the approval gate.
+    """
+    config = Path(root).expanduser().resolve() / ".cowork" / "verify.json"
+    if not config.is_file():
+        return {}
+    try:
+        data = json.loads(config.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    presets = data.get("presets") if isinstance(data, dict) else None
+    if not isinstance(presets, dict):
+        return {}
+    commands: dict[str, VerificationCommand] = {}
+    for raw_name, spec in presets.items():
+        if not isinstance(raw_name, str) or not raw_name.strip() or not isinstance(spec, dict):
+            continue
+        argv = spec.get("argv")
+        if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
+            continue
+        try:
+            timeout = float(spec.get("timeout_seconds", 120))
+        except (TypeError, ValueError):
+            timeout = 120.0
+        if timeout <= 0:
+            timeout = 120.0
+        name = raw_name.strip()
+        commands[name] = VerificationCommand(name=name, argv=tuple(argv), timeout_seconds=timeout)
+    return commands
+
+
 class DeveloperTools:
     def __init__(
         self,
@@ -75,11 +110,12 @@ class DeveloperTools:
         if max_output_chars < 1:
             raise ValueError("max_output_chars must be at least 1.")
         self._approve_command = approve_command
-        self._verification_commands = dict(
-            default_verification_commands()
-            if verification_commands is None
-            else verification_commands
-        )
+        if verification_commands is None:
+            resolved_commands = default_verification_commands()
+            resolved_commands.update(load_project_verification_commands(self.root))
+            self._verification_commands = resolved_commands
+        else:
+            self._verification_commands = dict(verification_commands)
         self._secret_guard = secret_guard or SecretGuard()
         self._max_output_chars = max_output_chars
         self._process_tree_killer = process_tree_killer or _terminate_process_tree

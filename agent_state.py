@@ -50,7 +50,7 @@ class AgentRunState:
     def observe_tool_result(self, tool_name: str, result: str) -> None:
         payload = _decode_result(result)
         status = str(payload.get("status") or "")
-        if tool_name == "write_file" and status == "written":
+        if tool_name in {"write_file", "edit_file"} and status == "written":
             self._writes_performed = True
         elif tool_name == "restore_backup" and status == "restored":
             self._writes_performed = True
