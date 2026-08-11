@@ -28,8 +28,19 @@ class AgentRunStateTests(unittest.TestCase):
                 "verification_passed": False,
                 "verification_statuses": [],
                 "verification_runs": [],
+                "test_files_modified": [],
             },
         )
+
+    def test_modifying_test_files_is_surfaced_in_evidence(self):
+        state = AgentRunState()
+
+        state.observe_tool_result("edit_file", json.dumps({"status": "written", "path": "src/app.py"}))
+        state.observe_tool_result("write_file", json.dumps({"status": "written", "path": "test/test_app.py"}))
+        state.observe_tool_result("edit_file", json.dumps({"status": "written", "path": "web/foo.test.tsx"}))
+
+        evidence = state.completion_evidence()
+        self.assertEqual(evidence["test_files_modified"], ["test/test_app.py", "web/foo.test.tsx"])
 
     def test_edit_file_write_requires_passing_verification_before_report(self):
         state = AgentRunState()
@@ -62,6 +73,7 @@ class AgentRunStateTests(unittest.TestCase):
                 "verification_passed": True,
                 "verification_statuses": ["passed"],
                 "verification_runs": [{"name": "python-tests", "status": "passed"}],
+                "test_files_modified": [],
             },
         )
 
@@ -105,6 +117,7 @@ class AgentRunStateTests(unittest.TestCase):
                 "verification_passed": False,
                 "verification_statuses": ["failed"],
                 "verification_runs": [{"name": "python-tests", "status": "failed"}],
+                "test_files_modified": [],
             },
         )
 

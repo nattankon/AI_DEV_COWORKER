@@ -377,6 +377,7 @@ class IpcSidecar:
                             "verification_passed": bool(payload.get("verification_passed")),
                             "verification_statuses": list(payload.get("verification_statuses") or []),
                             "verification_runs": list(payload.get("verification_runs") or []),
+                            "test_files_modified": list(payload.get("test_files_modified") or []),
                         },
                     )
 

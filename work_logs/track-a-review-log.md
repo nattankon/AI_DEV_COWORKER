@@ -1645,3 +1645,17 @@
 - Live re-test before release: probe now uses edit_file (not full rewrite) for the median fix,
   verify passes, independent check PASS; separate Lua run via a real .cowork/verify.json "run"
   preset passes end-to-end (allowlist = [frontend-build, frontend-tests, python-tests, run]).
+
+## 2026-08-11 - Cowork #5 finish (regex search + test-tamper visibility, v0.1.7)
+
+- #5a search_files(use_regex): optional case-insensitive regex over paths + contents;
+  invalid pattern -> clear error. Schema + dispatch updated.
+- #5b test-tamper visibility (surface, not block): AgentRunState tracks written paths that
+  look like tests (_is_test_file: test/ or tests/ dirs, test_*.py, *_test.py, *.test|spec.[jt]sx?),
+  exposed as completion_evidence.test_files_modified; sidecar emits it on cowork_completion;
+  bridge->reducer carry testFilesModified; VerificationPanel shows an amber note when tests
+  changed this run ("confirm the fix is in the implementation, not the tests").
+- Tests: backend 403/403 (+2: regex search, test-file evidence; 4 exact-evidence dicts updated),
+  frontend 164/164 (+1 panel warning; bridge completion exact-match updated).
+- Live re-check before release: probe (median fix) still read_file->edit_file->run_verification,
+  verified, test_files_modified=[] (non-test edit, no false positive), independent check PASS.

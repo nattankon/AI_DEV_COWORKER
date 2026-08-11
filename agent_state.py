@@ -1,6 +1,17 @@
 from __future__ import annotations
 
 import json
+import re
+
+_TEST_PATH_RE = re.compile(
+    r"(^|/)(test|tests)/|(^|/)test_[^/]*\.py$|_test\.py$|\.(test|spec)\.[jt]sx?$",
+    re.IGNORECASE,
+)
+
+
+def _is_test_file(path: str) -> bool:
+    normalized = str(path or "").replace("\\", "/")
+    return bool(_TEST_PATH_RE.search(normalized))
 
 
 class AgentRunState:
@@ -10,6 +21,7 @@ class AgentRunState:
         self._writes_performed = False
         self._verification_statuses: list[str] = []
         self._verification_runs: list[dict] = []
+        self._test_files_modified: list[str] = []
 
     @classmethod
     def from_snapshot(cls, snapshot: dict) -> "AgentRunState":
@@ -35,6 +47,7 @@ class AgentRunState:
         state._writes_performed = writes_performed
         state._verification_statuses = list(verification_statuses)
         state._verification_runs = _coerce_verification_runs(snapshot.get("verification_runs"))
+        state._test_files_modified = _coerce_str_list(snapshot.get("test_files_modified"))
         return state
 
     def record_stage(self, stage: str) -> dict | None:
@@ -52,6 +65,9 @@ class AgentRunState:
         status = str(payload.get("status") or "")
         if tool_name in {"write_file", "edit_file"} and status == "written":
             self._writes_performed = True
+            path = str(payload.get("path") or "")
+            if _is_test_file(path) and path not in self._test_files_modified:
+                self._test_files_modified.append(path)
         elif tool_name == "restore_backup" and status == "restored":
             self._writes_performed = True
         elif tool_name == "run_verification":
@@ -70,6 +86,7 @@ class AgentRunState:
             "verification_passed": self._verification_passed(),
             "verification_statuses": list(self._verification_statuses),
             "verification_runs": [dict(run) for run in self._verification_runs],
+            "test_files_modified": list(self._test_files_modified),
         }
 
     def to_snapshot(self) -> dict:
@@ -81,6 +98,12 @@ class AgentRunState:
 
     def _verification_passed(self) -> bool:
         return any(status == "passed" for status in self._verification_statuses)
+
+
+def _coerce_str_list(value) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str) and item]
 
 
 def _coerce_verification_runs(value) -> list[dict]:

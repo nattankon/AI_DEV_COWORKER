@@ -46,6 +46,22 @@ describe("VerificationPanel", () => {
     expect(screen.getByText("failed")).toBeInTheDocument();
   });
 
+  it("warns when test files were modified during the run", () => {
+    render(
+      <VerificationPanel
+        evidence={{
+          writesPerformed: true,
+          verificationObserved: true,
+          verificationPassed: true,
+          verificationRuns: [{ name: "python-tests", status: "passed" }],
+          testFilesModified: ["test/test_app.py"],
+        }}
+      />,
+    );
+    expect(screen.getByText(/Test files were changed/i)).toBeInTheDocument();
+    expect(screen.getByText(/test_app\.py/)).toBeInTheDocument();
+  });
+
   it("warns when files changed but nothing was verified", () => {
     render(
       <VerificationPanel

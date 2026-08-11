@@ -134,6 +134,9 @@ function normalizeLegacyCompletion(payload, sessionId, options) {
         name: String(run?.name ?? ""),
         status: String(run?.status ?? ""),
       })),
+      testFilesModified: Array.isArray(payload?.test_files_modified)
+        ? payload.test_files_modified.map(String)
+        : [],
     },
   });
 }

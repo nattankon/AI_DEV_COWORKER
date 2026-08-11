@@ -64,6 +64,19 @@ class WorkspaceToolsTests(unittest.TestCase):
 
         self.assertEqual(tools.read_file("many.txt", 3, 5), "line3\nline4\nline5")
 
+    def test_search_files_supports_regex(self):
+        (self.root / "nums.txt").write_text("alpha 42\nbeta\ngamma 7\n", encoding="utf-8")
+        tools = WorkspaceTools(self.root, approve_write=lambda proposal: True)
+
+        matches = tools.search_files(r"\d{2}", use_regex=True)
+        paths = {match["path"] for match in matches}
+        self.assertIn("nums.txt", paths)
+        snippet = next(match["snippet"] for match in matches if match["path"] == "nums.txt")
+        self.assertIn("alpha 42", snippet)
+
+        with self.assertRaisesRegex(ValueError, "Invalid regular expression"):
+            tools.search_files("(", use_regex=True)
+
     def test_edit_file_and_read_file_are_dispatchable(self):
         tools = WorkspaceTools(self.root, approve_write=lambda proposal: True)
 

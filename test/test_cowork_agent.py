@@ -263,6 +263,7 @@ class CoworkAgentTests(unittest.TestCase):
                 "verification_passed": True,
                 "verification_statuses": ["passed"],
                 "verification_runs": [{"name": "python-tests", "status": "passed"}],
+                "test_files_modified": [],
             },
         )
 

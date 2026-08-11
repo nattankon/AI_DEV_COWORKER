@@ -18,6 +18,7 @@ export default function VerificationPanel({ evidence }) {
   const runs = Array.isArray(evidence.verificationRuns) ? evidence.verificationRuns : [];
   const passed = Boolean(evidence.verificationPassed);
   const observed = Boolean(evidence.verificationObserved);
+  const testFilesModified = Array.isArray(evidence.testFilesModified) ? evidence.testFilesModified : [];
 
   const headline = passed
     ? "Verified — changes passed verification"
@@ -59,6 +60,15 @@ export default function VerificationPanel({ evidence }) {
           No verification preset was run. Ask the agent to run one before trusting the change.
         </p>
       )}
+      {testFilesModified.length > 0 ? (
+        <div className="mt-2 flex items-start gap-2 border-t border-black/[0.06] pt-2 text-[11px] text-[#b0872f]">
+          <ShieldAlert size={13} strokeWidth={2.2} className="mt-px shrink-0" />
+          <span>
+            Test files were changed this run ({testFilesModified.map((file) => file.split(/[\\/]/).pop()).join(", ")}) —
+            confirm the fix is in the implementation, not the tests.
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

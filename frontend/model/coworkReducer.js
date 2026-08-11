@@ -118,6 +118,9 @@ export function coworkReducer(state, action) {
           verificationRuns: Array.isArray(event.payload?.verificationRuns)
             ? event.payload.verificationRuns
             : [],
+          testFilesModified: Array.isArray(event.payload?.testFilesModified)
+            ? event.payload.testFilesModified
+            : [],
         },
       },
     };

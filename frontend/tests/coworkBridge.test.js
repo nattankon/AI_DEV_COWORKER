@@ -122,6 +122,7 @@ describe("cowork bridge adapter", () => {
         verification_passed: false,
         verification_statuses: ["failed"],
         verification_runs: [{ name: "python-tests", status: "failed" }],
+        test_files_modified: ["test/test_app.py"],
       },
     });
 
@@ -138,6 +139,7 @@ describe("cowork bridge adapter", () => {
         verificationPassed: false,
         verificationStatuses: ["failed"],
         verificationRuns: [{ name: "python-tests", status: "failed" }],
+        testFilesModified: ["test/test_app.py"],
       },
     });
   });

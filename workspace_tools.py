@@ -6,6 +6,7 @@ import difflib
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 from typing import Callable, Any
 
@@ -69,8 +70,14 @@ class WorkspaceTools:
             ),
             _tool_schema(
                 "search_files",
-                "Search workspace-relative file paths and UTF-8 text contents.",
-                {"query": _string_property("Case-insensitive text to search for.")},
+                "Search workspace-relative file paths and UTF-8 text contents. Set use_regex to treat the query as a case-insensitive regular expression.",
+                {
+                    "query": _string_property("Text (or regular expression if use_regex is true) to search for."),
+                    "use_regex": {
+                        "type": "boolean",
+                        "description": "Treat query as a case-insensitive regular expression. Defaults to false (plain substring).",
+                    },
+                },
                 ["query"],
             ),
             _tool_schema(
@@ -215,10 +222,21 @@ class WorkspaceTools:
                 selected.append(line.rstrip("\n"))
         return "\n".join(selected)
 
-    def search_files(self, query: str) -> list[dict]:
-        normalized_query = str(query or "").strip().casefold()
-        if not normalized_query:
+    def search_files(self, query: str, use_regex: bool = False) -> list[dict]:
+        raw_query = str(query or "").strip()
+        if not raw_query:
             raise ValueError("Search query cannot be empty.")
+
+        pattern = None
+        normalized_query = raw_query.casefold()
+        if use_regex:
+            try:
+                pattern = re.compile(raw_query, re.IGNORECASE)
+            except re.error as exc:
+                raise ValueError(f"Invalid regular expression: {exc}")
+
+        def matches(text: str) -> bool:
+            return bool(pattern.search(text)) if pattern else normalized_query in text.casefold()
 
         results: list[dict] = []
         for directory, directory_names, file_names in os.walk(self.root):
@@ -236,12 +254,12 @@ class WorkspaceTools:
                 if self._is_secret(path):
                     continue
                 relative_path = self._relative(path)
-                path_match = normalized_query in relative_path.casefold()
+                path_match = matches(relative_path)
                 snippet = ""
                 if path.stat().st_size <= _MAX_READ_BYTES:
                     try:
                         for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-                            if normalized_query in line.casefold():
+                            if matches(line):
                                 snippet = f"{line_number}: {line.strip()}"
                                 break
                     except (OSError, UnicodeDecodeError):
@@ -490,7 +508,10 @@ class WorkspaceTools:
             if tool_name == "list_directory":
                 payload = {"status": "ok", "entries": self.list_directory(arguments.get("path", "."))}
             elif tool_name == "search_files":
-                payload = {"status": "ok", "matches": self.search_files(arguments.get("query", ""))}
+                payload = {
+                    "status": "ok",
+                    "matches": self.search_files(arguments.get("query", ""), bool(arguments.get("use_regex", False))),
+                }
             elif tool_name == "read_file":
                 payload = {
                     "status": "ok",
