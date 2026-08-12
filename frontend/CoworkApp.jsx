@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { answerQuestion, cancelCowork, checkForUpdates, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setAutoApprove, setChatMemoryEnabled, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
+import { answerQuestion, cancelCowork, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setAutoApprove, setChatMemoryEnabled, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
 import { createCoworkBridge } from "./adapters/coworkBridge";
 import { createSessionStorageAdapter } from "./adapters/sessionStorage";
 import ApprovalPrompt from "./components/ApprovalPrompt";
@@ -249,7 +249,6 @@ function createDefaultBridge() {
     setWorkspace,
     workspaceAction,
     installUpdateNow,
-    checkForUpdates,
     setAutoApprove,
     subscribe: (eventName, handler) => {
       const mappedEventName = {
@@ -933,7 +932,6 @@ export default function CoworkApp({
         workspaceLabel={workspaceLabel}
         appUpdate={appUpdate}
         onInstallUpdate={() => coworkBridge.installUpdateNow?.()}
-        onCheckForUpdates={() => coworkBridge.checkForUpdates?.()}
         onBack={() => selectAdjacentSession(1)}
         onForward={() => selectAdjacentSession(-1)}
         onSearch={openChatComposer}

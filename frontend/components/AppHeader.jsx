@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Bot, Check, Download, Loader2, Maximize2, Menu, Minus, PanelLeft, RefreshCw, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bot, Download, Loader2, Maximize2, Menu, Minus, PanelLeft, Search, X } from "lucide-react";
 import packageInfo from "../../package.json";
 import ShellMenu from "./ShellMenu";
 
-function UpdateControl({ appUpdate, onInstallUpdate, onCheckForUpdates }) {
+function UpdateControl({ appUpdate, onInstallUpdate }) {
   const state = appUpdate?.state || "idle";
   if (state === "downloading" || state === "available") {
     return (
@@ -30,26 +30,7 @@ function UpdateControl({ appUpdate, onInstallUpdate, onCheckForUpdates }) {
       </button>
     );
   }
-  if (state === "checking") {
-    return (
-      <span className="app-no-drag inline-flex items-center gap-1.5 rounded-full border border-[#e6e4dd] bg-white px-2 py-1 text-[11px] text-[#77766f]" title="Checking for updates…">
-        <Loader2 size={12} strokeWidth={2.2} className="animate-spin" />
-        Checking
-      </span>
-    );
-  }
-  return (
-    <button
-      type="button"
-      aria-label="Check for updates"
-      onClick={() => onCheckForUpdates?.()}
-      title={state === "uptodate" ? "You are up to date. Click to check again." : "Check for updates"}
-      className="app-no-drag inline-flex items-center gap-1.5 rounded-full border border-[#e6e4dd] bg-white px-2 py-1 text-[11px] text-[#77766f] transition hover:bg-[#f3f2ee]"
-    >
-      {state === "uptodate" ? <Check size={12} strokeWidth={2.4} className="text-[#3f8f62]" /> : <RefreshCw size={12} strokeWidth={2.2} />}
-      {state === "uptodate" ? "Up to date" : "Check updates"}
-    </button>
-  );
+  return null;
 }
 
 function callWindowControl(controlName) {
@@ -66,7 +47,6 @@ export default function AppHeader({
   workspaceLabel,
   appUpdate,
   onInstallUpdate,
-  onCheckForUpdates,
   onBack,
   onForward,
   onSearch,
@@ -104,7 +84,7 @@ export default function AppHeader({
       </div>
 
       <div className="hidden h-full items-center justify-end gap-3 pr-5 text-[#2e2d2b] lg:flex">
-        <UpdateControl appUpdate={appUpdate} onInstallUpdate={onInstallUpdate} onCheckForUpdates={onCheckForUpdates} />
+        <UpdateControl appUpdate={appUpdate} onInstallUpdate={onInstallUpdate} />
         {appVersion ? (
           <span className="app-no-drag text-[11px] font-medium text-[#aaa79f]" title={`AI Dev Co-worker ${appVersion}`}>
             {appVersion}

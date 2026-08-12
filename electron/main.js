@@ -527,16 +527,12 @@ function startBackgroundUpdater() {
     dispatchRendererEvent("app-update", { state, ...extra, timestamp: new Date().toISOString() });
 
   autoUpdater.on("update-available", (info) => notify("available", { version: info?.version ?? "" }));
-  autoUpdater.on("update-not-available", () => notify("uptodate"));
   autoUpdater.on("download-progress", (progress) => notify("downloading", { percent: Math.round(progress?.percent ?? 0) }));
   autoUpdater.on("update-downloaded", (info) => {
     pendingUpdateReady = true;
     notify("ready", { version: info?.version ?? "" });
   });
-  autoUpdater.on("error", (error) => {
-    notify("idle");
-    emitBackendLog("stderr", `Background update error: ${error?.message ?? error}`);
-  });
+  autoUpdater.on("error", (error) => emitBackendLog("stderr", `Background update error: ${error?.message ?? error}`));
 
   const check = () =>
     autoUpdater.checkForUpdates().catch((error) => emitBackendLog("stderr", `Background update check failed: ${error?.message ?? error}`));
@@ -549,23 +545,6 @@ ipcMain.handle("install-update-now", async () => {
   if (!pendingUpdateReady) return { ok: false, reason: "not-downloaded" };
   autoUpdater.quitAndInstall(true, true); // silent install + relaunch on the new version
   return { ok: true };
-});
-
-ipcMain.handle("check-for-updates", async () => {
-  if (!app.isPackaged) {
-    dispatchRendererEvent("app-update", { state: "uptodate", timestamp: new Date().toISOString() });
-    return { ok: false, reason: "not-packaged" };
-  }
-  dispatchRendererEvent("app-update", { state: "checking", timestamp: new Date().toISOString() });
-  try {
-    // The background updater's listeners translate the result into app-update states.
-    await autoUpdater.checkForUpdates();
-    return { ok: true };
-  } catch (error) {
-    dispatchRendererEvent("app-update", { state: "idle", timestamp: new Date().toISOString() });
-    emitBackendLog("stderr", `Manual update check failed: ${error?.message ?? error}`);
-    return { ok: false, reason: "check-failed" };
-  }
 });
 
 function createMainWindow() {
