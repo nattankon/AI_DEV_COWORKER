@@ -146,6 +146,7 @@ class IpcSidecar:
         self._workers: list[threading.Thread] = []
         self._emit_lock = threading.Lock()
         self._worker_context = threading.local()
+        self._auto_approve = False
         self._chat_histories: dict[str, list[dict[str, str]]] = {}
         self._cancelled_sessions: set[str] = set()
         self._cancel_lock = threading.Lock()
@@ -191,6 +192,9 @@ class IpcSidecar:
                 self._emit_api_keys_loaded(saved=saved, provider=str(payload.get("provider") or ""))
             elif command == "set_api_keys":
                 self._emit("api_keys_loaded", {"saved": False, "reason": "not_persisted_by_sidecar"})
+            elif command == "set_auto_approve":
+                self._auto_approve = bool(payload.get("enabled"))
+                self._emit("auto_approve_state", {"enabled": self._auto_approve})
             elif command == "chat_memory_list":
                 self._emit_chat_memory_state()
             elif command == "chat_memory_create":
@@ -2072,6 +2076,19 @@ class IpcSidecar:
         return clients, statuses
 
     def _request_approval(self, approval_kind: str, question: str, proposal: dict[str, Any]) -> bool:
+        if self._auto_approve:
+            # Auto-approve mode: skip the prompt but keep an audit trail and surface it.
+            record_cowork_event("approval_auto_approved", {"approval_kind": approval_kind, "question": question})
+            self._emit(
+                "cowork_log",
+                {
+                    "role": "SYSTEM",
+                    "text": f"Auto-approved: {question}",
+                    "client_session_id": str(getattr(self._worker_context, "client_session_id", "") or ""),
+                    "mode": str(getattr(self._worker_context, "mode", "") or "Cowork"),
+                },
+            )
+            return True
         approval_id = f"approval-{uuid.uuid4().hex}"
         approval_payload = build_approval_payload(approval_kind, question, proposal)
         with self._approval_condition:

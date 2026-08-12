@@ -1701,3 +1701,17 @@
 - REMAINING (UI, next): move Role editing into Settings (global); make the chat memory panel
   clearly per-chat and show same-project shared memories. Backend already supports both today via
   the existing panel's Role/Memory/Preference kinds.
+
+## 2026-08-12 - Auto-approve toggle + Role moved to Settings (v0.1.10)
+
+- Auto-approve: sidecar gains _auto_approve + set_auto_approve command; _request_approval returns
+  True immediately (audited via approval_auto_approved + a SYSTEM cowork_log) when on. Wired
+  end-to-end: preload setAutoApprove -> main set-auto-approve -> sidecar. Frontend: the bottom-right
+  "Ask before write" pill is now a toggle ("Auto-approve" when on), persisted in localStorage and
+  re-sent to the backend on connect. The code-level gate stays user-controlled; role text does not
+  flip it (that is this toggle's job).
+- Role editing moved to Settings: new RolesPanel (Settings > Role) lists/adds/deletes/toggles the
+  GLOBAL role via the existing chat-memory backend (kind=role). MemoryManager is now per-chat only —
+  dropped the "role" kind option and hides role entries.
+- Tests: backend 404/404 (+1 auto-approve); frontend 164/164 (removed 4 obsolete MemoryManager role
+  tests, added RolesPanel suite + a MemoryManager no-role assertion). Packaged renderer verified.

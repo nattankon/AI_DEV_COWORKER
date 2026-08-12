@@ -68,95 +68,20 @@ describe("MemoryManager", () => {
     expect(onCreate).toHaveBeenLastCalledWith({ kind: "do_not_remember", text: "old Lua preference" });
   });
 
-  it("creates a chat role from the manager", () => {
-    const onCreate = vi.fn();
-    render(<MemoryManager open activeMode="Chat" entries={[]} onCreate={onCreate} />);
-
-    fireEvent.change(screen.getByLabelText("Memory kind"), { target: { value: "role" } });
-    fireEvent.change(screen.getByLabelText("New memory"), { target: { value: "Act as a focused research assistant" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add role" }));
-
-    expect(onCreate).toHaveBeenCalledWith({
-      kind: "role",
-      mode: "Chat",
-      text: "Act as a focused research assistant",
-    });
-  });
-
-  it("shows only role memories for the active chat session", () => {
-    render(
-      <MemoryManager
-        open
-        activeSessionId="chat-1"
-        activeMode="Chat"
-        entries={[
-          { id: "r1", kind: "role", text: "Role for this chat", mode: "Chat", source: { session_id: "chat-1" } },
-          { id: "r2", kind: "role", text: "Role for another chat", mode: "Chat", source: { session_id: "chat-2" } },
-          { id: "r3", kind: "role", text: "Role for cowork mode", mode: "Cowork", source: { session_id: "chat-1" } },
-          { id: "m1", kind: "preference", text: "Global preference" },
-        ]}
-      />,
-    );
-
-    expect(screen.getByText("Role for this chat")).toBeTruthy();
-    expect(screen.getByText("Persona role")).toBeTruthy();
-    expect(screen.getByText("This chat")).toBeTruthy();
-    expect(screen.queryByText("Role for another chat")).toBeNull();
-    expect(screen.queryByText("Role for cowork mode")).toBeNull();
-    expect(screen.getByText("Global preference")).toBeTruthy();
-  });
-
-  it("creates and shows cowork roles for the active cowork mode", () => {
-    const onCreate = vi.fn();
+  it("does not offer role as a memory kind (roles live in Settings) and hides role entries", () => {
     render(
       <MemoryManager
         open
         activeMode="Cowork"
-        activeSessionId="cowork-1"
         entries={[
-          { id: "r1", kind: "role", text: "Cowork role", mode: "Cowork", source: { session_id: "cowork-1" } },
-          { id: "r2", kind: "role", text: "Chat role", mode: "Chat", source: { session_id: "cowork-1" } },
+          { id: "r1", kind: "role", text: "A global role" },
+          { id: "m1", kind: "preference", text: "A chat preference" },
         ]}
-        onCreate={onCreate}
       />,
     );
 
-    expect(screen.getByText("Cowork memory")).toBeTruthy();
-    expect(screen.getByText("Cowork role")).toBeTruthy();
-    expect(screen.queryByText("Chat role")).toBeNull();
-    fireEvent.change(screen.getByLabelText("Memory kind"), { target: { value: "role" } });
-    fireEvent.change(screen.getByLabelText("New memory"), { target: { value: "Act as a TDD agent" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add role" }));
-
-    expect(onCreate).toHaveBeenCalledWith({
-      kind: "role",
-      mode: "Cowork",
-      text: "Act as a TDD agent",
-    });
-  });
-
-  it("pauses and enables role memories without deleting them", () => {
-    const onSetEnabled = vi.fn();
-    render(
-      <MemoryManager
-        open
-        activeMode="Chat"
-        activeSessionId="chat-1"
-        entries={[
-          { id: "r1", kind: "role", text: "Use a calm tutoring style", mode: "Chat", enabled: true, source: { session_id: "chat-1" } },
-          { id: "r2", kind: "role", text: "Paused role", mode: "Chat", enabled: false, source: { session_id: "chat-1" } },
-        ]}
-        onSetEnabled={onSetEnabled}
-      />,
-    );
-
-    expect(screen.getByText("Active")).toBeTruthy();
-    expect(screen.getByText("Paused")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Pause role r1" }));
-    fireEvent.click(screen.getByRole("button", { name: "Enable role r2" }));
-
-    expect(onSetEnabled).toHaveBeenCalledWith("r1", false);
-    expect(onSetEnabled).toHaveBeenCalledWith("r2", true);
+    expect(screen.queryByRole("option", { name: "Role" })).toBeNull();
+    expect(screen.queryByText("A global role")).toBeNull();
+    expect(screen.getByText("A chat preference")).toBeTruthy();
   });
 });

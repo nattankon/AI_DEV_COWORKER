@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { answerQuestion, cancelCowork, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setChatMemoryEnabled, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
+import { answerQuestion, cancelCowork, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setAutoApprove, setChatMemoryEnabled, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
 import { createCoworkBridge } from "./adapters/coworkBridge";
 import { createSessionStorageAdapter } from "./adapters/sessionStorage";
 import ApprovalPrompt from "./components/ApprovalPrompt";
@@ -249,6 +249,7 @@ function createDefaultBridge() {
     setWorkspace,
     workspaceAction,
     installUpdateNow,
+    setAutoApprove,
     subscribe: (eventName, handler) => {
       const mappedEventName = {
         available_models: eelEvents.availableModels,
@@ -310,6 +311,13 @@ export default function CoworkApp({
   const [memoryManagerOpen, setMemoryManagerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [appUpdate, setAppUpdate] = useState({ state: "idle", version: "", percent: 0 });
+  const [autoApprove, setAutoApproveState] = useState(() => {
+    try {
+      return localStorage.getItem("cowork.autoApprove") === "1";
+    } catch {
+      return false;
+    }
+  });
   const [settingsSection, setSettingsSection] = useState("developer");
   const [chatMemoryEntries, setChatMemoryEntries] = useState([]);
   const [chatArtifacts, setChatArtifacts] = useState([]);
@@ -469,11 +477,11 @@ export default function CoworkApp({
         setChatMemoryEntries(Array.isArray(payload.entries) ? payload.entries : []);
       })
       : undefined;
-    if (memoryManagerOpen) void coworkBridge.listChatMemory?.();
+    if (memoryManagerOpen || (settingsOpen && settingsSection === "role")) void coworkBridge.listChatMemory?.();
     return () => {
       if (typeof unsubscribe === "function") unsubscribe();
     };
-  }, [coworkBridge, memoryManagerOpen]);
+  }, [coworkBridge, memoryManagerOpen, settingsOpen, settingsSection]);
 
   useEffect(() => {
     const unsubscribe = typeof coworkBridge.subscribeChatArtifacts === "function"
@@ -720,12 +728,29 @@ export default function CoworkApp({
     };
   }, [coworkBridge]);
 
+  useEffect(() => {
+    void coworkBridge.setAutoApprove?.(autoApprove);
+  }, [coworkBridge, autoApprove, bridgeState]);
+
+  const toggleAutoApprove = () => {
+    setAutoApproveState((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("cowork.autoApprove", next ? "1" : "0");
+      } catch {
+        /* ignore persistence errors */
+      }
+      return next;
+    });
+  };
+
   const openSettings = (section = "developer") => {
     const targetSection = section || "developer";
     setSettingsSection(targetSection);
     setSettingsOpen(true);
     if (targetSection === "developer" || targetSection === "connectors") void coworkBridge.listChatConnectors?.();
     if (targetSection === "providers") void coworkBridge.loadApiKeys?.();
+    if (targetSection === "role") void coworkBridge.listChatMemory?.();
   };
 
   const seedComposerPrompt = ({ id, mode, prompt }) => {
@@ -1133,6 +1158,10 @@ export default function CoworkApp({
           connectorTestResult={chatConnectorTestResult}
           connectorDiscoveryResult={chatConnectorDiscoveryResult}
           modelProviders={modelProviders}
+          roles={chatMemoryEntries.filter((entry) => String(entry?.kind || "") === "role")}
+          onCreateRole={(text) => coworkBridge.createChatMemory?.({ text, kind: "role", mode: activeMode, clientSessionId: activeSessionId })}
+          onDeleteRole={(id) => coworkBridge.deleteChatMemory?.(id)}
+          onSetRoleEnabled={(id, enabled) => coworkBridge.setChatMemoryEnabled?.(id, enabled)}
           onClose={() => setSettingsOpen(false)}
           onRefreshConnectors={() => coworkBridge.listChatConnectors?.()}
           onSaveConnectors={(connectors) => coworkBridge.saveChatConnectors?.(connectors)}
@@ -1169,9 +1198,16 @@ export default function CoworkApp({
             <span className={`h-[7px] w-[7px] rounded-full ${modelStatusLabel === "Model unavailable" ? "bg-[#c84f3d]" : modelStatusLabel === "Model loaded" ? "bg-[#3f8f62]" : "bg-[#d9a441]"}`} />
             {modelStatusLabel}
           </span>
-          <span className="inline-flex h-[29px] items-center rounded-full border border-[#e6e4dd] bg-white/90 px-3 shadow-[0_4px_15px_rgba(0,0,0,0.04)]">
-            Ask before write
-          </span>
+          <button
+            type="button"
+            onClick={toggleAutoApprove}
+            aria-pressed={autoApprove}
+            title={autoApprove ? "Auto-approving writes and commands. Click to require approval." : "Asking before writes and commands. Click to auto-approve."}
+            className={`pointer-events-auto inline-flex h-[29px] items-center gap-2 rounded-full border px-3 shadow-[0_4px_15px_rgba(0,0,0,0.04)] transition ${autoApprove ? "border-[#e0b7a8] bg-[#fbeee7] text-[#a2503a]" : "border-[#e6e4dd] bg-white/90 text-[#8c887f] hover:bg-white"}`}
+          >
+            <span className={`h-[7px] w-[7px] rounded-full ${autoApprove ? "bg-[#d96b4a]" : "bg-[#3f8f62]"}`} />
+            {autoApprove ? "Auto-approve" : "Ask before write"}
+          </button>
         </div>
       </section>
     </div>

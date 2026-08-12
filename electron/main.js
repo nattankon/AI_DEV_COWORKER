@@ -334,6 +334,7 @@ ipcMain.handle("workspace-action", async (_event, payload) => {
 ipcMain.handle("fetch-models", async () => sendCommandToPython("fetch_available_models"));
 ipcMain.handle("fetch-registered-skills", async () => sendCommandToPython("fetch_registered_skills"));
 ipcMain.handle("load-api-keys", async () => sendCommandToPython("load_api_keys"));
+ipcMain.handle("set-auto-approve", async (_event, enabled) => sendCommandToPython("set_auto_approve", { enabled: Boolean(enabled) }));
 ipcMain.handle("chat-memory-list", async () => sendCommandToPython("chat_memory_list"));
 ipcMain.handle("chat-memory-create", async (_event, payload) =>
   sendCommandToPython("chat_memory_create", {

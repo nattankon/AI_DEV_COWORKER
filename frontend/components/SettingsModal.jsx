@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { BarChart3, BriefcaseBusiness, Code2, CreditCard, Download, Globe2, HelpCircle, KeyRound, Monitor, Plug, Settings, Shield, SlidersHorizontal, UserCircle, Wrench, X } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, Bot, Code2, CreditCard, Download, Globe2, HelpCircle, KeyRound, Monitor, Plug, Settings, Shield, SlidersHorizontal, UserCircle, Wrench, X } from "lucide-react";
 import ConnectorsPanel from "./ConnectorsPanel";
 import ProvidersPanel from "./ProvidersPanel";
+import RolesPanel from "./RolesPanel";
 
 const settingsGroups = [
   {
@@ -13,6 +14,7 @@ const settingsGroups = [
       { key: "billing", label: "Billing", icon: CreditCard },
       { key: "usage", label: "Usage", icon: BarChart3 },
       { key: "capabilities", label: "Capabilities", icon: BriefcaseBusiness },
+      { key: "role", label: "Role", icon: Bot },
       { key: "providers", label: "Providers", icon: KeyRound },
       { key: "connectors", label: "Connectors", icon: Plug },
       { key: "code", label: "Code", icon: Code2 },
@@ -47,6 +49,10 @@ export default function SettingsModal({
   connectorTestResult,
   connectorDiscoveryResult,
   modelProviders,
+  roles = [],
+  onCreateRole,
+  onDeleteRole,
+  onSetRoleEnabled,
   onClose,
   onRefreshConnectors,
   onSaveConnectors,
@@ -62,6 +68,7 @@ export default function SettingsModal({
   const activeLabel = activeItem?.label || "Developer";
   const showDeveloperConnectors = activeSection === "developer" || activeSection === "connectors";
   const showProviders = activeSection === "providers";
+  const showRole = activeSection === "role";
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 py-8 backdrop-blur-[1px]">
@@ -112,7 +119,14 @@ export default function SettingsModal({
           >
             <X size={17} />
           </button>
-          {showProviders ? (
+          {showRole ? (
+            <RolesPanel
+              roles={roles}
+              onCreate={onCreateRole}
+              onDelete={onDeleteRole}
+              onSetEnabled={onSetRoleEnabled}
+            />
+          ) : showProviders ? (
             <ProvidersPanel
               modelProviders={modelProviders}
               onSaveProviderKey={onSaveProviderKey}

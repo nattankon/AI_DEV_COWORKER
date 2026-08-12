@@ -355,6 +355,22 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertEqual(events[3]["state"], "idle")
         self.assertNotIn("api_key", json.dumps(events).casefold())
 
+    def test_auto_approve_skips_the_approval_prompt(self):
+        output = StringIO()
+        sidecar = self._sidecar(output)
+
+        sidecar.handle_line(json.dumps({"command": "set_auto_approve", "enabled": True}))
+        approved = sidecar._approve_write(WriteProposal("app.py", "", "print('x')\n", "+print('x')"))
+
+        self.assertTrue(approved)
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertTrue(any(event["__ipc_type"] == "auto_approve_state" and event["enabled"] for event in events))
+        self.assertFalse(any(event["__ipc_type"] == "cowork_interactive_question" for event in events))
+
+        # Turning it back off restores the interactive gate contract (no auto-approve state true).
+        sidecar.handle_line(json.dumps({"command": "set_auto_approve", "enabled": False}))
+        self.assertFalse(sidecar._auto_approve)
+
     def test_send_cowork_streams_status_and_deltas(self):
         output = StringIO()
         agent = StreamingAgent("final answer")

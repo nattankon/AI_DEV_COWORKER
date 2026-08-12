@@ -33,13 +33,8 @@ export default function MemoryManager({ activeMode = "Chat", activeSessionId = "
   const [newKind, setNewKind] = useState("preference");
   const [newMemory, setNewMemory] = useState("");
   const mode = normalizeMode(activeMode);
-  const visibleEntries = entries.filter((entry) => {
-    if (String(entry?.kind || "") !== "role") return true;
-    const entrySessionId = String(entry?.source?.session_id || "");
-    const entryMode = normalizeMode(entry?.mode || entry?.source?.mode || "Chat");
-    if (entryMode !== mode) return false;
-    return !entrySessionId || !activeSessionId || entrySessionId === activeSessionId;
-  });
+  // Roles are global and managed in Settings; this panel is per-chat memory only.
+  const visibleEntries = entries.filter((entry) => String(entry?.kind || "") !== "role");
 
   if (!open) return null;
 
@@ -59,7 +54,7 @@ export default function MemoryManager({ activeMode = "Chat", activeSessionId = "
   const commitCreate = () => {
     const text = newMemory.trim();
     if (!text) return;
-    onCreate?.({ kind: newKind, ...(newKind === "role" ? { mode } : {}), text });
+    onCreate?.({ kind: newKind, text });
     setNewMemory("");
     setNewKind("preference");
   };
@@ -90,7 +85,6 @@ export default function MemoryManager({ activeMode = "Chat", activeSessionId = "
               <option value="writing_style">Writing style</option>
               <option value="identity">Identity</option>
               <option value="long_term_goal">Long-term goal</option>
-              <option value="role">Role</option>
               <option value="do_not_remember">Do not remember</option>
               <option value="memory">Memory</option>
             </select>
