@@ -200,6 +200,7 @@ class IpcSidecar:
                     kind=str(payload.get("kind") or "preference"),
                     source_session_id=str(payload.get("client_session_id") or payload.get("clientSessionId") or ""),
                     mode=self._normalize_mode(payload.get("mode") or "Chat"),
+                    project=self._active_project(),
                 )
                 self._emit_chat_memory_state()
             elif command == "chat_memory_update":
@@ -523,11 +524,16 @@ class IpcSidecar:
                 raise RuntimeError("; ".join(failures)) from exc
         raise RuntimeError("No local model candidate is available.")
 
+    def _active_project(self) -> str:
+        workspace = getattr(self.dependencies, "workspace", None)
+        return str(workspace) if workspace else ""
+
     def _format_mode_role_prompt(self, prompt: str, client_session_id: str, mode: str) -> str:
         role_prompt = self._chat_memory_store().format_for_prompt(
             query=prompt,
             source_session_id=client_session_id,
             mode=mode,
+            project=self._active_project(),
             include_personal_memory=True,
         )
         if not role_prompt.strip():
@@ -557,7 +563,7 @@ class IpcSidecar:
         route = classify_chat_prompt(prompt)
         memory_store = self._chat_memory_store()
         stored_memories = memory_store.remember_from_user_message(prompt, source_session_id=client_session_id)
-        memory_prompt = memory_store.format_for_prompt(query=prompt, source_session_id=client_session_id, mode="Chat")
+        memory_prompt = memory_store.format_for_prompt(query=prompt, source_session_id=client_session_id, mode="Chat", project=self._active_project())
         memory_messages = [{"role": "system", "content": memory_prompt}] if memory_prompt else []
         normalized_attachments = attachments or []
         model = self._route_chat_model_if_auto(model, prompt, normalized_attachments)

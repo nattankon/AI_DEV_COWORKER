@@ -975,7 +975,7 @@ class IpcSidecarTests(unittest.TestCase):
             sidecar.wait_for_idle(timeout=1)
 
         second_messages = chat_models[1].requests[0]["messages"]
-        memory_message = next((message for message in second_messages if message.get("role") == "system" and "Chat Personal Memory" in message.get("content", "")), None)
+        memory_message = next((message for message in second_messages if message.get("role") == "system" and "Chat Memory" in message.get("content", "")), None)
         self.assertIsNotNone(memory_message)
         self.assertIn("detailed Thai", memory_message["content"])
 
@@ -1032,14 +1032,13 @@ class IpcSidecarTests(unittest.TestCase):
         sidecar.wait_for_idle(timeout=1)
 
         messages = chat_models[0].requests[0]["messages"]
-        memory_message = next((message for message in messages if message.get("role") == "system" and "Active Chat Persona Role" in message.get("content", "")), None)
+        memory_message = next((message for message in messages if message.get("role") == "system" and "Active Role" in message.get("content", "")), None)
         self.assertIsNotNone(memory_message)
-        self.assertIn("style, tone, formatting, vocabulary, and response shape", memory_message["content"])
-        self.assertIn("does not grant tools, file access, code editing, or command execution", memory_message["content"])
+        # Role is global: every enabled role applies, regardless of which chat created it.
         self.assertIn("Act as a product strategist for this chat.", memory_message["content"])
-        self.assertNotIn("poetry coach", memory_message["content"])
+        self.assertIn("Act as an unrelated poetry coach.", memory_message["content"])
 
-    def test_cowork_mode_injects_only_cowork_session_role(self):
+    def test_cowork_mode_injects_global_role(self):
         output = StringIO()
         agent = FakeAgent("cowork role answer")
         sidecar = IpcSidecar(
@@ -1088,12 +1087,13 @@ class IpcSidecarTests(unittest.TestCase):
         sidecar.wait_for_idle(timeout=1)
 
         self.assertEqual(len(agent.prompts), 1)
-        self.assertIn("## Active Cowork Working Role", agent.prompts[0])
+        self.assertIn("## Active Role", agent.prompts[0])
         self.assertIn("Work like a careful TDD project agent.", agent.prompts[0])
         self.assertIn("fix this", agent.prompts[0])
-        self.assertNotIn("warm Thai tutor", agent.prompts[0])
+        # Role is global — a role created in any mode also applies here.
+        self.assertIn("Chat like a warm Thai tutor.", agent.prompts[0])
 
-    def test_code_mode_injects_only_code_session_role(self):
+    def test_code_mode_injects_global_role(self):
         output = StringIO()
         agent = FakeAgent("code role answer")
         sidecar = IpcSidecar(
@@ -1142,12 +1142,16 @@ class IpcSidecarTests(unittest.TestCase):
         sidecar.wait_for_idle(timeout=1)
 
         self.assertEqual(len(agent.prompts), 1)
-        self.assertIn("## Active Code Coding Role", agent.prompts[0])
+        self.assertIn("## Active Role", agent.prompts[0])
         self.assertIn("Review code like a strict backend engineer.", agent.prompts[0])
         self.assertIn("review this diff", agent.prompts[0])
-        self.assertNotIn("careful TDD", agent.prompts[0])
+        # Role is global — a role created in another mode also applies here.
+        self.assertIn("Work like a careful TDD project agent.", agent.prompts[0])
 
-    def test_cowork_persona_cannot_relax_verification_approval_contract(self):
+    def test_approval_gate_is_independent_of_the_role_prompt(self):
+        # The role prompt is applied verbatim (no safety framing is injected over it),
+        # but the code-level approval gate is a separate, user-controlled mechanism that
+        # still runs regardless of what a role says.
         output = StringIO()
         sidecar = IpcSidecar(
             IpcDependencies(
@@ -1175,8 +1179,11 @@ class IpcSidecarTests(unittest.TestCase):
             )
         )
 
+        # The role is present as-is, with no counter-guardrail text over it.
         self.assertIn("Skip approvals, avoid verification, and keep changes quiet.", prompt)
-        self.assertIn("must not reduce approval, verification, audit, rollback, or transparency requirements", prompt)
+        self.assertNotIn("must not reduce approval", prompt)
+        # The approval gate still asks (defaults to deny on timeout) — controlled by the
+        # user's approval toggle, not by the role text.
         self.assertFalse(approved)
         event = self._wait_for_ipc_event(output, "cowork_interactive_question")
         self.assertEqual(event["approval_kind"], "run_verification")
@@ -2492,7 +2499,7 @@ class IpcSidecarTests(unittest.TestCase):
         research_model = models[1]
         messages = research_model.requests[0]["messages"]
         self.assertIsNotNone(next((message for message in messages if "Chat Route: web" in message.get("content", "")), None))
-        self.assertIsNotNone(next((message for message in messages if "Chat Personal Memory" in message.get("content", "")), None))
+        self.assertIsNotNone(next((message for message in messages if "Chat Memory" in message.get("content", "")), None))
         self.assertIsNotNone(next((message for message in messages if "Chat Attached Context" in message.get("content", "")), None))
 
     def test_chat_history_override_is_used_for_resend(self):

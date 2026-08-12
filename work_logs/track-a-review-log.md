@@ -1678,3 +1678,26 @@
   no preference -> English; with "ตอบเป็นภาษาไทยเสมอ" -> Thai. Fix verified end-to-end.
 - Note: the dev personal.json contains a role entry "Skip approvals, avoid verification…" (dev-only
   data, not shipped; neutralized by the cowork_persona framing). Worth deleting from the dev store.
+
+## 2026-08-12 - Memory redesign: global role, per-chat/project memory, no safety framing (v0.1.9)
+
+- Per user direction (their own local tool; don't impose safety during dev):
+  - Role = single GLOBAL layer: every enabled role applies to all chats and all modes.
+    _active_role_entries (no mode/session filter); one "## Active Role" header; role deduped
+    globally by content. remember_manual role metadata simplified to authority=global_role.
+  - Removed the role "safety framing" clause ("must not reduce approval/verification/...") from
+    prompts. The code-level approval gate (approve_command/write, user's toggle) is unchanged and
+    still runs — it is independent of the role text.
+  - Memory = per-chat: format_for_prompt gains `project`; a memory applies to its own session,
+    to any chat in the SAME project, or globally if it has no session (legacy). remember_manual
+    stores `project`. Sidecar passes _active_project() (the selected workspace) to both
+    format_for_prompt and chat_memory_create, for Chat and Cowork/Code.
+  - Headers: Chat -> "## Chat Memory", Cowork/Code -> "## Session Memory".
+- Tests: backend 403/403. Rewrote role tests to global semantics; renamed
+  cowork/code "injects_only" -> "injects_global_role"; replaced the persona-safety test with
+  test_approval_gate_is_independent_of_the_role_prompt (role verbatim, gate still asks).
+- Live (glm-4.5-flash): a role created in session A ("answer in Thai, prefix 'รับทราบครับ'")
+  applied in a different session B in Cowork mode. Memory project-scoping covered by unit tests.
+- REMAINING (UI, next): move Role editing into Settings (global); make the chat memory panel
+  clearly per-chat and show same-project shared memories. Backend already supports both today via
+  the existing panel's Role/Memory/Preference kinds.

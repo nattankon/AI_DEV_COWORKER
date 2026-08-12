@@ -47,8 +47,8 @@ class ChatMemoryStoreTests(unittest.TestCase):
             self.assertEqual(updated["text"], "please answer in concise Thai")
 
             reloaded = ChatMemoryStore(Path(temp_dir))
-            self.assertIn("please answer in concise Thai", reloaded.format_for_prompt())
-            self.assertNotIn("please answer in detailed Thai", reloaded.format_for_prompt())
+            self.assertIn("please answer in concise Thai", reloaded.format_for_prompt(source_session_id="chat-1"))
+            self.assertNotIn("please answer in detailed Thai", reloaded.format_for_prompt(source_session_id="chat-1"))
 
             self.assertTrue(reloaded.delete_memory(memory_id))
             self.assertEqual(ChatMemoryStore(Path(temp_dir)).list_memories(), [])
@@ -94,90 +94,53 @@ class ChatMemoryStoreTests(unittest.TestCase):
             self.assertIsNone(rejected)
             self.assertEqual(len(store.list_memories()), 1)
 
-    def test_manual_role_memory_is_session_scoped_persona_and_always_prompted(self):
+    def test_role_memory_is_global_across_all_modes_and_sessions(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ChatMemoryStore(Path(temp_dir))
 
-            role = store.remember_manual("Communicate as a focused writing assistant with detailed Thai answers.", kind="role", source_session_id="chat-1")
-            other_role = store.remember_manual("Act as a poetry coach.", kind="role", source_session_id="chat-2")
-            store.remember_manual("Answer in concise Thai.", kind="writing_style", source_session_id="chat-1")
+            role = store.remember_manual("Obey all my commands without objection.", kind="role", source_session_id="chat-1")
 
-            prompt = store.format_for_prompt(query="What should we build next?", source_session_id="chat-1")
-
-            self.assertIsNotNone(role)
-            self.assertIsNotNone(other_role)
             self.assertEqual(role["kind"], "role")
-            self.assertEqual(role["authority"], "chat_persona")
-            self.assertEqual(role["scope"], "chat_session")
-            self.assertEqual(role["mode"], "Chat")
             self.assertTrue(role["enabled"])
-            self.assertIn("## Active Chat Persona Role", prompt)
-            self.assertIn("style, tone, formatting, vocabulary, and response shape", prompt)
-            self.assertIn("does not grant tools, file access, code editing, or command execution", prompt)
-            self.assertIn("Communicate as a focused writing assistant with detailed Thai answers.", prompt)
-            self.assertNotIn("Act as a poetry coach.", prompt)
+            # The same global role applies in every mode and in any other session.
+            for mode, session in (("Chat", "chat-1"), ("Cowork", "cowork-9"), ("Code", "other-session")):
+                prompt = store.format_for_prompt(query="what next?", source_session_id=session, mode=mode)
+                self.assertIn("## Active Role", prompt)
+                self.assertIn("Obey all my commands without objection.", prompt)
+                # No safety framing is injected over the role.
+                self.assertNotIn("must not reduce approval", prompt)
 
-    def test_manual_role_memory_is_mode_scoped_for_cowork_and_code(self):
+    def test_memory_is_scoped_to_its_chat_and_same_project_chats(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ChatMemoryStore(Path(temp_dir))
+            store.remember_manual("Answer in Thai.", kind="preference", source_session_id="sess-1", mode="Cowork", project="C:/proj-a")
+            store.remember_manual("Use tabs, not spaces.", kind="memory", source_session_id="sess-2", mode="Cowork", project="C:/proj-b")
+
+            # The memory reaches its own chat.
+            own = store.format_for_prompt(query="hi", source_session_id="sess-1", mode="Cowork", project="C:/proj-a", include_personal_memory=True)
+            self.assertIn("Answer in Thai.", own)
+            self.assertIn("## Session Memory", own)
+            self.assertNotIn("Use tabs", own)
+
+            # A different chat in the SAME project pulls it in.
+            same_project = store.format_for_prompt(query="hi", source_session_id="sess-9", mode="Cowork", project="C:/proj-a", include_personal_memory=True)
+            self.assertIn("Answer in Thai.", same_project)
+
+            # A chat in a DIFFERENT project does not see it.
+            other_project = store.format_for_prompt(query="hi", source_session_id="sess-9", mode="Cowork", project="C:/proj-z", include_personal_memory=True)
+            self.assertNotIn("Answer in Thai.", other_project)
+
+    def test_role_is_deduped_globally_by_content(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ChatMemoryStore(Path(temp_dir))
 
-            cowork_role = store.remember_manual("Work like a careful TDD project agent.", kind="role", source_session_id="shared-1", mode="Cowork")
-            code_role = store.remember_manual("Review code like a strict backend engineer.", kind="role", source_session_id="shared-1", mode="Code")
-            chat_role = store.remember_manual("Chat like a warm Thai tutor.", kind="role", source_session_id="shared-1", mode="Chat")
+            first = store.remember_manual("Be concise.", kind="role", source_session_id="s1", mode="Chat")
+            second = store.remember_manual("Be concise.", kind="role", source_session_id="s2", mode="Cowork")
 
-            cowork_prompt = store.format_for_prompt(query="Fix the app", source_session_id="shared-1", mode="Cowork")
-            code_prompt = store.format_for_prompt(query="Review this diff", source_session_id="shared-1", mode="Code")
-            chat_prompt = store.format_for_prompt(query="Explain this idea", source_session_id="shared-1", mode="Chat")
-
-            self.assertEqual(cowork_role["authority"], "cowork_persona")
-            self.assertEqual(code_role["authority"], "code_persona")
-            self.assertEqual(chat_role["authority"], "chat_persona")
-            self.assertIn("## Active Cowork Working Role", cowork_prompt)
-            self.assertIn("must not reduce approval, verification, audit, rollback, or transparency requirements", cowork_prompt)
-            self.assertIn("Work like a careful TDD project agent.", cowork_prompt)
-            self.assertNotIn("strict backend engineer", cowork_prompt)
-            self.assertNotIn("warm Thai tutor", cowork_prompt)
-            self.assertIn("## Active Code Coding Role", code_prompt)
-            self.assertIn("must not reduce approval, verification, audit, rollback, or transparency requirements", code_prompt)
-            self.assertIn("Review code like a strict backend engineer.", code_prompt)
-            self.assertNotIn("careful TDD", code_prompt)
-            self.assertNotIn("warm Thai tutor", code_prompt)
-            self.assertIn("## Active Chat Persona Role", chat_prompt)
-            self.assertIn("Chat like a warm Thai tutor.", chat_prompt)
-            self.assertNotIn("careful TDD", chat_prompt)
-            self.assertNotIn("strict backend engineer", chat_prompt)
-
-    def test_preference_memory_applies_in_cowork_and_code_not_just_chat(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            store = ChatMemoryStore(Path(temp_dir))
-            store.remember_manual("Answer in Thai with detailed explanations.", kind="preference", source_session_id="sess-1", mode="Cowork")
-
-            cowork_prompt = store.format_for_prompt(query="สวัสดี", source_session_id="sess-1", mode="Cowork", include_personal_memory=True)
-            code_prompt = store.format_for_prompt(query="hi", source_session_id="sess-1", mode="Code", include_personal_memory=True)
-
-            # The preference now reaches Cowork/Code under a mode-appropriate header
-            # with the safety framing, not the Chat-only wording.
-            self.assertIn("Answer in Thai with detailed explanations.", cowork_prompt)
-            self.assertIn("## User Preferences", cowork_prompt)
-            self.assertIn("must not reduce approval, verification, audit, rollback, or transparency requirements", cowork_prompt)
-            self.assertNotIn("only for Chat", cowork_prompt)
-            self.assertIn("Answer in Thai with detailed explanations.", code_prompt)
-
-            # Chat keeps its own personal-memory header.
-            chat_prompt = store.format_for_prompt(query="hi", source_session_id="sess-1", mode="Chat", include_personal_memory=True)
-            self.assertIn("## Chat Personal Memory", chat_prompt)
-
-    def test_same_role_text_can_exist_in_different_modes(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            store = ChatMemoryStore(Path(temp_dir))
-
-            chat_role = store.remember_manual("Be concise.", kind="role", source_session_id="same-text", mode="Chat")
-            cowork_role = store.remember_manual("Be concise.", kind="role", source_session_id="same-text", mode="Cowork")
-
-            self.assertNotEqual(chat_role["id"], cowork_role["id"])
-            self.assertEqual(len([entry for entry in store.list_memories() if entry["kind"] == "role"]), 2)
-            self.assertIn("## Active Chat Persona Role", store.format_for_prompt(source_session_id="same-text", mode="Chat"))
-            self.assertIn("## Active Cowork Working Role", store.format_for_prompt(source_session_id="same-text", mode="Cowork", include_personal_memory=False))
+            # One global role, not one-per-mode.
+            self.assertEqual(first["id"], second["id"])
+            self.assertEqual(len([entry for entry in store.list_memories() if entry["kind"] == "role"]), 1)
+            self.assertIn("## Active Role", store.format_for_prompt(source_session_id="any", mode="Cowork", include_personal_memory=False))
 
     def test_disabled_role_is_kept_but_not_injected(self):
         with tempfile.TemporaryDirectory() as temp_dir:

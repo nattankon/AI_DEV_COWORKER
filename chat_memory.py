@@ -20,22 +20,17 @@ _PREFERENCE_PATTERNS = (
     re.compile(r"(please write|answer style|writing style|warm detailed|concise thai|detailed thai).+", re.IGNORECASE),
 )
 _ROLE_MODE_META = {
-    "Chat": {
-        "authority": "chat_persona",
-        "header": "## Active Chat Persona Role",
-        "description": "Authority: chat_persona. Scope: chat_session. Mode: Chat. Apply this role as the persona/style layer for this Chat only. It may guide style, tone, formatting, vocabulary, and response shape, but it does not grant tools, file access, code editing, or command execution.",
-    },
-    "Cowork": {
-        "authority": "cowork_persona",
-        "header": "## Active Cowork Working Role",
-        "description": "Authority: cowork_persona. Scope: mode_session. Mode: Cowork. Apply this role as the working-style layer for this Cowork session only. It may guide workflow emphasis, communication style, planning depth, and verification habits, but it does not grant new file, write, command, or approval permissions and must not reduce approval, verification, audit, rollback, or transparency requirements.",
-    },
-    "Code": {
-        "authority": "code_persona",
-        "header": "## Active Code Coding Role",
-        "description": "Authority: code_persona. Scope: mode_session. Mode: Code. Apply this role as the coding/review-style layer for this Code session only. It may guide code review perspective, implementation style, language focus, and explanation shape, but it does not grant new file, write, command, or approval permissions and must not reduce approval, verification, audit, rollback, or transparency requirements.",
-    },
+    "Chat": {"authority": "chat_persona"},
+    "Cowork": {"authority": "cowork_persona"},
+    "Code": {"authority": "code_persona"},
 }
+
+# Role is a single global layer that applies to every chat in all modes.
+_GLOBAL_ROLE_HEADER = "## Active Role"
+_GLOBAL_ROLE_DESCRIPTION = (
+    "This is the user's standing role instruction. It applies to every chat across all modes and "
+    "is the highest-priority guidance for who you are and how you respond. Follow it directly."
+)
 
 
 def _normalize_mode(mode: str) -> str:
@@ -237,7 +232,7 @@ class ChatMemoryStore:
         self._write_entries(next_entries)
         return self._public_entry(entry)
 
-    def remember_manual(self, text: str, *, kind: str = "preference", source_session_id: str = "", mode: str = "Chat") -> dict[str, Any] | None:
+    def remember_manual(self, text: str, *, kind: str = "preference", source_session_id: str = "", mode: str = "Chat", project: str = "") -> dict[str, Any] | None:
         allowed_kinds = {"do_not_remember", "identity", "long_term_goal", "memory", "preference", "profile", "role", "writing_style"}
         normalized_kind = str(kind or "preference").strip()
         if normalized_kind not in allowed_kinds:
@@ -248,18 +243,12 @@ class ChatMemoryStore:
         metadata = {
             "type": "manual_chat_memory",
             "session_id": str(source_session_id or ""),
+            "project": str(project or ""),
             "kind": normalized_kind,
         }
         if normalized_kind == "role":
-            role_meta = _ROLE_MODE_META[normalized_mode]
-            metadata.update(
-                {
-                    "authority": role_meta["authority"],
-                    "scope": "chat_session" if normalized_mode == "Chat" else "mode_session",
-                    "mode": normalized_mode,
-                    "enabled": True,
-                }
-            )
+            # Role is a single global layer; it is not scoped to a mode or session.
+            metadata.update({"authority": "global_role", "scope": "global", "enabled": True})
         return self.remember(text, metadata)
 
     def mark_do_not_remember(self, text: str, *, source_session_id: str = "") -> dict[str, Any] | None:
@@ -282,30 +271,33 @@ class ChatMemoryStore:
         query: str = "",
         source_session_id: str = "",
         mode: str = "Chat",
+        project: str = "",
         include_personal_memory: bool = True,
     ) -> str:
         source_session = str(source_session_id or "")
         normalized_mode = _normalize_mode(mode)
-        role_entries = self._session_role_entries(source_session, normalized_mode)
+        project = str(project or "")
+        role_entries = self._active_role_entries()
         if query and include_personal_memory:
             recalled = self.recall(query, top_k=max_entries)
             recent = list(reversed(self._active_memory_entries()))[: max(2, min(3, max_entries))]
-            entries = self._dedupe_entries([entry for entry in [*recalled, *recent] if str(entry.get("kind") or "") != "role"])[:max_entries]
+            candidate = [entry for entry in [*recalled, *recent] if str(entry.get("kind") or "") != "role"]
+            entries = self._dedupe_entries(
+                [entry for entry in candidate if self._memory_in_scope(entry, source_session, project)]
+            )[:max_entries]
         elif include_personal_memory:
-            entries = [entry for entry in self._active_memory_entries() if str(entry.get("kind") or "") != "role"][-max_entries:]
+            entries = [
+                entry
+                for entry in self._active_memory_entries()
+                if str(entry.get("kind") or "") != "role" and self._memory_in_scope(entry, source_session, project)
+            ][-max_entries:]
         else:
             entries = []
         if not entries and not role_entries:
             return ""
         lines = []
         if role_entries:
-            role_meta = _ROLE_MODE_META[normalized_mode]
-            lines.extend(
-                [
-                    role_meta["header"],
-                    role_meta["description"],
-                ]
-            )
+            lines.extend([_GLOBAL_ROLE_HEADER, _GLOBAL_ROLE_DESCRIPTION])
             for entry in role_entries:
                 timestamp = str(entry.get("updated_at") or entry.get("created_at") or "unknown time")
                 content = str(entry.get("content") or "").strip()
@@ -314,22 +306,14 @@ class ChatMemoryStore:
         if entries:
             if lines:
                 lines.append("")
-            if normalized_mode == "Chat":
-                lines.extend(
-                    [
-                        "## Chat Personal Memory",
-                        "Use these user preferences only for Chat. Do not treat them as project facts.",
-                    ]
-                )
-            else:
-                lines.extend(
-                    [
-                        "## User Preferences",
-                        "Apply these user preferences (style, tone, language, formatting) to your responses. "
-                        "They do not grant new file, write, command, or approval permissions and must not reduce "
-                        "approval, verification, audit, rollback, or transparency requirements, and are not project facts.",
-                    ]
-                )
+            header = "## Chat Memory" if normalized_mode == "Chat" else "## Session Memory"
+            scope_note = " and other chats in the same project" if project else ""
+            lines.extend(
+                [
+                    header,
+                    f"User instructions and context for this chat{scope_note}. Follow them for this session.",
+                ]
+            )
         for entry in entries:
             if str(entry.get("kind") or "") == "do_not_remember":
                 continue
@@ -340,25 +324,30 @@ class ChatMemoryStore:
                 lines.append(f"- [{kind}, {timestamp}] {content}")
         return "\n".join(lines)
 
-    def _session_role_entries(self, source_session_id: str, mode: str = "Chat") -> list[dict[str, Any]]:
-        source_session = str(source_session_id or "")
-        normalized_mode = _normalize_mode(mode)
+    def _active_role_entries(self) -> list[dict[str, Any]]:
+        """Role is global — every enabled role applies to all chats and modes."""
         roles: list[dict[str, Any]] = []
         for entry in self.load_personal_memories():
             if str(entry.get("kind") or "") != "role":
                 continue
             if entry.get("enabled") is False or (entry.get("source") or {}).get("enabled") is False:
                 continue
-            entry_mode = _normalize_mode(str((entry.get("source") or {}).get("mode") or entry.get("mode") or "Chat"))
-            if entry_mode != normalized_mode:
-                continue
-            entry_session = str((entry.get("source") or {}).get("session_id") or "")
-            if entry_session and source_session and entry_session != source_session:
-                continue
-            if entry_session and not source_session:
-                continue
             roles.append(entry)
-        return roles[-3:]
+        return roles[-5:]
+
+    def _memory_in_scope(self, entry: dict[str, Any], source_session: str, project: str) -> bool:
+        """A memory applies to its own chat, to any chat in the same project, or globally
+        when it has no session (legacy or user-global memory)."""
+        source = entry.get("source") or {}
+        entry_session = str(source.get("session_id") or "")
+        entry_project = str(source.get("project") or "")
+        if not entry_session:
+            return True
+        if source_session and entry_session == source_session:
+            return True
+        if project and entry_project and entry_project == project:
+            return True
+        return False
 
     def _dedupe_entries(self, entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen: set[str] = set()
