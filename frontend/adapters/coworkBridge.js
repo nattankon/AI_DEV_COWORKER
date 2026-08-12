@@ -347,6 +347,11 @@ export function createCoworkBridge(legacyBridge, overrides = {}) {
         await legacyBridge.setAutoApprove(Boolean(enabled));
       }
     },
+    async checkForUpdates() {
+      if (typeof legacyBridge?.checkForUpdates === "function") {
+        await legacyBridge.checkForUpdates();
+      }
+    },
     subscribeChatMemory(listener) {
       const subscribe = legacyBridge?.subscribe;
       if (typeof subscribe !== "function") return () => {};

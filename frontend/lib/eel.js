@@ -223,6 +223,7 @@ function invokeBridgeMethod(method, args = []) {
     load_api_keys: bridge.loadApiKeys,
     set_provider_key: bridge.setProviderKey,
     install_update_now: bridge.installUpdateNow,
+    check_for_updates: bridge.checkForUpdates,
     set_auto_approve: bridge.setAutoApprove,
     resolve_hitl: bridge.resolveHitl,
     select_folder: bridge.selectFolder,
@@ -303,6 +304,10 @@ export function createChatMemory(payload) {
 
 export function setAutoApprove(enabled) {
   return invokeBridgeMethod("set_auto_approve", [enabled]);
+}
+
+export function checkForUpdates() {
+  return invokeBridgeMethod("check_for_updates");
 }
 
 export function updateChatMemory(id, text) {

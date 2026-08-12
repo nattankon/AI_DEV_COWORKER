@@ -14,6 +14,28 @@ describe("AppHeader update control", () => {
     expect(screen.queryByRole("button", { name: /Install update/i })).not.toBeInTheDocument();
   });
 
+  it("shows a Check-for-updates button when idle and checks on click", () => {
+    const onCheckForUpdates = vi.fn();
+    render(<AppHeader appUpdate={{ state: "idle" }} onInstallUpdate={vi.fn()} onCheckForUpdates={onCheckForUpdates} />);
+
+    const button = screen.getByRole("button", { name: "Check for updates" });
+    expect(button).toBeInTheDocument();
+    fireEvent.click(button);
+    expect(onCheckForUpdates).toHaveBeenCalled();
+  });
+
+  it("shows a spinner while checking", () => {
+    render(<AppHeader appUpdate={{ state: "checking" }} onInstallUpdate={vi.fn()} onCheckForUpdates={vi.fn()} />);
+    expect(screen.getByText("Checking")).toBeInTheDocument();
+  });
+
+  it("shows an up-to-date state that can re-check", () => {
+    const onCheckForUpdates = vi.fn();
+    render(<AppHeader appUpdate={{ state: "uptodate" }} onInstallUpdate={vi.fn()} onCheckForUpdates={onCheckForUpdates} />);
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    expect(onCheckForUpdates).toHaveBeenCalled();
+  });
+
   it("shows a clickable Update button when ready and installs on click", () => {
     const onInstallUpdate = vi.fn();
     render(<AppHeader appUpdate={{ state: "ready", version: "0.1.3" }} onInstallUpdate={onInstallUpdate} />);
