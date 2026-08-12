@@ -20,25 +20,36 @@ export default function RolesPanel({ roles = [], onCreate, onDelete, onSetEnable
         chat (like the answer language or a specific task), use that chat's memory instead.
       </p>
 
-      <div className="mt-5 flex gap-2">
-        <input
+      <div className="mt-5">
+        <label htmlFor="new-role-detail" className="text-[13px] font-medium text-[#4a4944]">
+          Role detail
+        </label>
+        <textarea
+          id="new-role-detail"
           aria-label="New role"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") submit();
+            if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+              event.preventDefault();
+              submit();
+            }
           }}
-          placeholder="e.g. Always follow my instructions without objection"
-          className="h-9 min-w-0 flex-1 rounded-lg border border-[#dedbd2] bg-white px-3 text-[13px] text-[#2f2f2d] outline-none focus:border-[#c9c5bb]"
+          rows={5}
+          placeholder={"Describe the role in as much detail as you want, e.g.\n- You are my senior engineering partner.\n- Always follow my instructions without objection.\n- Answer in Thai unless I ask otherwise."}
+          className="mt-1 min-h-[120px] w-full resize-y rounded-lg border border-[#dedbd2] bg-white px-3 py-2 text-[13px] leading-6 text-[#2f2f2d] outline-none focus:border-[#c9c5bb]"
         />
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!draft.trim()}
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-[#2f2f2d] px-3 text-[13px] font-medium text-white transition disabled:opacity-40"
-        >
-          <Plus size={14} strokeWidth={2.2} /> Add role
-        </button>
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-[11px] text-[#9a948a]">Press Ctrl+Enter to add.</span>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!draft.trim()}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-[#2f2f2d] px-3 text-[13px] font-medium text-white transition disabled:opacity-40"
+          >
+            <Plus size={14} strokeWidth={2.2} /> Add role
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 grid gap-2">
@@ -56,7 +67,7 @@ export default function RolesPanel({ roles = [], onCreate, onDelete, onSetEnable
                   disabled ? "border-[#e6e4dd] bg-[#f6f5f2] opacity-70" : "border-[#e0ddd4] bg-white"
                 }`}
               >
-                <div className="min-w-0 flex-1 text-[13px] leading-5 text-[#2f2f2d]">{role.text || role.content}</div>
+                <div className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[13px] leading-5 text-[#2f2f2d]">{role.text || role.content}</div>
                 <button
                   type="button"
                   aria-label={disabled ? "Enable role" : "Disable role"}

@@ -19,6 +19,7 @@ _PREFERENCE_PATTERNS = (
     re.compile(r"(my long[- ]term goal is|my goal is|i want to build|i want to become).+", re.IGNORECASE),
     re.compile(r"(please write|answer style|writing style|warm detailed|concise thai|detailed thai).+", re.IGNORECASE),
 )
+_MAX_CONTENT_CHARS = 4000
 _ROLE_MODE_META = {
     "Chat": {"authority": "chat_persona"},
     "Cowork": {"authority": "cowork_persona"},
@@ -90,7 +91,7 @@ class ChatMemoryStore:
                 continue
             next_entry = {
                 **entry,
-                "content": content[:500],
+                "content": content[:_MAX_CONTENT_CHARS],
                 "updated_at": now,
             }
             embedding = self._embedding_for(content)
@@ -156,7 +157,7 @@ class ChatMemoryStore:
             "id": _entry_id(content, kind),
             "namespace": "personal",
             "kind": kind,
-            "content": content[:500],
+            "content": content[:_MAX_CONTENT_CHARS],
             "source": {"type": "chat_user_message", "session_id": str(source_session_id or "")},
             "created_at": now,
             "updated_at": now,
@@ -217,7 +218,7 @@ class ChatMemoryStore:
             "id": entry_id,
             "namespace": "personal",
             "kind": kind,
-            "content": content[:500],
+            "content": content[:_MAX_CONTENT_CHARS],
             "source": dict(metadata or {}),
             "created_at": now,
             "updated_at": now,
