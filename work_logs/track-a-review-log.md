@@ -1659,3 +1659,22 @@
   frontend 164/164 (+1 panel warning; bridge completion exact-match updated).
 - Live re-check before release: probe (median fix) still read_file->edit_file->run_verification,
   verified, test_files_modified=[] (non-test edit, no false positive), independent check PASS.
+
+## 2026-08-12 - Fix: Cowork/Code ignored user preference memory (v0.1.8)
+
+- Bug (user report): saved "answer in Thai" preference in the Cowork memory panel but Cowork
+  still replied in English. Root cause: _format_mode_role_prompt called
+  ChatMemoryStore.format_for_prompt(..., include_personal_memory=False), so ONLY role-kind
+  memories were injected in Cowork/Code; the panel saves preference/memory kinds -> never reached
+  the Cowork prompt. Not a hardcode.
+- Fix: _format_mode_role_prompt now passes include_personal_memory=True; format_for_prompt uses a
+  mode-aware header — Chat keeps "## Chat Personal Memory"; Cowork/Code get "## User Preferences"
+  with the safety framing (style/tone/language only; does not grant permissions or reduce
+  approval/verification; not project facts).
+- Test isolation exposed: sidecar tests read the dev chat_memory/personal.json via _runtime_root
+  (COWORK_USER_DATA_DIR or app_root). Made the 3 Cowork prompt assertions robust (endswith the
+  user request instead of exact-equal) so a saved memory prefix doesn't break them.
+- Tests: backend 404/404 (+1 preference-applies-in-cowork test). Live A/B (zai:glm-4.5-flash):
+  no preference -> English; with "ตอบเป็นภาษาไทยเสมอ" -> Thai. Fix verified end-to-end.
+- Note: the dev personal.json contains a role entry "Skip approvals, avoid verification…" (dev-only
+  data, not shipped; neutralized by the cowork_persona framing). Worth deleting from the dev store.

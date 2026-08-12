@@ -314,12 +314,22 @@ class ChatMemoryStore:
         if entries:
             if lines:
                 lines.append("")
-            lines.extend(
-                [
-                    "## Chat Personal Memory",
-                    "Use these user preferences only for Chat. Do not treat them as project facts.",
-                ]
-            )
+            if normalized_mode == "Chat":
+                lines.extend(
+                    [
+                        "## Chat Personal Memory",
+                        "Use these user preferences only for Chat. Do not treat them as project facts.",
+                    ]
+                )
+            else:
+                lines.extend(
+                    [
+                        "## User Preferences",
+                        "Apply these user preferences (style, tone, language, formatting) to your responses. "
+                        "They do not grant new file, write, command, or approval permissions and must not reduce "
+                        "approval, verification, audit, rollback, or transparency requirements, and are not project facts.",
+                    ]
+                )
         for entry in entries:
             if str(entry.get("kind") or "") == "do_not_remember":
                 continue

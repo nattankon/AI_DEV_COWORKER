@@ -338,7 +338,10 @@ class IpcSidecarTests(unittest.TestCase):
         sidecar.wait_for_idle(timeout=1)
 
         events = [json.loads(line) for line in output.getvalue().splitlines()]
-        self.assertEqual(agent.prompts, ["hello"])
+        # The agent receives the user request (optionally prefixed with any saved
+        # Cowork memory), so assert the request is present rather than exact-equal.
+        self.assertEqual(len(agent.prompts), 1)
+        self.assertTrue(agent.prompts[0].endswith("hello"))
         self.assertEqual(
             [event["__ipc_type"] for event in events],
             ["cowork_ui_state", "cowork_log", "cowork_log", "cowork_ui_state"],
@@ -934,7 +937,8 @@ class IpcSidecarTests(unittest.TestCase):
         )
         sidecar.wait_for_idle(timeout=1)
 
-        self.assertEqual(agent.prompts, ["work in repo"])
+        self.assertEqual(len(agent.prompts), 1)
+        self.assertTrue(agent.prompts[0].endswith("work in repo"))
 
     def test_chat_mode_persists_and_injects_personal_memory(self):
         output = StringIO()
@@ -3545,7 +3549,8 @@ class IpcSidecarTests(unittest.TestCase):
         sidecar.wait_for_idle(timeout=1)
 
         events = [json.loads(line) for line in output.getvalue().splitlines()]
-        self.assertEqual(calls, [("local:primary/model", "hello"), ("local:fallback/model", "hello")])
+        self.assertEqual([model for model, _ in calls], ["local:primary/model", "local:fallback/model"])
+        self.assertTrue(all(prompt.endswith("hello") for _, prompt in calls))
         self.assertEqual(
             [event["__ipc_type"] for event in events],
             ["cowork_ui_state", "cowork_log", "cowork_log", "cowork_log", "cowork_ui_state"],

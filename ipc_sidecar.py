@@ -528,7 +528,7 @@ class IpcSidecar:
             query=prompt,
             source_session_id=client_session_id,
             mode=mode,
-            include_personal_memory=False,
+            include_personal_memory=True,
         )
         if not role_prompt.strip():
             return prompt

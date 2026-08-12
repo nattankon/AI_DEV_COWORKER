@@ -147,6 +147,26 @@ class ChatMemoryStoreTests(unittest.TestCase):
             self.assertNotIn("careful TDD", chat_prompt)
             self.assertNotIn("strict backend engineer", chat_prompt)
 
+    def test_preference_memory_applies_in_cowork_and_code_not_just_chat(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = ChatMemoryStore(Path(temp_dir))
+            store.remember_manual("Answer in Thai with detailed explanations.", kind="preference", source_session_id="sess-1", mode="Cowork")
+
+            cowork_prompt = store.format_for_prompt(query="สวัสดี", source_session_id="sess-1", mode="Cowork", include_personal_memory=True)
+            code_prompt = store.format_for_prompt(query="hi", source_session_id="sess-1", mode="Code", include_personal_memory=True)
+
+            # The preference now reaches Cowork/Code under a mode-appropriate header
+            # with the safety framing, not the Chat-only wording.
+            self.assertIn("Answer in Thai with detailed explanations.", cowork_prompt)
+            self.assertIn("## User Preferences", cowork_prompt)
+            self.assertIn("must not reduce approval, verification, audit, rollback, or transparency requirements", cowork_prompt)
+            self.assertNotIn("only for Chat", cowork_prompt)
+            self.assertIn("Answer in Thai with detailed explanations.", code_prompt)
+
+            # Chat keeps its own personal-memory header.
+            chat_prompt = store.format_for_prompt(query="hi", source_session_id="sess-1", mode="Chat", include_personal_memory=True)
+            self.assertIn("## Chat Personal Memory", chat_prompt)
+
     def test_same_role_text_can_exist_in_different_modes(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = ChatMemoryStore(Path(temp_dir))
