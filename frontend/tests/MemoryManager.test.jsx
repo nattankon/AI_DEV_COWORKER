@@ -84,4 +84,28 @@ describe("MemoryManager", () => {
     expect(screen.queryByText("A global role")).toBeNull();
     expect(screen.getByText("A chat preference")).toBeTruthy();
   });
+
+  it("shows this chat's memories plus same-project and global ones, hiding other chats", () => {
+    render(
+      <MemoryManager
+        open
+        activeMode="Cowork"
+        activeSessionId="s1"
+        activeProject="C:/proj-a"
+        entries={[
+          { id: "a", kind: "preference", text: "This chat memory", source: { session_id: "s1", project: "C:/proj-a" } },
+          { id: "b", kind: "memory", text: "Same project other chat", source: { session_id: "s2", project: "C:\\proj-a" } },
+          { id: "c", kind: "memory", text: "Different project memory", source: { session_id: "s3", project: "C:/proj-z" } },
+          { id: "d", kind: "preference", text: "Global session-less memory" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("This chat memory")).toBeTruthy();
+    // Same project (path normalization handles the backslash difference).
+    expect(screen.getByText("Same project other chat")).toBeTruthy();
+    expect(screen.getByText("Global session-less memory")).toBeTruthy();
+    // A memory from another chat in a different project is hidden.
+    expect(screen.queryByText("Different project memory")).toBeNull();
+  });
 });

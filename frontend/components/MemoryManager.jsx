@@ -27,14 +27,29 @@ function normalizeMode(mode) {
   return MODE_LABELS[normalized] || "Chat";
 }
 
-export default function MemoryManager({ activeMode = "Chat", activeSessionId = "", entries = [], open = false, onClose, onCreate, onDelete, onSetEnabled, onUpdate }) {
+function normalizeProjectPath(value) {
+  return String(value || "").replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
+export default function MemoryManager({ activeMode = "Chat", activeSessionId = "", activeProject = "", entries = [], open = false, onClose, onCreate, onDelete, onSetEnabled, onUpdate }) {
   const [editingId, setEditingId] = useState("");
   const [draft, setDraft] = useState("");
   const [newKind, setNewKind] = useState("preference");
   const [newMemory, setNewMemory] = useState("");
   const mode = normalizeMode(activeMode);
-  // Roles are global and managed in Settings; this panel is per-chat memory only.
-  const visibleEntries = entries.filter((entry) => String(entry?.kind || "") !== "role");
+  const currentProject = normalizeProjectPath(activeProject);
+  // Roles are global (managed in Settings). Memory is per-chat: show this chat's memories,
+  // memories from other chats in the same project, and any global (session-less) memory.
+  const visibleEntries = entries.filter((entry) => {
+    if (String(entry?.kind || "") === "role") return false;
+    const source = entry?.source || {};
+    const entrySession = String(source.session_id || "");
+    const entryProject = normalizeProjectPath(source.project);
+    if (!entrySession) return true;
+    if (activeSessionId && entrySession === activeSessionId) return true;
+    if (currentProject && entryProject && entryProject === currentProject) return true;
+    return false;
+  });
 
   if (!open) return null;
 

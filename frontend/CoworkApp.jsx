@@ -1142,6 +1142,7 @@ export default function CoworkApp({
         <MemoryManager
           activeMode={activeMode}
           activeSessionId={activeSessionId}
+          activeProject={workingDirectory}
           entries={chatMemoryEntries}
           open={memoryManagerOpen}
           onClose={() => setMemoryManagerOpen(false)}
