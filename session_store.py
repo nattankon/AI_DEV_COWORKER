@@ -35,12 +35,29 @@ def _safe_payload(value: Any, max_chars: int = 100_000) -> Any:
     }
 
 
+_MAX_SESSION_FILES = 200
+
+
 def _session_path(session_id: str) -> Path:
     return _SESSION_ROOT / f"{session_id}.jsonl"
 
 
+def _prune_old_sessions(max_files: int = _MAX_SESSION_FILES) -> None:
+    """Keep the most recent session logs so the sessions directory doesn't grow forever."""
+    try:
+        files = sorted(_SESSION_ROOT.glob("*.jsonl"), key=lambda path: path.stat().st_mtime)
+    except OSError:
+        return
+    for path in files[: max(0, len(files) - max_files)]:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
 def start_cowork_session(model: str, workspace_root: str) -> str:
     _SESSION_ROOT.mkdir(parents=True, exist_ok=True)
+    _prune_old_sessions()
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     session_id = f"{timestamp}-{uuid.uuid4().hex[:8]}"
     _ACTIVE_SESSION.session_id = session_id

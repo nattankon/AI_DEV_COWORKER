@@ -35,6 +35,37 @@ describe("session storage adapter", () => {
     expect(storage.load()).toMatchObject(state);
   });
 
+  it("survives a localStorage quota error by trimming events and retrying", () => {
+    const store = new Map();
+    let failuresLeft = 1; // the first (full) write throws; the trimmed retry succeeds
+    const backing = {
+      getItem: (key) => (store.has(key) ? store.get(key) : null),
+      setItem: (key, value) => {
+        if (failuresLeft > 0) {
+          failuresLeft -= 1;
+          const error = new Error("quota");
+          error.name = "QuotaExceededError";
+          throw error;
+        }
+        store.set(key, String(value));
+      },
+      removeItem: (key) => store.delete(key),
+    };
+    const storage = createSessionStorageAdapter(backing);
+    const events = Array.from({ length: 1000 }, (_, index) => ({ id: `e${index}`, type: "message.user", payload: { text: "x" } }));
+
+    // Must not throw despite the quota error.
+    storage.save({
+      activeSessionIdsByMode: { Cowork: "s1" },
+      sessions: [{ id: "s1", mode: "Cowork", title: "t" }],
+      eventsBySessionId: { s1: events },
+    });
+
+    const restored = storage.load();
+    expect(restored.eventsBySessionId.s1.length).toBeGreaterThan(0);
+    expect(restored.eventsBySessionId.s1.length).toBeLessThanOrEqual(400);
+  });
+
   it("round-trips a session's project so sidebar groups survive restart", () => {
     const backingStore = createMemoryStorage();
     const storage = createSessionStorageAdapter(backingStore);

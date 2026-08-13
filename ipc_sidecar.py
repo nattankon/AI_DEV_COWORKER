@@ -138,6 +138,16 @@ class _RequestCancelled(RuntimeError):
     pass
 
 
+def _default_model_timeout() -> float:
+    """Per-request model timeout in seconds. Long code generations need more than a
+    short default; overridable via COWORK_MODEL_TIMEOUT."""
+    try:
+        value = float(os.environ.get("COWORK_MODEL_TIMEOUT") or 0)
+    except (TypeError, ValueError):
+        value = 0.0
+    return value if value > 0 else 300.0
+
+
 class IpcSidecar:
     def __init__(self, dependencies: IpcDependencies | None = None):
         self.dependencies = dependencies or IpcDependencies()
@@ -1857,7 +1867,8 @@ class IpcSidecar:
             recorder=JsonlSessionRecorder(),
         )
 
-    def _create_chat_model(self, model: str, *, timeout: float = 45.0):
+    def _create_chat_model(self, model: str, *, timeout: float | None = None):
+        timeout = timeout if timeout and timeout > 0 else _default_model_timeout()
         provider = model.split(":", 1)[0] if ":" in model else "local"
         if provider == "local":
             return self._build_chat_model(
@@ -1909,8 +1920,9 @@ class IpcSidecar:
         api_key: str,
         model: str,
         extra_body: dict[str, Any] | None,
-        timeout: float = 45.0,
+        timeout: float | None = None,
     ):
+        timeout = timeout if timeout and timeout > 0 else _default_model_timeout()
         if self.dependencies.chat_model_factory:
             return self.dependencies.chat_model_factory(
                 base_url=base_url,

@@ -11,8 +11,10 @@ export default function ProcessingIndicator({ active = false, waitingForApproval
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const cleanStatusText = String(statusText || "").trim();
 
+  // Restart the timer on each new step (status change) so the reader sees how long the
+  // CURRENT step has taken — and that a long model run is still alive, not frozen.
   useEffect(() => {
-    if (!active || waitingForApproval || cleanStatusText) {
+    if (!active || waitingForApproval) {
       setElapsedSeconds(0);
       return undefined;
     }
@@ -27,10 +29,13 @@ export default function ProcessingIndicator({ active = false, waitingForApproval
 
   if (!active || waitingForApproval) return null;
 
+  const label = cleanStatusText || (elapsedSeconds <= 10 ? "Thinking" : "Working");
+  const timerSuffix = elapsedSeconds >= 3 ? ` · ${formatElapsed(elapsedSeconds)}` : "";
+
   return (
     <div role="status" aria-live="polite" className="mb-3 flex min-h-6 items-center gap-2 px-1 text-[13px] text-[#929089]">
       <span aria-hidden="true" className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#9c9991]" />
-      <span>{cleanStatusText || (elapsedSeconds <= 10 ? "Thinking" : `Working for ${formatElapsed(elapsedSeconds)}`)}</span>
+      <span>{`${label}${timerSuffix}`}</span>
     </div>
   );
 }

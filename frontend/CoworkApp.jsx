@@ -31,6 +31,13 @@ function createId() {
 
 const CHAT_MODES = ["Chat", "Cowork", "Code"];
 const DEFAULT_MODEL_LABEL = "qwen/qwen3.5-9b";
+// Keep a bounded number of events per session so long-running use doesn't grow the
+// in-memory store and persisted state without limit.
+const MAX_EVENTS_PER_SESSION = 1200;
+
+function capEvents(events) {
+  return events.length > MAX_EVENTS_PER_SESSION ? events.slice(-MAX_EVENTS_PER_SESSION) : events;
+}
 
 function normalizeMode(mode, fallback = "") {
   return CHAT_MODES.includes(mode) ? mode : fallback;
@@ -160,7 +167,7 @@ function tagSessionProject(store, sessionId, project) {
 
 function appendEventToSessionStore(store, sessionId, event) {
   const currentEvents = store.eventsBySessionId[sessionId] ?? [];
-  const nextEvents = [...currentEvents, event];
+  const nextEvents = capEvents([...currentEvents, event]);
   const nextSessions = store.sessions.map((session) => {
     if (session.id !== sessionId) return session;
     return summarizeSession(session, nextEvents);
@@ -870,7 +877,30 @@ export default function CoworkApp({
     });
   };
 
+  const compactCurrentSession = () => {
+    const events = sessionStore.eventsBySessionId[activeSessionId] ?? [];
+    const kept = events.slice(-8);
+    if (kept.length === events.length) return;
+    setSessionStore((current) => replaceSessionEvents(current, activeSessionId, kept));
+    dispatch({ type: "session.hydrate", events: kept });
+  };
+
+  const runSlashCommand = (raw) => {
+    const command = String(raw || "").trim().toLowerCase();
+    if (command === "/new" || command === "/clear") {
+      startNewSession();
+      return true;
+    }
+    if (command === "/compact") {
+      compactCurrentSession();
+      return true;
+    }
+    return false;
+  };
+
   const submitPrompt = async (prompt, attachments = [], options = {}) => {
+    // Slash commands never get sent to the model.
+    if (options.echoUser !== false && runSlashCommand(prompt)) return;
     const normalizedAttachments = Array.isArray(attachments) ? attachments : [];
     const targetSessionId = options.sessionId || activeSessionId;
     const targetMode = options.mode || activeMode;
@@ -917,6 +947,17 @@ export default function CoworkApp({
     }
     await coworkBridge.sendPrompt?.(request);
   };
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && (event.key === "n" || event.key === "N")) {
+        event.preventDefault();
+        startNewSession();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeMode, currentProject]);
 
   return (
     <div

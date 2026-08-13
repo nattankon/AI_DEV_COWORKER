@@ -134,11 +134,31 @@ export function createSessionStorageAdapter(storage = globalThis.localStorage) {
       }
     },
     save(state) {
-      storage?.setItem(COWORK_SESSION_STORAGE_KEY, JSON.stringify({
-        schemaVersion: 4,
-        savedAt: new Date().toISOString(),
-        state: normalizeSessionState(state, "Cowork"),
-      }));
+      if (!storage) return;
+      const normalized = normalizeSessionState(state, "Cowork");
+      const envelope = { schemaVersion: 4, savedAt: new Date().toISOString(), state: normalized };
+      try {
+        storage.setItem(COWORK_SESSION_STORAGE_KEY, JSON.stringify(envelope));
+        return;
+      } catch {
+        // Likely a quota error on a long-running session — persistence must never
+        // break the app. Retry with progressively fewer events per session.
+      }
+      for (const cap of [400, 150, 40]) {
+        const eventsBySessionId = {};
+        for (const [sessionId, events] of Object.entries(normalized.eventsBySessionId || {})) {
+          eventsBySessionId[sessionId] = Array.isArray(events) ? events.slice(-cap) : [];
+        }
+        try {
+          storage.setItem(
+            COWORK_SESSION_STORAGE_KEY,
+            JSON.stringify({ ...envelope, state: { ...normalized, eventsBySessionId } }),
+          );
+          return;
+        } catch {
+          // Try an even smaller cap; if all fail, give up silently.
+        }
+      }
     },
     clear() {
       storage?.removeItem(COWORK_SESSION_STORAGE_KEY);

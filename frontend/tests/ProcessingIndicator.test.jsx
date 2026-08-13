@@ -12,10 +12,10 @@ describe("ProcessingIndicator", () => {
     expect(screen.getByText("Thinking")).toBeInTheDocument();
 
     act(() => vi.advanceTimersByTime(11_000));
-    expect(screen.getByText("Working for 11s")).toBeInTheDocument();
+    expect(screen.getByText("Working · 11s")).toBeInTheDocument();
 
     act(() => vi.advanceTimersByTime(60_000));
-    expect(screen.getByText("Working for 1m 11s")).toBeInTheDocument();
+    expect(screen.getByText("Working · 1m 11s")).toBeInTheDocument();
   });
 
   it("renders nothing while idle or waiting for approval", () => {
@@ -26,14 +26,15 @@ describe("ProcessingIndicator", () => {
     expect(screen.queryByText("Thinking")).not.toBeInTheDocument();
   });
 
-  it("shows transient research status instead of the generic timer text", () => {
+  it("keeps the transient status and appends a live elapsed timer so long runs never look frozen", () => {
     vi.useFakeTimers();
     render(<ProcessingIndicator active statusText="📄 Reading: example.test" />);
 
     expect(screen.getByText("📄 Reading: example.test")).toBeInTheDocument();
 
     act(() => vi.advanceTimersByTime(11_000));
-    expect(screen.queryByText("Working for 11s")).not.toBeInTheDocument();
-    expect(screen.getByText("📄 Reading: example.test")).toBeInTheDocument();
+    // The status is kept (never replaced by a generic "Working"), with a ticking timer appended.
+    expect(screen.queryByText("Working")).not.toBeInTheDocument();
+    expect(screen.getByText("📄 Reading: example.test · 11s")).toBeInTheDocument();
   });
 });

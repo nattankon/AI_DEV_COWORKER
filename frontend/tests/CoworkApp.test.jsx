@@ -640,6 +640,30 @@ describe("CoworkApp", () => {
     expect(screen.getByRole("button", { name: /^inspect repo$/i })).toBeInTheDocument();
   });
 
+  it("treats slash commands as local actions and never sends them to the model", async () => {
+    const sendPrompt = vi.fn();
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{ sendPrompt, subscribe: () => () => {} }}
+        sessionStorageAdapter={createSessionStorageAdapter(createMemoryStorage())}
+      />,
+    );
+
+    const textbox = screen.getByPlaceholderText("How can I help you today?");
+    fireEvent.change(textbox, { target: { value: "/new" } });
+    fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
+
+    expect(sendPrompt).not.toHaveBeenCalled();
+    // A normal message still sends.
+    fireEvent.change(textbox, { target: { value: "hello there" } });
+    fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
+    expect(sendPrompt).toHaveBeenCalledWith(expect.objectContaining({ prompt: "hello there" }));
+  });
+
   it("sends prompts through the injected bridge", async () => {
     const sendPrompt = vi.fn();
     render(

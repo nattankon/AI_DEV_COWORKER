@@ -1715,3 +1715,20 @@
   dropped the "role" kind option and hides role entries.
 - Tests: backend 404/404 (+1 auto-approve); frontend 164/164 (removed 4 obsolete MemoryManager role
   tests, added RolesPanel suite + a MemoryManager no-role assertion). Packaged renderer verified.
+
+## 2026-08-12 - Context/stability hardening + timeout fix (v0.1.16)
+
+- Timeout root cause: "zai:...: Request timed out" was PROGRAM-side — the OpenAI client timeout
+  was 45s. Raised to a configurable default (300s, env COWORK_MODEL_TIMEOUT) via
+  _default_model_timeout(); _create_chat_model/_build_chat_model resolve None->default.
+- Stability (long-run): (1) MAX_EVENTS_PER_SESSION=1200 cap in appendEventToSessionStore;
+  (2) sessionStorage.save() try/catch with progressive event trimming (400/150/40) on quota error
+  so persistence never crashes the app; (3) Timeline renders only the last 300 events with a
+  "N earlier messages hidden" note; (4) session_store._prune_old_sessions keeps the newest 200
+  .jsonl logs (called at start_cowork_session).
+- Shortcuts/compact: submitPrompt intercepts slash commands (/new, /clear -> new chat;
+  /compact -> trim current chat to last 8) before sending; Ctrl/Cmd+N starts a new chat.
+- Long-run indicator: ProcessingIndicator now keeps the live status AND appends a per-step elapsed
+  timer ("Reading X… · 12s") so a long model run never looks frozen.
+- Tests: backend 405/405 (+1 session_store prune); frontend 168/168 (+timeline cap, +quota guard,
+  +slash command; ProcessingIndicator format updated). Packaged renderer verified.

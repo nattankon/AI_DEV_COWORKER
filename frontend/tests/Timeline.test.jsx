@@ -11,6 +11,22 @@ describe("Timeline", () => {
     });
   });
 
+  it("renders only the most recent slice of a very long session and notes hidden messages", () => {
+    const events = Array.from({ length: 350 }, (_, index) => ({
+      id: `m${index}`,
+      type: "message.user",
+      timestamp: `2026-06-12T00:00:${String(index % 60).padStart(2, "0")}.000Z`,
+      payload: { text: `message number ${index}` },
+    }));
+
+    render(<Timeline events={events} mode="Chat" />);
+
+    // The earliest messages are dropped from the DOM, the latest are kept.
+    expect(screen.queryByText("message number 0")).not.toBeInTheDocument();
+    expect(screen.getByText("message number 349")).toBeInTheDocument();
+    expect(screen.getByText(/50 earlier messages hidden/)).toBeInTheDocument();
+  });
+
   it("renders user and assistant messages without command details", () => {
     render(
       <Timeline
