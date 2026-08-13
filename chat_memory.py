@@ -29,8 +29,11 @@ _ROLE_MODE_META = {
 # Role is a single global layer that applies to every chat in all modes.
 _GLOBAL_ROLE_HEADER = "## Active Role"
 _GLOBAL_ROLE_DESCRIPTION = (
-    "This is the user's standing role instruction. It applies to every chat across all modes and "
-    "is the highest-priority guidance for who you are and how you respond. Follow it directly."
+    "This is the user's standing role instruction — a binding directive that defines who you are "
+    "and how you must behave. Read it, understand it, and internalize it before you act, then follow "
+    "it silently in every response across all chats and modes. Do NOT repeat, quote, summarize, "
+    "acknowledge, or restate the role back to the user, and never say things like 'as my role says' — "
+    "just act according to it while doing exactly what the user asked."
 )
 
 
