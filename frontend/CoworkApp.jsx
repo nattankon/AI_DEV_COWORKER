@@ -165,7 +165,18 @@ function tagSessionProject(store, sessionId, project) {
   return changed ? { ...store, sessions } : store;
 }
 
+function isTransientSessionEvent(event) {
+  if (!event || typeof event !== "object") return true;
+  if (event.type === "agent.status" || event.type === "chat.status" || event.type === "verification.finished") {
+    return true;
+  }
+  return event.type === "message.assistant" && event.payload?.streaming === true;
+}
+
 function appendEventToSessionStore(store, sessionId, event) {
+  // Stream chunks and execution telemetry only belong to the live reducer. Persisting
+  // them bypasses the reducer when a session is rehydrated and turns one answer into many rows.
+  if (isTransientSessionEvent(event)) return store;
   const currentEvents = store.eventsBySessionId[sessionId] ?? [];
   const nextEvents = capEvents([...currentEvents, event]);
   const nextSessions = store.sessions.map((session) => {

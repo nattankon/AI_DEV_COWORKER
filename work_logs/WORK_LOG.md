@@ -2080,3 +2080,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 
 - Committed the restored two-path updater behavior as `fa58963`, pushed `main`, and published GitHub Release `v0.1.19`.
 - Verified the published release is not a draft or prerelease. Its remote `latest.yml` names `AI-Dev-Co-worker-Setup-0.1.19.exe`, and the installer and matching blockmap are present with the same version and byte size recorded in metadata.
+
+## 2026-08-14 - Prevent persisted Cowork stream fragments
+
+- Investigated the installed Cowork timeline rendering one streamed answer as one-character messages and exposing a raw `verification.finished` JSON payload after a session switch or reload.
+- Root cause: the live reducer correctly coalesced streaming events and kept verification evidence outside the timeline, but `appendEventToSessionStore` persisted every event. Hydration later bypassed that reducer behavior and rendered the stored delta fragments and internal evidence directly.
+- Added transient-event filtering at both boundaries: live stream/status/agent/verification events are no longer written to durable session history, and session storage normalizes existing persisted state to remove those historical transient records.
+- TDD evidence: the CoworkApp regression test first reproduced fragment and JSON reappearance after switching modes; the session-storage regression test first reproduced their persistence. Both pass after the filter.
+- Focused verification: `npm.cmd run test -- --run frontend/tests/CoworkApp.test.jsx frontend/tests/sessionStorage.test.js` passed 40/40.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.

@@ -39,12 +39,20 @@ function normalizeSessionRecord(value, fallbackMode = "Cowork") {
   };
 }
 
+function isTransientTimelineEvent(event) {
+  if (!event || typeof event !== "object") return true;
+  if (event.type === "agent.status" || event.type === "chat.status" || event.type === "verification.finished") {
+    return true;
+  }
+  return event.type === "message.assistant" && event.payload?.streaming === true;
+}
+
 function normalizeEventsBySessionId(value) {
   if (!value || typeof value !== "object") return {};
   return Object.fromEntries(
     Object.entries(value).flatMap(([sessionId, events]) => {
       if (typeof sessionId !== "string" || !sessionId) return [];
-      return [[sessionId, Array.isArray(events) ? events.filter((event) => event && typeof event === "object") : []]];
+      return [[sessionId, Array.isArray(events) ? events.filter((event) => !isTransientTimelineEvent(event)) : []]];
     }),
   );
 }

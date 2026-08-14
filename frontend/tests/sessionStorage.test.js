@@ -119,6 +119,28 @@ describe("session storage adapter", () => {
     expect(storage.load()).toMatchObject({ modelRoutes: state.modelRoutes });
   });
 
+  it("removes transient stream and verification events from stored timelines", () => {
+    const storage = createSessionStorageAdapter(createMemoryStorage());
+    storage.save({
+      activeSessionIdsByMode: { Chat: null, Cowork: "cowork-1", Code: null },
+      sessions: [{ id: "cowork-1", mode: "Cowork", title: "Streamed task" }],
+      eventsBySessionId: {
+        "cowork-1": [
+          { id: "user-1", type: "message.user", status: "complete", payload: { text: "Hello", mode: "Cowork" } },
+          { id: "stream-1", type: "message.assistant", status: "running", payload: { text: "A", streaming: true, mode: "Cowork" } },
+          { id: "stream-1", type: "message.assistant", status: "running", payload: { text: "B", streaming: true, mode: "Cowork" } },
+          { id: "verification-1", type: "verification.finished", status: "complete", payload: { mode: "Cowork" } },
+          { id: "assistant-1", type: "message.assistant", status: "complete", payload: { text: "Final answer", mode: "Cowork" } },
+        ],
+      },
+    });
+
+    expect(storage.load().eventsBySessionId["cowork-1"].map((event) => event.id)).toEqual([
+      "user-1",
+      "assistant-1",
+    ]);
+  });
+
   it("saves and restores versioned session state", () => {
     const storage = createSessionStorageAdapter(createMemoryStorage());
     const state = {

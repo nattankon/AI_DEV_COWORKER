@@ -835,6 +835,74 @@ describe("CoworkApp", () => {
     expect(screen.getAllByText("Refactor this module", { selector: ".whitespace-pre-wrap" })).toHaveLength(1);
   });
 
+  it("does not restore streamed Cowork fragments or verification payloads after switching sessions", async () => {
+    let listener;
+    const sendPrompt = vi.fn();
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{
+          sendPrompt,
+          subscribe(_sessionId, nextListener) {
+            listener = nextListener;
+            return () => {};
+          },
+        }}
+        sessionStorageAdapter={createSessionStorageAdapter(createMemoryStorage())}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^mode cowork$/i }));
+    const textbox = screen.getByPlaceholderText("How can I help you today?");
+    fireEvent.change(textbox, { target: { value: "Say hello" } });
+    fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
+    const sessionId = sendPrompt.mock.calls[0][0].sessionId;
+
+    listener({
+      id: `stream-${sessionId}-Cowork`,
+      sessionId,
+      timestamp: "2026-08-14T05:00:00.000Z",
+      type: "message.assistant",
+      status: "running",
+      payload: { text: "A", role: "AI", mode: "Cowork", streaming: true },
+    });
+    listener({
+      id: `stream-${sessionId}-Cowork`,
+      sessionId,
+      timestamp: "2026-08-14T05:00:01.000Z",
+      type: "message.assistant",
+      status: "running",
+      payload: { text: "B", role: "AI", mode: "Cowork", streaming: true },
+    });
+    listener({
+      id: "verification-evidence",
+      sessionId,
+      timestamp: "2026-08-14T05:00:02.000Z",
+      type: "verification.finished",
+      status: "complete",
+      payload: { mode: "Cowork", writesPerformed: false, verificationObserved: false, verificationPassed: false },
+    });
+    listener({
+      id: "cowork-final-answer",
+      sessionId,
+      timestamp: "2026-08-14T05:00:03.000Z",
+      type: "message.assistant",
+      status: "complete",
+      payload: { text: "Final answer", role: "AI", mode: "Cowork" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^mode chat$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^mode cowork$/i }));
+
+    expect(await screen.findByText("Final answer", { selector: ".whitespace-pre-wrap" })).toBeInTheDocument();
+    expect(screen.queryByText("A", { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText("B", { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText("verification.finished", { exact: true })).not.toBeInTheDocument();
+  });
+
   it("edits a prior Chat user message, truncates later messages, and resends", async () => {
     const originalPrompt = window.prompt;
     window.prompt = vi.fn(() => "edited question");
