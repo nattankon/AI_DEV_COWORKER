@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { answerQuestion, cancelCowork, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setAutoApprove, setChatMemoryEnabled, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
+import { answerQuestion, cancelCowork, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, getAppUpdateState, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setAutoApprove, setChatMemoryEnabled, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
 import { createCoworkBridge } from "./adapters/coworkBridge";
 import { createSessionStorageAdapter } from "./adapters/sessionStorage";
 import ApprovalPrompt from "./components/ApprovalPrompt";
@@ -255,6 +255,7 @@ function createDefaultBridge() {
     sendPrompt: sendCowork,
     setWorkspace,
     workspaceAction,
+    getAppUpdateState,
     installUpdateNow,
     setAutoApprove,
     subscribe: (eventName, handler) => {
@@ -723,16 +724,23 @@ export default function CoworkApp({
   };
 
   useEffect(() => {
+    let active = true;
+    const applyUpdateState = (payload = {}) => {
+      if (!active) return;
+      setAppUpdate({
+        state: String(payload.state || "idle"),
+        version: String(payload.version || ""),
+        percent: Number(payload.percent || 0),
+      });
+    };
     const unsubscribe = typeof coworkBridge.subscribeAppUpdate === "function"
-      ? coworkBridge.subscribeAppUpdate((payload = {}) => {
-        setAppUpdate({
-          state: String(payload.state || "idle"),
-          version: String(payload.version || ""),
-          percent: Number(payload.percent || 0),
-        });
-      })
+      ? coworkBridge.subscribeAppUpdate(applyUpdateState)
       : undefined;
+    if (typeof coworkBridge.getAppUpdateState === "function") {
+      void coworkBridge.getAppUpdateState().then(applyUpdateState).catch(() => {});
+    }
     return () => {
+      active = false;
       if (typeof unsubscribe === "function") unsubscribe();
     };
   }, [coworkBridge]);

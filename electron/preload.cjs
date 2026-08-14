@@ -71,6 +71,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   fetchRegisteredSkills: () => ipcRenderer.invoke("fetch-registered-skills"),
   loadApiKeys: () => ipcRenderer.invoke("load-api-keys"),
   setProviderKey: (provider, key) => ipcRenderer.invoke("set-provider-key", provider, key),
+  getAppUpdateState: () => ipcRenderer.invoke("get-app-update-state"),
   installUpdateNow: () => ipcRenderer.invoke("install-update-now"),
   setAutoApprove: (enabled) => ipcRenderer.invoke("set-auto-approve", enabled),
   listChatMemory: () => ipcRenderer.invoke("chat-memory-list"),

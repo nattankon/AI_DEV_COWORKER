@@ -398,147 +398,58 @@ ipcMain.handle("set-api-keys", async (_event, geminiKey, openaiKey, localAiBaseU
   }),
 );
 
-// --- Update gate: a small visible window shown BEFORE the app opens. ---
-// The user sees "checking… / downloading X% / installing…" instead of a silent
-// background update. If an update exists it installs IMMEDIATELY and the app
-// relaunches on the new version; if not (or on any error/timeout) the app opens.
-
-const UPDATE_CHECK_TIMEOUT_MS = 20_000;
-
-function createUpdateGateWindow() {
-  const gate = new BrowserWindow({
-    width: 380,
-    height: 150,
-    frame: false,
-    resizable: false,
-    alwaysOnTop: true,
-    backgroundColor: "#f7f6f2",
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
-  });
-  const html = `<!doctype html><html><body style="margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:#f7f6f2;color:#3b3a36;user-select:none;-webkit-app-region:drag">
-    <div style="padding:26px 28px">
-      <div style="font-size:15px;font-weight:600;margin-bottom:6px">AI Dev Co-worker</div>
-      <div id="status" style="font-size:13px;color:#6f6b63;margin-bottom:12px">Checking for updates…</div>
-      <div style="height:6px;border-radius:3px;background:#e4e1d8;overflow:hidden">
-        <div id="bar" style="height:100%;width:0%;background:#d96b4a;transition:width .25s"></div>
-      </div>
-    </div>
-  </body></html>`;
-  void gate.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
-  return gate;
-}
-
-function setGateStatus(gate, text, percent) {
-  if (!gate || gate.isDestroyed()) return;
-  const script = `(() => {
-    const s = document.getElementById("status");
-    const b = document.getElementById("bar");
-    if (s) s.textContent = ${JSON.stringify(text)};
-    if (b && ${Number.isFinite(percent) ? "true" : "false"}) b.style.width = "${Number.isFinite(percent) ? Math.max(0, Math.min(100, Math.round(percent))) : 0}%";
-  })()`;
-  gate.webContents.executeJavaScript(script).catch(() => {});
-}
-
 function startMainApp() {
   createMainWindow();
   spawnPythonSidecar();
 }
 
-function runUpdateGate() {
-  if (!app.isPackaged) {
-    startMainApp();
-    return;
-  }
-
-  const gate = createUpdateGateWindow();
-  let updateFound = false;
-  let finished = false;
-
-  const proceed = () => {
-    if (finished) return;
-    finished = true;
-    // Drop the gate's listeners before starting the app: otherwise the gate's
-    // update-downloaded handler (which force-installs) would fire on a later
-    // in-app background download and restart without the user clicking.
-    autoUpdater.removeAllListeners();
-    startMainApp();
-    startBackgroundUpdater();
-    // Open the main window BEFORE destroying the gate so window-all-closed
-    // never sees zero windows mid-transition (that would quit the app).
-    setTimeout(() => {
-      if (!gate.isDestroyed()) gate.destroy();
-    }, 250);
-  };
-
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true; // safety net if we ever proceed mid-download
-
-  autoUpdater.on("update-available", (info) => {
-    updateFound = true;
-    setGateStatus(gate, `Update found: v${info?.version ?? ""} — downloading…`, 0);
-  });
-  autoUpdater.on("download-progress", (progress) => {
-    const percent = Math.round(progress?.percent ?? 0);
-    setGateStatus(gate, `Downloading update… ${percent}%`, percent);
-  });
-  autoUpdater.on("update-downloaded", () => {
-    finished = true;
-    setGateStatus(gate, "Installing update… the app will restart.", 100);
-    // Silent NSIS install + relaunch on the new version.
-    setTimeout(() => autoUpdater.quitAndInstall(true, true), 600);
-  });
-  autoUpdater.on("update-not-available", () => {
-    setGateStatus(gate, "You are up to date.", 100);
-    setTimeout(proceed, 350);
-  });
-  autoUpdater.on("error", (error) => {
-    emitBackendLog("stderr", `Auto-update error: ${error?.message ?? error}`);
-    setGateStatus(gate, "Update check failed — starting the app.", 0);
-    setTimeout(proceed, 600);
-  });
-
-  // Only the CHECK phase can time out; once a download started we wait for it.
-  setTimeout(() => {
-    if (!updateFound) proceed();
-  }, UPDATE_CHECK_TIMEOUT_MS);
-
-  autoUpdater.checkForUpdates().catch((error) => {
-    emitBackendLog("stderr", `Auto-update check failed: ${error?.message ?? error}`);
-    proceed();
-  });
-}
-
-// After the app is running, keep checking in the background. When a newer
-// version finishes downloading we notify the UI (state "ready") and wait — the
-// user clicks the in-app Update button to install + relaunch immediately, no
-// need to close the app first. If they never click, autoInstallOnAppQuit applies
-// it on the next quit anyway.
+// Every update check uses the in-app state. The installer runs only from the
+// explicit renderer command below, never as a side effect of startup or quit.
 let backgroundUpdaterStarted = false;
 let pendingUpdateReady = false;
+let appUpdateState = { state: "idle", version: "", percent: 0 };
+
+function publishAppUpdate(state, extra = {}) {
+  appUpdateState = {
+    state,
+    version: typeof extra.version === "string" ? extra.version : appUpdateState.version,
+    percent: Number.isFinite(extra.percent) ? extra.percent : state === "ready" ? 100 : 0,
+  };
+  dispatchRendererEvent("app-update", { ...appUpdateState, timestamp: new Date().toISOString() });
+}
 
 function startBackgroundUpdater() {
   if (!app.isPackaged || backgroundUpdaterStarted) return;
   backgroundUpdaterStarted = true;
 
   autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoInstallOnAppQuit = false;
 
-  const notify = (state, extra = {}) =>
-    dispatchRendererEvent("app-update", { state, ...extra, timestamp: new Date().toISOString() });
-
-  autoUpdater.on("update-available", (info) => notify("available", { version: info?.version ?? "" }));
-  autoUpdater.on("download-progress", (progress) => notify("downloading", { percent: Math.round(progress?.percent ?? 0) }));
+  autoUpdater.on("update-available", (info) => {
+    pendingUpdateReady = false;
+    publishAppUpdate("available", { version: info?.version ?? "", percent: 0 });
+  });
+  autoUpdater.on("download-progress", (progress) => {
+    publishAppUpdate("downloading", { percent: Math.round(progress?.percent ?? 0) });
+  });
   autoUpdater.on("update-downloaded", (info) => {
     pendingUpdateReady = true;
-    notify("ready", { version: info?.version ?? "" });
+    publishAppUpdate("ready", { version: info?.version ?? "", percent: 100 });
   });
-  autoUpdater.on("error", (error) => emitBackendLog("stderr", `Background update error: ${error?.message ?? error}`));
+  autoUpdater.on("update-not-available", () => {
+    if (!pendingUpdateReady) publishAppUpdate("idle", { version: "", percent: 0 });
+  });
+  autoUpdater.on("error", (error) => {
+    emitBackendLog("stderr", `Background update error: ${error?.message ?? error}`);
+  });
 
   const check = () =>
     autoUpdater.checkForUpdates().catch((error) => emitBackendLog("stderr", `Background update check failed: ${error?.message ?? error}`));
-  setTimeout(check, 10_000); // shortly after the app is up
+  setTimeout(check, 1_000); // after the main window begins loading
   setInterval(check, 30 * 60_000); // then every 30 minutes
 }
+
+ipcMain.handle("get-app-update-state", async () => ({ ...appUpdateState }));
 
 ipcMain.handle("install-update-now", async () => {
   if (!app.isPackaged) return { ok: false, reason: "not-packaged" };
@@ -578,7 +489,8 @@ function createMainWindow() {
 }
 
 app.whenReady().then(() => {
-  runUpdateGate();
+  startMainApp();
+  startBackgroundUpdater();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();

@@ -222,6 +222,7 @@ function invokeBridgeMethod(method, args = []) {
     cancel_cowork: bridge.cancelCowork,
     load_api_keys: bridge.loadApiKeys,
     set_provider_key: bridge.setProviderKey,
+    get_app_update_state: bridge.getAppUpdateState,
     install_update_now: bridge.installUpdateNow,
     set_auto_approve: bridge.setAutoApprove,
     resolve_hitl: bridge.resolveHitl,
@@ -291,6 +292,10 @@ export function setProviderKey(provider, key) {
 
 export function installUpdateNow() {
   return invokeBridgeMethod("install_update_now");
+}
+
+export function getAppUpdateState() {
+  return invokeBridgeMethod("get_app_update_state");
 }
 
 export function listChatMemory() {

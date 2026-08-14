@@ -337,6 +337,12 @@ export function createCoworkBridge(legacyBridge, overrides = {}) {
       if (typeof subscribe !== "function") return () => {};
       return subscribe("app-update", (event) => listener(event?.detail ?? event ?? {}));
     },
+    async getAppUpdateState() {
+      if (typeof legacyBridge?.getAppUpdateState === "function") {
+        return legacyBridge.getAppUpdateState();
+      }
+      return { state: "idle", version: "", percent: 0 };
+    },
     async installUpdateNow() {
       if (typeof legacyBridge?.installUpdateNow === "function") {
         await legacyBridge.installUpdateNow();

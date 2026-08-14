@@ -19,6 +19,35 @@ function createMemoryStorage(initialValue) {
 }
 
 describe("CoworkApp", () => {
+  it("hydrates a ready update discovered during startup and installs only after the user clicks", async () => {
+    const installUpdateNow = vi.fn();
+    const getAppUpdateState = vi.fn().mockResolvedValue({
+      state: "ready",
+      version: "0.1.18",
+      percent: 100,
+    });
+    const bridge = {
+      getAppUpdateState,
+      installUpdateNow,
+      subscribeAppUpdate: () => () => {},
+    };
+
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={bridge}
+      />,
+    );
+
+    const button = await screen.findByRole("button", { name: "Install update v0.1.18 and restart" });
+    expect(getAppUpdateState).toHaveBeenCalledOnce();
+    fireEvent.click(button);
+    expect(installUpdateNow).toHaveBeenCalledOnce();
+  });
+
   it("starts with the navigation drawer closed on narrow screens", () => {
     const originalWidth = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { value: 390, configurable: true });

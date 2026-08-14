@@ -2049,3 +2049,14 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Committed the Role settings loading-state fix as `7d702b8` and pushed it to `main`; published and pushed tag `v0.1.17`.
 - Built the Windows NSIS installer from the tagged source and published GitHub Release `v0.1.17`.
 - Verified the published release is not a draft and that `latest.yml` names an installer asset and matching blockmap that are both present in the release. This preserves the normal Electron auto-update path rather than altering the currently installed app.
+
+## 2026-08-14 - Desktop updater UI-only flow
+
+- Investigated a release-flow regression after the user clarified that startup updates and updates discovered while the app is running must both remain available through the in-app top-right `Update` button.
+- Root cause: `runUpdateGate()` used a separate startup path that called `autoUpdater.quitAndInstall()` when a download completed, bypassing the renderer and forcing a relaunch.
+- Removed the startup gate. The app now launches normally, then one background updater checks after startup and every 30 minutes. It publishes a retained `{state, version, percent}` snapshot through the new `get-app-update-state` IPC endpoint and normal `app-update` events.
+- The React app subscribes and also hydrates the retained snapshot. This prevents an update event emitted before React finishes mounting from disappearing. The only remaining `quitAndInstall()` call is the `install-update-now` IPC handler invoked by the user-facing button. `autoInstallOnAppQuit` is explicitly disabled.
+- Added a stable no-space NSIS artifact name, `AI-Dev-Co-worker-Setup-${version}.${ext}`, so the generated `latest.yml` and uploaded GitHub Release asset use exactly the same filename.
+- TDD evidence: added a renderer regression test for a startup-discovered ready update and a source/release contract test. Both tests failed before implementation because no status snapshot existed, the startup gate remained, auto-install-on-quit was enabled, and no stable artifact name was configured.
+- Focused verification: `npm.cmd run test -- --run frontend/tests/updaterContract.test.js frontend/tests/CoworkApp.test.jsx frontend/tests/coworkBridge.test.js frontend/tests/ipcChannelAllowlist.test.js` passed 55/55.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.

@@ -1,7 +1,7 @@
 {
   "name": "ai-dev-coworker",
   "private": true,
-  "version": "0.1.17",
+  "version": "0.1.18",
   "type": "module",
   "description": "Local-first AI coworker — chat, cowork, and code assistant.",
   "author": "nattankon",
@@ -40,6 +40,7 @@
   "build": {
     "appId": "local.ai.dev.coworker",
     "productName": "AI Dev Co-worker",
+    "artifactName": "AI-Dev-Co-worker-Setup-${version}.${ext}",
     "files": [
       "dist/**/*",
       "electron/**/*",
