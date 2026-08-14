@@ -2075,3 +2075,8 @@ This file is append-only. Runtime conversation details are stored separately in 
 - TDD evidence: the updater contract test was changed to require both paths; it failed before restoration because `runUpdateGate()` was absent, then passed with the startup gate and the isolated background UI path present.
 - Focused verification: `npm.cmd run test -- --run frontend/tests/updaterContract.test.js frontend/tests/CoworkApp.test.jsx` passed 32/32.
 - Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-14 - Published desktop update v0.1.19
+
+- Committed the restored two-path updater behavior as `fa58963`, pushed `main`, and published GitHub Release `v0.1.19`.
+- Verified the published release is not a draft or prerelease. Its remote `latest.yml` names `AI-Dev-Co-worker-Setup-0.1.19.exe`, and the installer and matching blockmap are present with the same version and byte size recorded in metadata.
