@@ -54,6 +54,7 @@ export default function SettingsModal({
   onCreateRole,
   onDeleteRole,
   onSetRoleEnabled,
+  onRefreshRoles,
   onClose,
   onRefreshConnectors,
   onSaveConnectors,
@@ -96,7 +97,10 @@ export default function SettingsModal({
                         key={key}
                         type="button"
                         aria-pressed={active}
-                        onClick={() => setActiveSection(key)}
+                        onClick={() => {
+                          setActiveSection(key);
+                          if (key === "role") onRefreshRoles?.();
+                        }}
                         className={`flex h-8 items-center gap-2 rounded-lg px-2 text-left text-[13px] transition ${
                           active ? "bg-[#e7e5df] font-medium text-[#2f2f2d]" : "text-[#5f5a52] hover:bg-[#efede8]"
                         }`}
@@ -127,6 +131,7 @@ export default function SettingsModal({
               onCreate={onCreateRole}
               onDelete={onDeleteRole}
               onSetEnabled={onSetRoleEnabled}
+              onRefresh={onRefreshRoles}
             />
           ) : showProviders ? (
             <ProvidersPanel

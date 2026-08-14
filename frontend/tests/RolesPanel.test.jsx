@@ -49,4 +49,13 @@ describe("RolesPanel", () => {
     expect(screen.getByText(/Loading roles/i)).toBeTruthy();
     expect(screen.queryByText(/No global role yet/i)).toBeNull();
   });
+
+  it("refreshes roles from local storage on demand", () => {
+    const onRefresh = vi.fn();
+    render(<RolesPanel roles={[]} loading onRefresh={onRefresh} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh roles" }));
+
+    expect(onRefresh).toHaveBeenCalledOnce();
+  });
 });

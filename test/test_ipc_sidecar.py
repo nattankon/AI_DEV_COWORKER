@@ -956,6 +956,48 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertEqual(len(agent.prompts), 1)
         self.assertTrue(agent.prompts[0].endswith("work in repo"))
 
+    def test_cowork_mode_forwards_a_vision_attachment_to_the_agent(self):
+        output = StringIO()
+        agent = FakeAgent("vision cowork answer")
+        sidecar = IpcSidecar(
+            IpcDependencies(
+                workspace=self.workspace,
+                output=output,
+                agent_factory=lambda _model: agent,
+                model_lister=lambda: [],
+            )
+        )
+        image_data_url = "data:image/png;base64,aW1hZ2UtYnl0ZXM="
+
+        sidecar.handle_line(
+            json.dumps(
+                {
+                    "command": "send_cowork",
+                    "prompt": "Describe the attached diagram",
+                    "model": "openai:gpt-4o",
+                    "client_session_id": "cowork-vision-attachment",
+                    "mode": "Cowork",
+                    "attachments": [
+                        {
+                            "label": "diagram.png",
+                            "source": "user-paste",
+                            "kind": "image",
+                            "mime": "image/png",
+                            "data_url": image_data_url,
+                        }
+                    ],
+                }
+            )
+        )
+        sidecar.wait_for_idle(timeout=1)
+
+        user_content = agent.run_kwargs[0]["user_content"]
+        self.assertIsInstance(user_content, list)
+        self.assertEqual(user_content[0]["type"], "text")
+        self.assertEqual(user_content[1]["type"], "image_url")
+        self.assertEqual(user_content[1]["image_url"]["url"], image_data_url)
+        self.assertNotIn(image_data_url, output.getvalue())
+
     def test_chat_mode_persists_and_injects_personal_memory(self):
         output = StringIO()
         calls: list[tuple[str, str]] = []

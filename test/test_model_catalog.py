@@ -2,10 +2,17 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from model_catalog import detect_provider_keys, read_provider_api_key, save_provider_key
+from model_catalog import catalog_model_metadata, catalog_model_supports_vision, detect_provider_keys, read_provider_api_key, save_provider_key
 
 
 class SaveProviderKeyTests(unittest.TestCase):
+    def test_catalog_includes_the_free_zai_vision_model(self):
+        model = catalog_model_metadata("zai:glm-4.6v-flash")
+
+        self.assertEqual(model["label"], "GLM-4.6V-Flash")
+        self.assertEqual(model["billing"], "free")
+        self.assertTrue(catalog_model_supports_vision("zai:glm-4.6v-flash"))
+
     def test_saves_and_classifies_each_provider_back_correctly(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

@@ -422,6 +422,31 @@ class CoworkAgentTests(unittest.TestCase):
         second_request = model.requests[1]["messages"]
         self.assertFalse(any(message.get("content") == "first" for message in second_request))
 
+    def test_accepts_multimodal_user_content_without_persisting_image_data_in_history(self):
+        model = FakeModel([{"content": "I can see the diagram.", "tool_calls": []}])
+        agent = CoworkAgent(
+            model=model,
+            model_name="openai:gpt-4o",
+            workspace=self.workspace,
+            tools=self.tools,
+            recorder=self.recorder,
+        )
+        image_data_url = "data:image/png;base64,aW1hZ2UtYnl0ZXM="
+
+        reply = agent.run(
+            "Describe the attached diagram",
+            user_content=[
+                {"type": "text", "text": "Describe the attached diagram"},
+                {"type": "image_url", "image_url": {"url": image_data_url}},
+            ],
+        )
+
+        self.assertEqual(reply, "I can see the diagram.")
+        self.assertEqual(model.requests[0]["messages"][-1]["content"][0]["text"], "Describe the attached diagram")
+        self.assertEqual(model.requests[0]["messages"][-1]["content"][1]["image_url"]["url"], image_data_url)
+        self.assertEqual(agent._history[0], {"role": "user", "content": "Describe the attached diagram"})
+        self.assertNotIn(image_data_url, str(agent._history))
+
 
 if __name__ == "__main__":
     unittest.main()

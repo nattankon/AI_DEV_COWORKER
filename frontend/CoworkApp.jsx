@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { answerQuestion, cancelCowork, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, getAppUpdateState, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setAutoApprove, setChatMemoryEnabled, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
 import { createCoworkBridge } from "./adapters/coworkBridge";
 import { createSessionStorageAdapter } from "./adapters/sessionStorage";
@@ -355,6 +355,10 @@ export default function CoworkApp({
   const conversationScrollRef = useRef(null);
   const conversationNearBottomRef = useRef(true);
   const coworkBridge = useMemo(() => bridge ?? createDefaultBridge(), [bridge]);
+  const refreshChatMemory = useCallback(() => {
+    setChatMemoryLoaded(false);
+    return coworkBridge.listChatMemory?.();
+  }, [coworkBridge]);
   const activeSessionId = sessionStore.activeSessionIdsByMode[activeMode];
   const modeSessions = sessionStore.sessions.filter((session) => session.mode === activeMode);
   const activeSession = modeSessions.find((session) => session.id === activeSessionId) ?? modeSessions[0];
@@ -498,11 +502,11 @@ export default function CoworkApp({
         setChatMemoryLoaded(true);
       })
       : undefined;
-    if (memoryManagerOpen || (settingsOpen && settingsSection === "role")) void coworkBridge.listChatMemory?.();
+    if (memoryManagerOpen || (settingsOpen && settingsSection === "role")) void refreshChatMemory();
     return () => {
       if (typeof unsubscribe === "function") unsubscribe();
     };
-  }, [coworkBridge, memoryManagerOpen, settingsOpen, settingsSection]);
+  }, [coworkBridge, memoryManagerOpen, refreshChatMemory, settingsOpen, settingsSection]);
 
   useEffect(() => {
     const unsubscribe = typeof coworkBridge.subscribeChatArtifacts === "function"
@@ -778,7 +782,7 @@ export default function CoworkApp({
     setSettingsOpen(true);
     if (targetSection === "developer" || targetSection === "connectors") void coworkBridge.listChatConnectors?.();
     if (targetSection === "providers") void coworkBridge.loadApiKeys?.();
-    if (targetSection === "role") void coworkBridge.listChatMemory?.();
+    if (targetSection === "role") void refreshChatMemory();
   };
 
   const seedComposerPrompt = ({ id, mode, prompt }) => {
@@ -1226,6 +1230,7 @@ export default function CoworkApp({
           onCreateRole={(text) => coworkBridge.createChatMemory?.({ text, kind: "role", mode: activeMode, clientSessionId: activeSessionId })}
           onDeleteRole={(id) => coworkBridge.deleteChatMemory?.(id)}
           onSetRoleEnabled={(id, enabled) => coworkBridge.setChatMemoryEnabled?.(id, enabled)}
+          onRefreshRoles={refreshChatMemory}
           onClose={() => setSettingsOpen(false)}
           onRefreshConnectors={() => coworkBridge.listChatConnectors?.()}
           onSaveConnectors={(connectors) => coworkBridge.saveChatConnectors?.(connectors)}

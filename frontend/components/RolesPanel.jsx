@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Plus, Power, Trash2 } from "lucide-react";
+import { Plus, Power, RefreshCw, Trash2 } from "lucide-react";
 
-export default function RolesPanel({ roles = [], loading = false, onCreate, onDelete, onSetEnabled }) {
+export default function RolesPanel({ roles = [], loading = false, onCreate, onDelete, onSetEnabled, onRefresh }) {
   const [draft, setDraft] = useState("");
 
   const submit = () => {
@@ -13,7 +13,18 @@ export default function RolesPanel({ roles = [], loading = false, onCreate, onDe
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-[22px] font-semibold text-[#2f2f2d]">Role</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[22px] font-semibold text-[#2f2f2d]">Role</h2>
+        <button
+          type="button"
+          aria-label="Refresh roles"
+          title="Refresh roles from local storage"
+          onClick={() => onRefresh?.()}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-[#5f5a52] transition hover:bg-[#efede8]"
+        >
+          <RefreshCw size={16} strokeWidth={1.9} />
+        </button>
+      </div>
       <p className="mt-2 text-[14px] leading-6 text-[#6f6b63]">
         A role is your standing instruction for who the assistant is and how it behaves. It applies to
         every chat across all modes — Chat, Cowork, and Code. For instructions that only matter in one

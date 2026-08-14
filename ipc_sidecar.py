@@ -314,8 +314,8 @@ class IpcSidecar:
                     **({"route": route} if route else {}),
                 },
             )
+            attachments = self._normalize_chat_attachments(payload.get("attachments"))
             if mode == "Chat":
-                attachments = self._normalize_chat_attachments(payload.get("attachments"))
                 web_settings = self._normalize_chat_web_settings(payload.get("web_settings") or payload.get("webSettings"))
                 def on_chat_delta(delta: str) -> None:
                     self._raise_if_cancelled(client_session_id)
@@ -355,6 +355,17 @@ class IpcSidecar:
             else:
                 self._raise_if_cancelled(client_session_id)
                 role_prompt = self._format_mode_role_prompt(prompt, client_session_id, mode)
+
+                def cowork_user_content(candidate_model: str) -> Any:
+                    attachment_prompt = self._format_chat_attachments(
+                        attachments,
+                        candidate_model,
+                        context_name=mode,
+                    )
+                    content_prompt = role_prompt
+                    if attachment_prompt:
+                        content_prompt = f"{role_prompt}\n\n{attachment_prompt}"
+                    return self._build_chat_user_content(content_prompt, attachments, candidate_model)
 
                 def on_cowork_delta(delta: str) -> None:
                     self._raise_if_cancelled(client_session_id)
@@ -405,6 +416,7 @@ class IpcSidecar:
                     on_status=on_cowork_status,
                     on_stream_reset=on_cowork_reset,
                     on_evidence=on_cowork_evidence,
+                    user_content_factory=cowork_user_content if attachments else None,
                 )
                 web_sources = []
             self._raise_if_cancelled(client_session_id)
@@ -503,6 +515,7 @@ class IpcSidecar:
         on_status: Callable[[str], None] | None = None,
         on_stream_reset: Callable[[], None] | None = None,
         on_evidence: Callable[[dict], None] | None = None,
+        user_content_factory: Callable[[str], Any] | None = None,
     ) -> tuple[str, str]:
         candidates = self._model_candidates(requested_model)
         failures: list[str] = []
@@ -516,6 +529,7 @@ class IpcSidecar:
                         on_status=on_status,
                         on_stream_reset=on_stream_reset,
                         on_evidence=on_evidence,
+                        **({"user_content": user_content_factory(model)} if user_content_factory else {}),
                     )
                 ), model
             except Exception as exc:
@@ -1270,13 +1284,19 @@ class IpcSidecar:
             attachments.append(attachment)
         return attachments
 
-    def _format_chat_attachments(self, attachments: list[dict[str, Any]], model: str = "") -> str:
+    def _format_chat_attachments(
+        self,
+        attachments: list[dict[str, Any]],
+        model: str = "",
+        *,
+        context_name: str = "Chat",
+    ) -> str:
         if not attachments:
             return ""
         vision_enabled = self._model_can_receive_images(model)
         lines = [
-            "## Chat Attached Context",
-            "The user explicitly attached the following context to this Chat conversation. Use it only when relevant, cite source labels like [1], and say when the attached context is insufficient.",
+            f"## {context_name} Attached Context",
+            f"The user explicitly attached the following context to this {context_name} conversation. Use it only when relevant, cite source labels like [1], and say when the attached context is insufficient.",
             "If you use any attached source, cite the exact source label inline. End with a Sources section listing each used label and attachment name, for example: Sources: [1] notes.txt.",
         ]
         for index, attachment in enumerate(attachments, start=1):

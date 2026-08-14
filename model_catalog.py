@@ -205,6 +205,17 @@ MODEL_PROVIDER_CATALOG: list[dict[str, Any]] = [
                 "availability_status": "free-smoke-tested",
                 "vision": False,
             },
+            {
+                "id": "zai:glm-4.6v-flash",
+                "label": "GLM-4.6V-Flash",
+                "tier": "free",
+                "billing": "free",
+                "badge": "Free / Vision",
+                "strengths": ["vision", "multimodal", "chat", "agent", "fast-response"],
+                "context_window_tokens": 128_000,
+                "availability_status": "free-tier",
+                "vision": True,
+            },
         ],
     },
     {

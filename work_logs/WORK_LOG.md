@@ -2095,3 +2095,14 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Committed the timeline persistence fix as `0069455`, pushed `main`, and published GitHub Release `v0.1.20`.
 - Built the Windows NSIS installer from the tagged source. The generated `latest.yml` and uploaded release assets agree on `AI-Dev-Co-worker-Setup-0.1.20.exe` and its blockmap.
 - Verified the release is neither draft nor prerelease and downloaded its remote `latest.yml`; it reports version `0.1.20`, the expected installer filename, size, and SHA-512.
+
+## 2026-08-14 - Cowork and Code image context plus Role refresh
+
+- Diagnosed two user-visible regressions from the source and added regression tests before implementation.
+- Cowork and Code attachment requests now normalize image/file context before mode dispatch and forward a bounded OpenAI-compatible multimodal user payload to `CoworkAgent` when an attachment is present. The fallback path builds content per candidate model, so an explicitly selected text-only model is not silently overridden.
+- `CoworkAgent` records only the ordinary text prompt in durable session history; raw image/base64 payloads are request-only and do not persist in the agent history.
+- Added catalog metadata for Z.ai `GLM-4.6V-Flash` as a free vision-capable model. This provides a documented no-cost vision choice while retaining the existing text-only models.
+- Fixed the Role Settings internal-navigation refresh gap: selecting Role inside the Settings modal now asks the sidecar for current memory state, and the Role panel has an accessible manual refresh button for a retry without closing the modal.
+- TDD evidence: added backend coverage for multimodal Cowork request forwarding/history privacy and catalog metadata, plus frontend coverage for Role manual refresh and internal Role navigation refresh.
+- Verification: full backend suite passed 408/408 with `python -m unittest discover -s test -p test_*.py`; full frontend suite passed 176/176 with `npm.cmd run test`.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`. No Claude review was requested.

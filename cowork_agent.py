@@ -199,10 +199,12 @@ class CoworkAgent:
         on_status: Callable[[str], None] | None = None,
         on_stream_reset: Callable[[], None] | None = None,
         on_evidence: Callable[[dict], None] | None = None,
+        user_content: Any | None = None,
     ) -> str:
         normalized_prompt = str(prompt or "").strip()
         if not normalized_prompt:
             raise ValueError("Prompt cannot be empty.")
+        request_content = user_content if user_content is not None else normalized_prompt
 
         def emit_status(text: str) -> None:
             if on_status and text:
@@ -220,7 +222,7 @@ class CoworkAgent:
         messages = [
             {"role": "system", "content": build_cowork_system_prompt(memory_context)},
             *self._history,
-            {"role": "user", "content": normalized_prompt},
+            {"role": "user", "content": request_content},
         ]
         self.recorder.start(self.model_name, self.workspace)
         self.recorder.record("message_user", {"content": normalized_prompt})
