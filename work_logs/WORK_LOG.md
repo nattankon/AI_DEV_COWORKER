@@ -2134,3 +2134,8 @@ This file is append-only. Runtime conversation details are stored separately in 
 - TDD evidence: added a Cowork timeline image regression test. It failed before the rendering change because no image was present, then passed after the shared preview was rendered in the non-Chat branch.
 - Verification: focused Timeline tests passed `15/15`; full frontend suite passed `178/178`; production frontend build passed. The existing Vite bundle-size warning is non-blocking.
 - Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-14 - Published desktop update v0.1.23
+
+- Committed the non-Chat image timeline fix as `785a9b6`, pushed `main`, and published tag/GitHub Release `v0.1.23`.
+- Built the Windows NSIS installer from the tagged source. GitHub Release verification confirms `AI-Dev-Co-worker-Setup-0.1.23.exe` (`110811239` bytes), its matching blockmap, and `latest.yml` are published; the release is neither draft nor prerelease.
