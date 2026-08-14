@@ -327,6 +327,7 @@ export default function CoworkApp({
   });
   const [settingsSection, setSettingsSection] = useState("developer");
   const [chatMemoryEntries, setChatMemoryEntries] = useState([]);
+  const [chatMemoryLoaded, setChatMemoryLoaded] = useState(false);
   const [chatArtifacts, setChatArtifacts] = useState([]);
   const [chatQualityEvalState, setChatQualityEvalState] = useState({ cases: [], count: 0 });
   const [chatConnectorsState, setChatConnectorsState] = useState({ connectors: [], statuses: [], enabled: false, mcp_sdk_available: false });
@@ -482,6 +483,7 @@ export default function CoworkApp({
     const unsubscribe = typeof coworkBridge.subscribeChatMemory === "function"
       ? coworkBridge.subscribeChatMemory((payload = {}) => {
         setChatMemoryEntries(Array.isArray(payload.entries) ? payload.entries : []);
+        setChatMemoryLoaded(true);
       })
       : undefined;
     if (memoryManagerOpen || (settingsOpen && settingsSection === "role")) void coworkBridge.listChatMemory?.();
@@ -1201,6 +1203,7 @@ export default function CoworkApp({
           connectorDiscoveryResult={chatConnectorDiscoveryResult}
           modelProviders={modelProviders}
           roles={chatMemoryEntries.filter((entry) => String(entry?.kind || "") === "role")}
+          rolesLoading={!chatMemoryLoaded}
           onCreateRole={(text) => coworkBridge.createChatMemory?.({ text, kind: "role", mode: activeMode, clientSessionId: activeSessionId })}
           onDeleteRole={(id) => coworkBridge.deleteChatMemory?.(id)}
           onSetRoleEnabled={(id, enabled) => coworkBridge.setChatMemoryEnabled?.(id, enabled)}

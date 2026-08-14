@@ -2029,3 +2029,17 @@ This file is append-only. Runtime conversation details are stored separately in 
   - Focused MCP/sidecar suites passed 99/99 with `python -m unittest test.test_chat_mcp_client test.test_ipc_sidecar -v`.
   - Full backend suite passed 340/340 with `python -m unittest discover -s test -p test_*.py -v`.
 - Skills used: `roblox-workspace-builder`, `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-14 - Role settings persistence refresh state
+
+- Investigated the Role settings screen showing an empty state after restart/update even though the installed app's per-user `chat_memory/personal.json` still contained an enabled role.
+- Confirmed the persistence path and sidecar response are healthy; the issue was a frontend timing state where the empty UI rendered before `chat_memory_state` arrived.
+- Added an explicit role-loading state from `CoworkApp` through `SettingsModal` to `RolesPanel`. Role settings now display `Loading roles from local storage...` until the first memory-state response, then render either the saved roles or a true empty state.
+- TDD evidence: added a `RolesPanel` regression test which failed first because the pre-fix component rendered `No global role yet` while `loading` was requested; it passed after the loading branch was implemented.
+- Verification:
+  - Focused frontend tests passed 33/33 with `npm.cmd run test -- --run frontend/tests/RolesPanel.test.jsx frontend/tests/CoworkApp.test.jsx`.
+  - Full backend suite passed 405/405 with `python -m unittest discover -s test -p test_*.py`.
+  - Full frontend suite passed 169/169 with `npm.cmd run test`.
+  - Production frontend build passed with `npm.cmd run build`; the existing Vite chunk-size warning remains non-blocking.
+  - The local preview server started successfully. Browser-level Playwright interaction could not run because the local Python environment does not include the `playwright` package; the role rendering behavior remains covered by the focused React regression test.
+- Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.

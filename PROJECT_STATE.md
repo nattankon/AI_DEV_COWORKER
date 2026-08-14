@@ -1,6 +1,6 @@
 # Cowork Project State
 
-Last updated: 2026-07-03
+Last updated: 2026-08-14
 
 ## Core Product Architecture Decision
 
@@ -111,6 +111,7 @@ Effort must eventually control backend behavior: model settings, context budget,
 - The first-screen React controls are wired for real local behavior: titlebar minimize/maximize/close, sidebar toggle, shell menu, search focus, previous/next session navigation, selectable Chat/Cowork/Code modes, artifacts/customize prompt seeding, quick actions, slash-skill suggestions, local model/effort selection, project folder selection, and recent-session pin/rename/add/delete actions.
 - The session sidebar now includes local history search so long Chat/Cowork/Code recent lists can be filtered without changing persisted sessions.
 - Chat explicit attachments now support pre-send preview in the composer. Text/snippet attachments show bounded readable content, image attachments show inline thumbnail previews when available, and removing or sending attachments clears the preview so attachment content still does not leak into the persisted visible timeline. The composer also accepts pasted clipboard images/screenshots with `Ctrl+V` and routes them through the same bounded image attachment path as file picker and drag/drop images.
+- Role settings now wait for the persisted `chat_memory_state` response before showing an empty role list. This prevents a delayed IPC refresh from presenting an existing role in the per-user data directory as missing after an app restart or an update.
 - Chat artifacts can now be exported from the Artifacts panel. The latest selected artifact version can be attached back into Chat, copied, or downloaded with a sanitized filename and type-based extension while HTML previews remain iframe-sandboxed.
 - `chat_quality_runner.py` now provides an opt-in live model quality runner. It can run fixture cases across a model/category matrix, score each cell with `evaluate_case_result`, aggregate pass rate, latency, hallucination rate, directness rate, source usage, source quality, route variant, tool-loop entry, research iterations, and answer-path latency by model/category, and write JSON/Markdown reports under `work_logs/`. The CLI requires `--live` so the default test suite never triggers model/API calls, and supports bounded retry/backoff for retryable provider failures such as HTTP 429 overloads.
 - The Chat Quality view is now available from the sidebar. It lists the offline quality fixture categories, can refresh cases from the sidecar, can run a local snapshot evaluation without calling live model/API providers, and can run an opt-in live model/category matrix through `chat_quality_run` only after the user explicitly confirms that selected models may be called and credits may be used.

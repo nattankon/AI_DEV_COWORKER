@@ -42,4 +42,11 @@ describe("RolesPanel", () => {
     render(<RolesPanel roles={[]} />);
     expect(screen.getByText(/No global role yet/i)).toBeTruthy();
   });
+
+  it("shows a loading state instead of an empty state while roles are loading", () => {
+    render(<RolesPanel roles={[]} loading />);
+
+    expect(screen.getByText(/Loading roles/i)).toBeTruthy();
+    expect(screen.queryByText(/No global role yet/i)).toBeNull();
+  });
 });

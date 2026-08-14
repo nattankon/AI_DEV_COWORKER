@@ -50,6 +50,7 @@ export default function SettingsModal({
   connectorDiscoveryResult,
   modelProviders,
   roles = [],
+  rolesLoading = false,
   onCreateRole,
   onDeleteRole,
   onSetRoleEnabled,
@@ -122,6 +123,7 @@ export default function SettingsModal({
           {showRole ? (
             <RolesPanel
               roles={roles}
+              loading={rolesLoading}
               onCreate={onCreateRole}
               onDelete={onDeleteRole}
               onSetEnabled={onSetRoleEnabled}

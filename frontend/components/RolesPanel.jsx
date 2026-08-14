@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus, Power, Trash2 } from "lucide-react";
 
-export default function RolesPanel({ roles = [], onCreate, onDelete, onSetEnabled }) {
+export default function RolesPanel({ roles = [], loading = false, onCreate, onDelete, onSetEnabled }) {
   const [draft, setDraft] = useState("");
 
   const submit = () => {
@@ -53,7 +53,11 @@ export default function RolesPanel({ roles = [], onCreate, onDelete, onSetEnable
       </div>
 
       <div className="mt-5 grid gap-2">
-        {roles.length === 0 ? (
+        {loading ? (
+          <div className="rounded-lg border border-dashed border-[#e0ddd4] px-3 py-7 text-center text-[13px] text-[#9a948a]">
+            Loading roles from local storage...
+          </div>
+        ) : roles.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#e0ddd4] px-3 py-7 text-center text-[13px] text-[#9a948a]">
             No global role yet. Add one above and it will apply to every chat.
           </div>
