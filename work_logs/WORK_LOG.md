@@ -2106,3 +2106,8 @@ This file is append-only. Runtime conversation details are stored separately in 
 - TDD evidence: added backend coverage for multimodal Cowork request forwarding/history privacy and catalog metadata, plus frontend coverage for Role manual refresh and internal Role navigation refresh.
 - Verification: full backend suite passed 408/408 with `python -m unittest discover -s test -p test_*.py`; full frontend suite passed 176/176 with `npm.cmd run test`.
 - Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`. No Claude review was requested.
+
+## 2026-08-14 - Published desktop update v0.1.21
+
+- Committed the Cowork/Code image-context and Role-refresh update as `8e23f2f`, pushed `main`, and published tag/GitHub Release `v0.1.21`.
+- Built the Windows NSIS installer from the tagged source. The generated and remotely published `latest.yml` both report `0.1.21`, `AI-Dev-Co-worker-Setup-0.1.21.exe`, size `110808889`, and the matching SHA-512; the installer and blockmap assets are published and the release is neither draft nor prerelease.
