@@ -51,6 +51,27 @@ describe("Composer", () => {
     expect(screen.getByRole("menu", { name: "Tool settings menu" })).toBeInTheDocument();
   });
 
+  it("shows the paid vision assistant control and lets the user disable it", () => {
+    const onWebSettingsChange = vi.fn();
+    render(
+      <Composer
+        disabled={false}
+        modelLabel="zai:glm-4.5-flash"
+        workspaceLabel="workspace"
+        webSettings={{ webMode: "auto", searchProvider: "auto", visionAssist: "auto", visionModel: "zai:glm-4.6v-flashx" }}
+        onWebSettingsChange={onWebSettingsChange}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Tool settings" }));
+
+    expect(screen.getByText("Vision assist")).toBeInTheDocument();
+    expect(screen.getByText("GLM-4.6V-FlashX")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Turn Vision assist off" }));
+    expect(onWebSettingsChange).toHaveBeenCalledWith(expect.objectContaining({ visionAssist: "off" }));
+  });
+
   it("does not submit an empty prompt", () => {
     const onSubmit = vi.fn();
     render(<Composer disabled={false} modelLabel="model" workspaceLabel="workspace" onSubmit={onSubmit} />);
@@ -486,4 +507,3 @@ describe("Composer", () => {
     ]);
   });
 });
-

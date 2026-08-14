@@ -6,6 +6,17 @@ from model_catalog import catalog_model_metadata, catalog_model_supports_vision,
 
 
 class SaveProviderKeyTests(unittest.TestCase):
+    def test_catalog_includes_paid_zai_vision_helpers(self):
+        flashx = catalog_model_metadata("zai:glm-4.6v-flashx")
+        full = catalog_model_metadata("zai:glm-4.6v")
+
+        self.assertEqual(flashx["billing"], "paid")
+        self.assertTrue(catalog_model_supports_vision("zai:glm-4.6v-flashx"))
+        self.assertGreater(flashx["context_window_tokens"], 0)
+        self.assertEqual(full["billing"], "paid")
+        self.assertTrue(catalog_model_supports_vision("zai:glm-4.6v"))
+        self.assertGreater(full["context_window_tokens"], 0)
+
     def test_catalog_includes_the_free_zai_vision_model(self):
         model = catalog_model_metadata("zai:glm-4.6v-flash")
 

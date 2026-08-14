@@ -206,12 +206,12 @@ export function createCoworkBridge(legacyBridge, overrides = {}) {
   };
 
   return {
-    async sendPrompt({ prompt, model, workingDirectory = "", sessionId = "", mode = "Cowork", effort = "Medium", attachments = [], webSettings = {}, history = [] }) {
+    async sendPrompt({ prompt, model, workingDirectory = "", sessionId = "", mode = "Cowork", effort = "Medium", attachments = [], webSettings = {}, history = [], visionSettings = {} }) {
       if (typeof legacyBridge?.sendPrompt !== "function") return;
       const promptWithContext = workingDirectory
         ? `[Target Working Directory: ${workingDirectory}]\n${prompt}`
         : prompt;
-      await legacyBridge.sendPrompt(promptWithContext, model, sessionId, mode, effort, attachments, webSettings, history);
+      await legacyBridge.sendPrompt(promptWithContext, model, sessionId, mode, effort, attachments, webSettings, history, visionSettings);
     },
     async cancelPrompt({ sessionId = "", mode = "Cowork" } = {}) {
       if (typeof legacyBridge?.cancelPrompt === "function") {

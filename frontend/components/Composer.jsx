@@ -76,7 +76,7 @@ export default function Composer({
   searchCapabilities,
   suggestedAttachments,
   suggestedPrompt,
-  webSettings = { webMode: "auto", searchProvider: "auto" },
+  webSettings = { webMode: "auto", searchProvider: "auto", visionAssist: "off", visionModel: "zai:glm-4.6v-flashx" },
   workspaceLabel,
   onChooseWorkspace,
   onEffortChange,
@@ -193,6 +193,10 @@ export default function Composer({
 
   const setSearchProvider = (searchProvider) => {
     onWebSettingsChange?.({ ...webSettings, searchProvider });
+  };
+
+  const setVisionAssist = (visionAssist) => {
+    onWebSettingsChange?.({ ...webSettings, visionAssist });
   };
 
   const setToolToggle = (key, enabled) => {
@@ -772,6 +776,28 @@ export default function Composer({
                 </button>
               ))}
             </div>
+            <div className="mt-3 px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-[#8a877f]">Vision assist</div>
+            <div className="grid grid-cols-2 gap-1">
+              {["off", "auto"].map((mode) => {
+                const enabled = (webSettings.visionAssist || "off") === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="menuitemradio"
+                    aria-label={`Turn Vision assist ${mode}`}
+                    aria-checked={enabled}
+                    onClick={() => setVisionAssist(mode)}
+                    className={`h-8 rounded-lg px-2 text-left capitalize ${enabled ? "bg-[#ebe9e2] text-[#2f2f2d]" : "hover:bg-[#f0efeb]"}`}
+                  >
+                    {mode}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="px-2 pt-1 text-[11px] leading-4 text-[#8a877f]">
+              <span>GLM-4.6V-FlashX</span> analyzes attached images before the selected model responds.
+            </div>
             <div className="my-2 border-t border-[#ebe8df]" />
             <div className="flex items-center justify-between px-2 pb-1">
               <span className="text-[11px] font-medium uppercase tracking-wide text-[#8a877f]">Connectors</span>
@@ -1093,4 +1119,3 @@ export default function Composer({
     </div>
   );
 }
-

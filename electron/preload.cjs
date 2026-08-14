@@ -89,7 +89,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   discoverChatConnector: (target) => ipcRenderer.invoke("chat-connector-discover", target),
   runChatMcpTool: (payload) => ipcRenderer.invoke("chat-mcp-tool-run", payload),
   selectFolder: () => ipcRenderer.invoke("select-folder"),
-  sendCowork: (prompt, model, sessionId, mode, effort, attachments, webSettings, history) => ipcRenderer.invoke("send-cowork", prompt, model, sessionId, mode, effort, attachments, webSettings, history),
+  sendCowork: (prompt, model, sessionId, mode, effort, attachments, webSettings, history, visionSettings) => ipcRenderer.invoke("send-cowork", prompt, model, sessionId, mode, effort, attachments, webSettings, history, visionSettings),
   cancelCowork: (sessionId, mode) => ipcRenderer.invoke("cancel-cowork", sessionId, mode),
   setWorkspace: (path) => ipcRenderer.invoke("set-workspace", path),
   workspaceAction: (payload) => ipcRenderer.invoke("workspace-action", payload),

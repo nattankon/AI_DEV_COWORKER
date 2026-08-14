@@ -292,7 +292,17 @@ function sanitizeChatWebSettings(settings) {
   };
 }
 
-ipcMain.handle("send-cowork", async (_event, prompt, model, sessionId, mode, effort, attachments, webSettings, history) =>
+function sanitizeVisionSettings(settings) {
+  const raw = settings && typeof settings === "object" && !Array.isArray(settings) ? settings : {};
+  const visionAssist = typeof raw.visionAssist === "string" ? raw.visionAssist : typeof raw.vision_assist === "string" ? raw.vision_assist : "off";
+  const visionModel = typeof raw.visionModel === "string" ? raw.visionModel : typeof raw.vision_model === "string" ? raw.vision_model : "zai:glm-4.6v-flashx";
+  return {
+    vision_assist: ["off", "auto", "on"].includes(visionAssist) ? visionAssist : "off",
+    vision_model: visionModel.trim().slice(0, 160) || "zai:glm-4.6v-flashx",
+  };
+}
+
+ipcMain.handle("send-cowork", async (_event, prompt, model, sessionId, mode, effort, attachments, webSettings, history, visionSettings) =>
   sendCommandToPython("send_cowork", {
     prompt: typeof prompt === "string" ? prompt : "",
     model: typeof model === "string" ? model : "",
@@ -301,6 +311,7 @@ ipcMain.handle("send-cowork", async (_event, prompt, model, sessionId, mode, eff
     effort: typeof effort === "string" ? effort : "Medium",
     attachments: sanitizeChatAttachments(attachments),
     web_settings: sanitizeChatWebSettings(webSettings),
+    vision_settings: sanitizeVisionSettings(visionSettings),
     history: Array.isArray(history) ? history : undefined,
   }),
 );

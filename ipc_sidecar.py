@@ -59,6 +59,12 @@ try:
     from .chat_pyodide_sandbox import PyodideSandbox
     from .chat_quality_eval import quality_eval_cases, run_quality_eval_snapshot
     from .chat_text_diagnostics import build_mojibake_diagnostics
+    from .chat_vision_assist import (
+        build_vision_evidence_message,
+        select_vision_assist,
+        vision_assist_unavailable_message,
+        vision_evidence_system_prompt,
+    )
     from .chat_answer_guard import GuardResult, validate_answer
     from .chat_research_runner import ChatResearchRunner
     from .chat_research_strategy import build_research_plan
@@ -85,6 +91,12 @@ except ImportError:
     from chat_pyodide_sandbox import PyodideSandbox
     from chat_quality_eval import quality_eval_cases, run_quality_eval_snapshot
     from chat_text_diagnostics import build_mojibake_diagnostics
+    from chat_vision_assist import (
+        build_vision_evidence_message,
+        select_vision_assist,
+        vision_assist_unavailable_message,
+        vision_evidence_system_prompt,
+    )
     from chat_answer_guard import GuardResult, validate_answer
     from chat_research_runner import ChatResearchRunner
     from chat_research_strategy import build_research_plan
@@ -315,6 +327,7 @@ class IpcSidecar:
                 },
             )
             attachments = self._normalize_chat_attachments(payload.get("attachments"))
+            vision_settings = payload.get("vision_settings") or payload.get("visionSettings")
             if mode == "Chat":
                 web_settings = self._normalize_chat_web_settings(payload.get("web_settings") or payload.get("webSettings"))
                 def on_chat_delta(delta: str) -> None:
@@ -349,23 +362,39 @@ class IpcSidecar:
                     attachments,
                     history_override=self._normalize_chat_history_override(payload.get("history")),
                     web_settings=web_settings,
+                    vision_settings=vision_settings,
                     on_delta=on_chat_delta,
                     on_reset=on_chat_reset,
                 )
             else:
                 self._raise_if_cancelled(client_session_id)
                 role_prompt = self._format_mode_role_prompt(prompt, client_session_id, mode)
+                vision_assist = self._run_vision_assist(
+                    prompt=prompt,
+                    attachments=attachments,
+                    primary_model=model,
+                    settings=vision_settings,
+                    client_session_id=client_session_id,
+                    mode=mode,
+                )
 
                 def cowork_user_content(candidate_model: str) -> Any:
                     attachment_prompt = self._format_chat_attachments(
                         attachments,
-                        candidate_model,
+                        vision_assist["attachment_model"],
                         context_name=mode,
                     )
                     content_prompt = role_prompt
                     if attachment_prompt:
                         content_prompt = f"{role_prompt}\n\n{attachment_prompt}"
-                    return self._build_chat_user_content(content_prompt, attachments, candidate_model)
+                    evidence_message = str(vision_assist.get("evidence_message") or "").strip()
+                    if evidence_message:
+                        content_prompt = f"{content_prompt}\n\n{evidence_message}"
+                    return self._build_chat_user_content(
+                        content_prompt,
+                        attachments if vision_assist["send_images_to_primary"] else [],
+                        candidate_model,
+                    )
 
                 def on_cowork_delta(delta: str) -> None:
                     self._raise_if_cancelled(client_session_id)
@@ -577,6 +606,7 @@ class IpcSidecar:
         attachments: list[dict[str, Any]] | None = None,
         history_override: list[dict[str, str]] | None = None,
         web_settings: dict[str, str] | None = None,
+        vision_settings: dict[str, Any] | None = None,
         on_delta: Callable[[str], None] | None = None,
         on_reset: Callable[[], None] | None = None,
         return_diagnostics: bool = False,
@@ -595,15 +625,29 @@ class IpcSidecar:
         memory_messages = [{"role": "system", "content": memory_prompt}] if memory_prompt else []
         normalized_attachments = attachments or []
         model = self._route_chat_model_if_auto(model, prompt, normalized_attachments)
-        attachment_prompt = self._format_chat_attachments(normalized_attachments, model)
+        vision_assist = self._run_vision_assist(
+            prompt=prompt,
+            attachments=normalized_attachments,
+            primary_model=model,
+            settings=vision_settings,
+            client_session_id=client_session_id,
+            mode="Chat",
+        )
+        attachment_prompt = self._format_chat_attachments(normalized_attachments, vision_assist["attachment_model"])
         attachment_messages = [{"role": "system", "content": attachment_prompt}] if attachment_prompt else []
+        vision_message = str(vision_assist.get("evidence_message") or "").strip()
+        vision_messages = [{"role": "system", "content": vision_message}] if vision_message else []
         mcp_context_prompt = self._format_chat_mcp_live_context(
             prompt,
             web_settings,
             client_session_id=client_session_id,
         )
         mcp_context_messages = [{"role": "system", "content": mcp_context_prompt}] if mcp_context_prompt else []
-        user_content = self._build_chat_user_content(prompt, normalized_attachments, model)
+        user_content = self._build_chat_user_content(
+            prompt,
+            normalized_attachments if vision_assist["send_images_to_primary"] else [],
+            model,
+        )
         web_response: WebSearchResponse | None = None
         research_result = None
         guard_result: GuardResult | None = None
@@ -620,6 +664,7 @@ class IpcSidecar:
                     effort_config=effort_config,
                     memory_messages=memory_messages,
                     attachment_messages=attachment_messages,
+                    vision_messages=vision_messages,
                     mcp_context_messages=mcp_context_messages,
                     recent_history=recent_history,
                     user_content=user_content,
@@ -642,6 +687,7 @@ class IpcSidecar:
                     effort_config=effort_config,
                     memory_messages=memory_messages,
                     attachment_messages=attachment_messages,
+                    vision_messages=vision_messages,
                     mcp_context_messages=mcp_context_messages,
                     recent_history=recent_history,
                     user_content=user_content,
@@ -657,6 +703,7 @@ class IpcSidecar:
                 effort_config=effort_config,
                 memory_messages=memory_messages,
                 attachment_messages=attachment_messages,
+                vision_messages=vision_messages,
                 mcp_context_messages=mcp_context_messages,
                 recent_history=recent_history,
                 user_content=user_content,
@@ -833,6 +880,7 @@ class IpcSidecar:
         effort_config: Any,
         memory_messages: list[dict[str, str]],
         attachment_messages: list[dict[str, str]],
+        vision_messages: list[dict[str, str]],
         mcp_context_messages: list[dict[str, str]],
         recent_history: list[dict[str, str]],
         user_content: Any,
@@ -1004,6 +1052,7 @@ class IpcSidecar:
                 },
                 *memory_messages,
                 *attachment_messages,
+                *vision_messages,
                 *mcp_context_messages,
             ],
             before_finalize=before_finalize,
@@ -1038,6 +1087,7 @@ class IpcSidecar:
         effort_config: Any,
         memory_messages: list[dict[str, str]],
         attachment_messages: list[dict[str, str]],
+        vision_messages: list[dict[str, str]],
         mcp_context_messages: list[dict[str, str]],
         recent_history: list[dict[str, str]],
         user_content: Any,
@@ -1051,6 +1101,7 @@ class IpcSidecar:
             {"role": "system", "content": route.to_prompt_block(has_web_context=bool(web_response and web_response.results))},
             *memory_messages,
             *attachment_messages,
+            *vision_messages,
             *mcp_context_messages,
             *web_messages,
             *recent_history,
@@ -1326,6 +1377,124 @@ class IpcSidecar:
         for data_url in image_urls[:MAX_CHAT_ATTACHMENTS]:
             content.append({"type": "image_url", "image_url": {"url": data_url}})
         return content
+
+    def _run_vision_assist(
+        self,
+        *,
+        prompt: str,
+        attachments: list[dict[str, Any]],
+        primary_model: str,
+        settings: dict[str, Any] | None,
+        client_session_id: str,
+        mode: str,
+    ) -> dict[str, Any]:
+        decision = select_vision_assist(
+            attachments,
+            settings,
+            supports_vision=self._model_can_receive_images,
+        )
+        result: dict[str, Any] = {
+            "attempted": False,
+            "completed": False,
+            "helper_model": decision.helper_model,
+            "attachment_model": primary_model,
+            "send_images_to_primary": True,
+            "evidence_message": "",
+        }
+        if not decision.enabled:
+            return result
+
+        helper_metadata = catalog_model_metadata(decision.helper_model)
+        helper_label = str(helper_metadata.get("label") or decision.helper_model)
+        self._emit(
+            "cowork_status",
+            {
+                "client_session_id": client_session_id,
+                "mode": mode,
+                "text": f"Analyzing image with {helper_label}...",
+            },
+        )
+        result["attempted"] = True
+        started = time.perf_counter()
+        try:
+            helper_model = self._create_chat_model(
+                decision.helper_model,
+                timeout=self.dependencies.chat_config.model_timeout_seconds,
+            )
+            helper_user_content = self._build_chat_user_content(
+                "Analyze the attached image evidence for this user request.\n\n"
+                f"User request:\n{prompt}",
+                attachments,
+                decision.helper_model,
+            )
+            response = helper_model.complete(
+                [
+                    {"role": "system", "content": vision_evidence_system_prompt()},
+                    {"role": "user", "content": helper_user_content},
+                ],
+                tools=[],
+                generation={"temperature": 0, "max_tokens": 1024},
+            )
+            evidence = str(response.get("content") or "").strip()
+            if not evidence:
+                raise RuntimeError("Vision helper returned an empty response.")
+            duration_ms = int(max(0, (time.perf_counter() - started) * 1000))
+            result.update(
+                {
+                    "completed": True,
+                    "attachment_model": decision.helper_model,
+                    "send_images_to_primary": False,
+                    "evidence_message": build_vision_evidence_message(evidence, decision.helper_model),
+                }
+            )
+            record_cowork_event(
+                "vision_assist",
+                {
+                    "client_session_id": client_session_id,
+                    "mode": mode,
+                    "helper_model": decision.helper_model,
+                    "status": "completed",
+                    "duration_ms": duration_ms,
+                },
+            )
+            self._emit(
+                "cowork_status",
+                {
+                    "client_session_id": client_session_id,
+                    "mode": mode,
+                    "text": "Writing...",
+                },
+            )
+            return result
+        except Exception:
+            duration_ms = int(max(0, (time.perf_counter() - started) * 1000))
+            primary_can_receive_images = self._model_can_receive_images(primary_model)
+            result.update(
+                {
+                    "attachment_model": primary_model,
+                    "send_images_to_primary": primary_can_receive_images,
+                    "evidence_message": "" if primary_can_receive_images else vision_assist_unavailable_message(),
+                }
+            )
+            record_cowork_event(
+                "vision_assist",
+                {
+                    "client_session_id": client_session_id,
+                    "mode": mode,
+                    "helper_model": decision.helper_model,
+                    "status": "unavailable",
+                    "duration_ms": duration_ms,
+                },
+            )
+            self._emit(
+                "cowork_status",
+                {
+                    "client_session_id": client_session_id,
+                    "mode": mode,
+                    "text": "Vision assist unavailable. Continuing...",
+                },
+            )
+            return result
 
     def _model_can_receive_images(self, model: str) -> bool:
         normalized = self._normalize_model_name(model)

@@ -518,6 +518,7 @@ describe("cowork bridge adapter", () => {
       effort: "High",
       attachments: [{ label: "notes.txt", content: "attached note", source: "user-file", kind: "text" }],
       webSettings: { webMode: "off", searchProvider: "scrape" },
+      visionSettings: { visionAssist: "on", visionModel: "zai:glm-4.6v-flashx" },
     });
 
     expect(sendPrompt).toHaveBeenCalledWith(
@@ -529,6 +530,7 @@ describe("cowork bridge adapter", () => {
       [{ label: "notes.txt", content: "attached note", source: "user-file", kind: "text" }],
       { webMode: "off", searchProvider: "scrape" },
       [],
+      { visionAssist: "on", visionModel: "zai:glm-4.6v-flashx" },
     );
   });
 

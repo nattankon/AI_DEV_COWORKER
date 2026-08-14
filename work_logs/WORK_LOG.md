@@ -2111,3 +2111,13 @@ This file is append-only. Runtime conversation details are stored separately in 
 
 - Committed the Cowork/Code image-context and Role-refresh update as `8e23f2f`, pushed `main`, and published tag/GitHub Release `v0.1.21`.
 - Built the Windows NSIS installer from the tagged source. The generated and remotely published `latest.yml` both report `0.1.21`, `AI-Dev-Co-worker-Setup-0.1.21.exe`, size `110808889`, and the matching SHA-512; the installer and blockmap assets are published and the release is neither draft nor prerelease.
+
+## 2026-08-14 - Opt-in two-model Vision Assist
+
+- Added an opt-in two-model image-analysis pipeline for Chat, Cowork, and Code. The selected primary model still produces the final answer. When Vision Assist is set to `Auto`, the helper model `zai:glm-4.6v-flashx` first extracts concise evidence from an attached image and the primary receives only that evidence text.
+- The feature defaults to `Off` and is available from Composer Tool Settings. This prevents an unexpected paid helper call and preserves the normal direct-image path for explicitly selected vision models while Vision Assist is disabled.
+- Helper failure is conservative: a vision-capable primary may receive the original image through the pre-existing direct multimodal path; a text-only primary receives an explicit unavailable-evidence note and must not claim to have inspected the image. Raw image/base64 data is excluded from durable history, event telemetry, and UI status payloads.
+- Live paid validation used Z.ai `GLM-4.6V-FlashX` as helper and `GLM-5.2` as the selected primary. The real sidecar path emitted only transient `Analyzing image...` then `Writing...` status and completed in approximately 11.7 seconds.
+- TDD evidence: the missing setting initially selected the helper and the regression test failed; normalization was corrected so missing/invalid settings remain `Off`. Tests also cover helper-before-primary ordering, no image forwarding to a text-only primary, safe helper failure, Cowork integration, catalog metadata, and UI-to-Electron settings plumbing.
+- Verification: backend `419/419` passed with `python -m unittest discover -s test -p test_*.py -v`; frontend `177/177` passed with `npm test -- --reporter=dot`.
+- Skills used: `writing-plans`, `test-driven-development`, `systematic-debugging`, and `verification-before-completion`. No Claude review was requested.

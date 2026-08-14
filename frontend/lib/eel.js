@@ -258,8 +258,8 @@ export function selectFolder() {
   return invokeBridgeMethod("select_folder");
 }
 
-export function sendCowork(prompt, model, sessionId, mode, effort, attachments, webSettings, history) {
-  return invokeBridgeMethod("send_cowork", [prompt, model, sessionId, mode, effort, attachments, webSettings, history]);
+export function sendCowork(prompt, model, sessionId, mode, effort, attachments, webSettings, history, visionSettings) {
+  return invokeBridgeMethod("send_cowork", [prompt, model, sessionId, mode, effort, attachments, webSettings, history, visionSettings]);
 }
 
 export function cancelCowork(sessionId, mode) {

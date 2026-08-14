@@ -719,6 +719,7 @@ describe("CoworkApp", () => {
       effort: "Medium",
       history: [],
       webSettings: { webMode: "auto", searchProvider: "auto", artifacts: "on", codeExecution: "off", mcp: "off" },
+      visionSettings: { visionAssist: "off", visionModel: "zai:glm-4.6v-flashx" },
     });
     expect(screen.getByText("Map this repo", { selector: ".whitespace-pre-wrap" })).toBeInTheDocument();
     expect(screen.getByText("working")).toBeInTheDocument();
@@ -993,6 +994,7 @@ describe("CoworkApp", () => {
         }),
       ],
       webSettings: { webMode: "auto", searchProvider: "auto", artifacts: "on", codeExecution: "off", mcp: "off" },
+      visionSettings: { visionAssist: "off", visionModel: "zai:glm-4.6v-flashx" },
     });
   });
 
@@ -1064,6 +1066,7 @@ describe("CoworkApp", () => {
       effort: "Medium",
       history: [],
       webSettings: { webMode: "auto", searchProvider: "auto", artifacts: "on", codeExecution: "off", mcp: "off" },
+      visionSettings: { visionAssist: "off", visionModel: "zai:glm-4.6v-flashx" },
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^mode cowork$/i }));
@@ -1080,6 +1083,7 @@ describe("CoworkApp", () => {
       sessionId: expect.any(String),
       mode: "Cowork",
       effort: "Medium",
+      visionSettings: { visionAssist: "off", visionModel: "zai:glm-4.6v-flashx" },
     });
   });
 
@@ -1115,6 +1119,7 @@ describe("CoworkApp", () => {
       effort: "High",
       history: [],
       webSettings: { webMode: "auto", searchProvider: "auto", artifacts: "on", codeExecution: "off", mcp: "off" },
+      visionSettings: { visionAssist: "off", visionModel: "zai:glm-4.6v-flashx" },
     });
 
     unmount();

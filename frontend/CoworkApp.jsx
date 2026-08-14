@@ -351,6 +351,8 @@ export default function CoworkApp({
     artifacts: sessionStore.chatSettings?.artifacts || "on",
     codeExecution: sessionStore.chatSettings?.codeExecution || "off",
     mcp: sessionStore.chatSettings?.mcp || "off",
+    visionAssist: sessionStore.chatSettings?.visionAssist || "off",
+    visionModel: sessionStore.chatSettings?.visionModel || "zai:glm-4.6v-flashx",
   }));
   const conversationScrollRef = useRef(null);
   const conversationNearBottomRef = useRef(true);
@@ -432,6 +434,8 @@ export default function CoworkApp({
         && currentSettings.artifacts === chatSettings.artifacts
         && currentSettings.codeExecution === chatSettings.codeExecution
         && currentSettings.mcp === chatSettings.mcp
+        && currentSettings.visionAssist === chatSettings.visionAssist
+        && currentSettings.visionModel === chatSettings.visionModel
       ) {
         return current;
       }
@@ -966,8 +970,13 @@ export default function CoworkApp({
     const selectedModel = normalizeModelForRequest(selectedModelLabel, coworkModelLabel, coworkModel);
     const request = { prompt, model: selectedModel, workingDirectory, sessionId: targetSessionId, mode: targetMode, effort };
     if (normalizedAttachments.length > 0) request.attachments = normalizedAttachments;
+    request.visionSettings = {
+      visionAssist: chatSettings.visionAssist,
+      visionModel: chatSettings.visionModel,
+    };
     if (targetMode === "Chat") {
-      request.webSettings = chatSettings;
+      const { visionAssist: _visionAssist, visionModel: _visionModel, ...webSettings } = chatSettings;
+      request.webSettings = webSettings;
       request.history = chatHistoryFromEvents(historyEvents);
     }
     await coworkBridge.sendPrompt?.(request);

@@ -711,6 +711,7 @@ class IpcSidecarTests(unittest.TestCase):
                     "client_session_id": "vision-chat",
                     "mode": "Chat",
                     "web_settings": {"web_mode": "off"},
+                    "vision_settings": {"visionAssist": "off"},
                     "attachments": [
                         {
                             "label": "diagram.png",
@@ -758,6 +759,7 @@ class IpcSidecarTests(unittest.TestCase):
                     "client_session_id": "non-vision-chat",
                     "mode": "Chat",
                     "web_settings": {"web_mode": "off"},
+                    "vision_settings": {"visionAssist": "off"},
                     "attachments": [
                         {
                             "label": "diagram.png",
@@ -777,6 +779,156 @@ class IpcSidecarTests(unittest.TestCase):
         attachment_message = next(message for message in messages if "Chat Attached Context" in message.get("content", ""))
         self.assertIn("cannot view images directly", attachment_message["content"])
         self.assertNotIn("ZmFrZQ==", attachment_message["content"])
+
+    def test_vision_assist_uses_helper_before_selected_primary_without_forwarding_image(self):
+        output = StringIO()
+        chat_models: list[RecordingChatModel] = []
+
+        def chat_model_factory(**kwargs):
+            model_id = kwargs["model"]
+            answer = "- Visible label: Update" if model_id == "zai:glm-4.6v-flashx" else "The image shows an Update label."
+            model = RecordingChatModel(model_id, answer, [])
+            chat_models.append(model)
+            return model
+
+        sidecar = IpcSidecar(
+            IpcDependencies(
+                workspace=self.workspace,
+                output=output,
+                chat_model_factory=chat_model_factory,
+                model_lister=lambda: [],
+            )
+        )
+        answer, used_model, _sources = sidecar._run_plain_chat(
+            "What does the screenshot show?",
+            "zai:glm-4.5-flash",
+            "vision-assist",
+            "Medium",
+            attachments=[
+                {
+                    "label": "screen.png",
+                    "source": "user-file",
+                    "kind": "image",
+                    "mime": "image/png",
+                    "content": "Screenshot attachment.",
+                    "data_url": "data:image/png;base64,ZmFrZSBpbWFnZQ==",
+                }
+            ],
+            web_settings={"web_mode": "off"},
+            vision_settings={"visionAssist": "on", "visionModel": "zai:glm-4.6v-flashx"},
+        )
+
+        self.assertEqual(answer, "The image shows an Update label.")
+        self.assertEqual(used_model, "zai:glm-4.5-flash")
+        self.assertEqual([model.model for model in chat_models], ["zai:glm-4.6v-flashx", "zai:glm-4.5-flash"])
+        self.assertIsInstance(chat_models[0].requests[0]["messages"][-1]["content"], list)
+        primary_messages = chat_models[1].requests[0]["messages"]
+        self.assertIn("Vision Evidence", json.dumps(primary_messages))
+        self.assertNotIn("ZmFrZSBpbWFnZQ==", json.dumps(primary_messages))
+        self.assertNotIn("ZmFrZSBpbWFnZQ==", output.getvalue())
+
+    def test_failed_vision_assist_uses_direct_image_only_for_vision_primary(self):
+        output = StringIO()
+        chat_models: list[RecordingChatModel] = []
+
+        class FailedVisionModel(RecordingChatModel):
+            def complete(self, messages, tools, generation=None):
+                self.requests.append({"messages": list(messages), "tools": list(tools), "generation": dict(generation or {})})
+                raise RuntimeError("image helper unavailable")
+
+        def chat_model_factory(**kwargs):
+            if kwargs["model"] == "zai:glm-4.6v-flashx":
+                model = FailedVisionModel(kwargs["model"], "", [])
+            else:
+                model = RecordingChatModel(kwargs["model"], "direct vision fallback", [])
+            chat_models.append(model)
+            return model
+
+        sidecar = IpcSidecar(
+            IpcDependencies(
+                workspace=self.workspace,
+                output=output,
+                chat_model_factory=chat_model_factory,
+                model_lister=lambda: [],
+            )
+        )
+        answer, used_model, _sources = sidecar._run_plain_chat(
+            "What does the screenshot show?",
+            "openai:gpt-4o",
+            "vision-fallback",
+            "Medium",
+            attachments=[
+                {
+                    "label": "screen.png",
+                    "source": "user-file",
+                    "kind": "image",
+                    "mime": "image/png",
+                    "content": "Screenshot attachment.",
+                    "data_url": "data:image/png;base64,ZmFrZSBpbWFnZQ==",
+                }
+            ],
+            web_settings={"web_mode": "off"},
+            vision_settings={"visionAssist": "on", "visionModel": "zai:glm-4.6v-flashx"},
+        )
+
+        self.assertEqual(answer, "direct vision fallback")
+        self.assertEqual(used_model, "openai:gpt-4o")
+        self.assertEqual([model.model for model in chat_models], ["zai:glm-4.6v-flashx", "openai:gpt-4o"])
+        self.assertIsInstance(chat_models[1].requests[0]["messages"][-1]["content"], list)
+
+    def test_failed_vision_assist_never_forwards_image_to_text_only_primary(self):
+        output = StringIO()
+        chat_models: list[RecordingChatModel] = []
+
+        class FailedVisionModel(RecordingChatModel):
+            def complete(self, messages, tools, generation=None):
+                self.requests.append({"messages": list(messages), "tools": list(tools), "generation": dict(generation or {})})
+                raise RuntimeError("image helper unavailable")
+
+        def chat_model_factory(**kwargs):
+            model = (
+                FailedVisionModel(kwargs["model"], "", [])
+                if kwargs["model"] == "zai:glm-4.6v-flashx"
+                else RecordingChatModel(kwargs["model"], "image details unavailable", [])
+            )
+            chat_models.append(model)
+            return model
+
+        sidecar = IpcSidecar(
+            IpcDependencies(
+                workspace=self.workspace,
+                output=output,
+                chat_model_factory=chat_model_factory,
+                model_lister=lambda: [],
+            )
+        )
+        answer, used_model, _sources = sidecar._run_plain_chat(
+            "What does the screenshot show?",
+            "zai:glm-4.5-flash",
+            "vision-text-fallback",
+            "Medium",
+            attachments=[
+                {
+                    "label": "screen.png",
+                    "source": "user-file",
+                    "kind": "image",
+                    "mime": "image/png",
+                    "content": "Screenshot attachment.",
+                    "data_url": "data:image/png;base64,ZmFrZSBpbWFnZQ==",
+                }
+            ],
+            web_settings={"web_mode": "off"},
+            vision_settings={"visionAssist": "on", "visionModel": "zai:glm-4.6v-flashx"},
+        )
+
+        self.assertEqual(answer, "image details unavailable")
+        self.assertEqual(used_model, "zai:glm-4.5-flash")
+        self.assertEqual([model.model for model in chat_models], ["zai:glm-4.6v-flashx", "zai:glm-4.5-flash"])
+        primary_messages = chat_models[1].requests[0]["messages"]
+        self.assertEqual(primary_messages[-1]["content"], "What does the screenshot show?")
+        self.assertIn("Image Analysis Availability", json.dumps(primary_messages))
+        self.assertNotIn("ZmFrZSBpbWFnZQ==", json.dumps(primary_messages))
+        self.assertNotIn("ZmFrZSBpbWFnZQ==", output.getvalue())
 
     def test_chat_oversized_image_is_represented_without_image_block(self):
         raw = "a" * (MAX_CHAT_IMAGE_BYTES + 1)
@@ -996,6 +1148,59 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertEqual(user_content[0]["type"], "text")
         self.assertEqual(user_content[1]["type"], "image_url")
         self.assertEqual(user_content[1]["image_url"]["url"], image_data_url)
+        self.assertNotIn(image_data_url, output.getvalue())
+
+    def test_cowork_mode_uses_vision_assist_without_replacing_the_primary_agent(self):
+        output = StringIO()
+        agent = FakeAgent("cowork answer")
+        helpers: list[RecordingChatModel] = []
+
+        def chat_model_factory(**kwargs):
+            helper = RecordingChatModel(kwargs["model"], "- Visible label: Update", [])
+            helpers.append(helper)
+            return helper
+
+        sidecar = IpcSidecar(
+            IpcDependencies(
+                workspace=self.workspace,
+                output=output,
+                agent_factory=lambda _model: agent,
+                chat_model_factory=chat_model_factory,
+                model_lister=lambda: [],
+            )
+        )
+        image_data_url = "data:image/png;base64,aW1hZ2UtYnl0ZXM="
+
+        sidecar.handle_line(
+            json.dumps(
+                {
+                    "command": "send_cowork",
+                    "prompt": "Describe the attached diagram",
+                    "model": "zai:glm-4.5-flash",
+                    "client_session_id": "cowork-vision-assist",
+                    "mode": "Cowork",
+                    "vision_settings": {"visionAssist": "on", "visionModel": "zai:glm-4.6v-flashx"},
+                    "attachments": [
+                        {
+                            "label": "diagram.png",
+                            "source": "user-paste",
+                            "kind": "image",
+                            "mime": "image/png",
+                            "data_url": image_data_url,
+                        }
+                    ],
+                }
+            )
+        )
+        self.assertTrue(sidecar.wait_for_idle(timeout=1))
+
+        self.assertEqual([helper.model for helper in helpers], ["zai:glm-4.6v-flashx"])
+        self.assertEqual(len(agent.prompts), 1)
+        user_content = agent.run_kwargs[0]["user_content"]
+        self.assertIsInstance(user_content, str)
+        self.assertIn("Vision Evidence", user_content)
+        self.assertIn("Visible label: Update", user_content)
+        self.assertNotIn(image_data_url, user_content)
         self.assertNotIn(image_data_url, output.getvalue())
 
     def test_chat_mode_persists_and_injects_personal_memory(self):
