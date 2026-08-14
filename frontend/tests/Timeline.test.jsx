@@ -221,6 +221,38 @@ describe("Timeline", () => {
     expect(screen.queryByText("private pixels", { exact: false })).not.toBeInTheDocument();
   });
 
+  it("renders image attachment thumbnails on Cowork user messages", () => {
+    render(
+      <Timeline
+        mode="Cowork"
+        events={[
+          {
+            id: "cowork-image",
+            type: "message.user",
+            timestamp: "2026-08-14T00:00:00.000Z",
+            payload: {
+              text: "Inspect this image",
+              mode: "Cowork",
+              attachments: [
+                {
+                  label: "workspace.png",
+                  source: "user-paste",
+                  kind: "image",
+                  thumbnailDataUrl: "data:image/png;base64,ZmFrZQ==",
+                },
+              ],
+            },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "workspace.png attachment" })).toHaveAttribute(
+      "src",
+      "data:image/png;base64,ZmFrZQ==",
+    );
+  });
+
   it("renders assistant Chat markdown as formatted elements", () => {
     const markdown = [
       "**Bold answer**",

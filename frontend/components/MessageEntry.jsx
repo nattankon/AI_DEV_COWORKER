@@ -91,10 +91,10 @@ function imagePreviewUrl(attachment) {
   return value.startsWith("data:image/") ? value : "";
 }
 
-function AttachmentPreviews({ attachments = [] }) {
+function AttachmentPreviews({ attachments = [], align = "end" }) {
   if (!attachments.length) return null;
   return (
-    <div className="flex max-w-full flex-wrap justify-end gap-1.5" aria-label="Attached context">
+    <div className={`flex max-w-full flex-wrap ${align === "start" ? "justify-start" : "justify-end"} gap-1.5`} aria-label="Attached context">
       {attachments.map((attachment, index) => {
         const previewUrl = imagePreviewUrl(attachment);
         if (attachment?.kind === "image" && previewUrl) {
@@ -200,6 +200,7 @@ export default function MessageEntry({ event, mode = "Cowork", onEditUserMessage
       <div className="whitespace-pre-wrap break-words text-[14px] leading-6 text-[#3d3c39]">
         {event.payload?.text ?? ""}
       </div>
+      {isUser && attachments.length > 0 && <AttachmentPreviews attachments={attachments} align="start" />}
     </article>
   );
 }

@@ -2126,3 +2126,11 @@ This file is append-only. Runtime conversation details are stored separately in 
 
 - Committed the opt-in Vision Assist pipeline as `bd82756`, pushed `main`, and published tag/GitHub Release `v0.1.22`.
 - Built the Windows NSIS installer from the tagged source. The remotely published `latest.yml` reports `0.1.22`, `AI-Dev-Co-worker-Setup-0.1.22.exe`, size `110811172`, and a matching SHA-512. The installer and matching blockmap are present and the release is neither draft nor prerelease.
+
+## 2026-08-14 - Render sent image attachments in Cowork and Code timelines
+
+- Diagnosed the missing image in a Cowork conversation: attachment thumbnail data was already included in the local user event, but `MessageEntry` rendered attachment previews only in its Chat branch. Cowork and Code therefore displayed the user text but omitted the image.
+- Reused the existing attachment preview component for the non-Chat user-message branch, left-aligned to match the Cowork/Code timeline. The image stays local to session history/UI; no backend event, model input, or audit logging behavior changed.
+- TDD evidence: added a Cowork timeline image regression test. It failed before the rendering change because no image was present, then passed after the shared preview was rendered in the non-Chat branch.
+- Verification: focused Timeline tests passed `15/15`; full frontend suite passed `178/178`; production frontend build passed. The existing Vite bundle-size warning is non-blocking.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
