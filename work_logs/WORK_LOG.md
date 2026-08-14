@@ -2043,3 +2043,9 @@ This file is append-only. Runtime conversation details are stored separately in 
   - Production frontend build passed with `npm.cmd run build`; the existing Vite chunk-size warning remains non-blocking.
   - The local preview server started successfully. Browser-level Playwright interaction could not run because the local Python environment does not include the `playwright` package; the role rendering behavior remains covered by the focused React regression test.
 - Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.
+
+## 2026-08-14 - Published desktop update v0.1.17
+
+- Committed the Role settings loading-state fix as `7d702b8` and pushed it to `main`; published and pushed tag `v0.1.17`.
+- Built the Windows NSIS installer from the tagged source and published GitHub Release `v0.1.17`.
+- Verified the published release is not a draft and that `latest.yml` names an installer asset and matching blockmap that are both present in the release. This preserves the normal Electron auto-update path rather than altering the currently installed app.
