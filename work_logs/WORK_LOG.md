@@ -2121,3 +2121,8 @@ This file is append-only. Runtime conversation details are stored separately in 
 - TDD evidence: the missing setting initially selected the helper and the regression test failed; normalization was corrected so missing/invalid settings remain `Off`. Tests also cover helper-before-primary ordering, no image forwarding to a text-only primary, safe helper failure, Cowork integration, catalog metadata, and UI-to-Electron settings plumbing.
 - Verification: backend `419/419` passed with `python -m unittest discover -s test -p test_*.py -v`; frontend `177/177` passed with `npm test -- --reporter=dot`.
 - Skills used: `writing-plans`, `test-driven-development`, `systematic-debugging`, and `verification-before-completion`. No Claude review was requested.
+
+## 2026-08-14 - Published desktop update v0.1.22
+
+- Committed the opt-in Vision Assist pipeline as `bd82756`, pushed `main`, and published tag/GitHub Release `v0.1.22`.
+- Built the Windows NSIS installer from the tagged source. The remotely published `latest.yml` reports `0.1.22`, `AI-Dev-Co-worker-Setup-0.1.22.exe`, size `110811172`, and a matching SHA-512. The installer and matching blockmap are present and the release is neither draft nor prerelease.
