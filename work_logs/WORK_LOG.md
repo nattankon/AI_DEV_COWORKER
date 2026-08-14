@@ -2089,3 +2089,9 @@ This file is append-only. Runtime conversation details are stored separately in 
 - TDD evidence: the CoworkApp regression test first reproduced fragment and JSON reappearance after switching modes; the session-storage regression test first reproduced their persistence. Both pass after the filter.
 - Focused verification: `npm.cmd run test -- --run frontend/tests/CoworkApp.test.jsx frontend/tests/sessionStorage.test.js` passed 40/40.
 - Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-14 - Published desktop update v0.1.20
+
+- Committed the timeline persistence fix as `0069455`, pushed `main`, and published GitHub Release `v0.1.20`.
+- Built the Windows NSIS installer from the tagged source. The generated `latest.yml` and uploaded release assets agree on `AI-Dev-Co-worker-Setup-0.1.20.exe` and its blockmap.
+- Verified the release is neither draft nor prerelease and downloaded its remote `latest.yml`; it reports version `0.1.20`, the expected installer filename, size, and SHA-512.
