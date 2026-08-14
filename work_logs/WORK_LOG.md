@@ -2066,3 +2066,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Committed the UI-controlled updater fix as `a8be08b`, pushed `main`, and published GitHub Release `v0.1.18`.
 - Built the NSIS installer from the tagged source. The generated `latest.yml` and the uploaded release assets agree on `AI-Dev-Co-worker-Setup-0.1.18.exe` and its blockmap.
 - Verified the GitHub release is published (not draft or prerelease) and downloaded its remote `latest.yml` through the GitHub API to confirm that exact filename, size, SHA-512, and version `0.1.18` are available to Electron updater clients.
+
+## 2026-08-14 - Restored two-path desktop updater behavior
+
+- Corrected a regression in the `v0.1.18` source change: the user required the existing startup update gate and the in-app background update button to coexist, not for the startup path to be removed.
+- Restored `runUpdateGate()` for launch-time checks. When an update is present before the application opens, it shows the original small updater window, downloads, installs, and relaunches before the main UI starts.
+- Kept the `v0.1.18` background improvements: after the main UI opens, background checks retain an IPC snapshot so early events cannot be lost and a downloaded update remains actionable from the top-right `Update` button. The background path does not auto-install on a normal quit.
+- TDD evidence: the updater contract test was changed to require both paths; it failed before restoration because `runUpdateGate()` was absent, then passed with the startup gate and the isolated background UI path present.
+- Focused verification: `npm.cmd run test -- --run frontend/tests/updaterContract.test.js frontend/tests/CoworkApp.test.jsx` passed 32/32.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.

@@ -14,12 +14,19 @@ function packageConfig() {
 }
 
 describe("desktop updater contract", () => {
-  it("does not retain a startup gate that auto-installs downloaded updates", () => {
+  it("keeps the startup installer gate and the in-app background updater as separate paths", () => {
     const source = mainSource();
+    const startupGate = source.slice(source.indexOf("function runUpdateGate()"), source.indexOf("function startBackgroundUpdater()"));
+    const backgroundStart = source.indexOf("function startBackgroundUpdater()");
+    const backgroundEnd = source.indexOf('ipcMain.handle("get-app-update-state"', backgroundStart);
+    const backgroundUpdater = source.slice(backgroundStart, backgroundEnd);
 
-    expect(source).not.toContain("function runUpdateGate()");
-    expect(source.match(/quitAndInstall\(/g) ?? []).toHaveLength(1);
-    expect(source).toContain("autoUpdater.autoInstallOnAppQuit = false");
+    expect(startupGate).toContain("function runUpdateGate()");
+    expect(startupGate).toContain('autoUpdater.on("update-downloaded"');
+    expect(startupGate).toContain("autoUpdater.quitAndInstall(true, true)");
+    expect(source).toContain("app.whenReady().then(() => {\n  runUpdateGate();");
+    expect(backgroundUpdater).toContain("autoUpdater.autoInstallOnAppQuit = false");
+    expect(backgroundUpdater).not.toContain("autoUpdater.quitAndInstall");
   });
 
   it("uses a stable no-space installer filename so release metadata names a real asset", () => {

@@ -403,8 +403,103 @@ function startMainApp() {
   spawnPythonSidecar();
 }
 
-// Every update check uses the in-app state. The installer runs only from the
-// explicit renderer command below, never as a side effect of startup or quit.
+// Startup checks retain the original fast path: when an update is already
+// available before the app opens, show the gate and install it before launch.
+// Once the app is open, the separate background updater waits for the user to
+// select the in-app Update button.
+const UPDATE_CHECK_TIMEOUT_MS = 20_000;
+
+function createUpdateGateWindow() {
+  const gate = new BrowserWindow({
+    width: 380,
+    height: 150,
+    frame: false,
+    resizable: false,
+    alwaysOnTop: true,
+    backgroundColor: "#f7f6f2",
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  const html = `<!doctype html><html><body style="margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:#f7f6f2;color:#3b3a36;user-select:none;-webkit-app-region:drag">
+    <div style="padding:26px 28px">
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px">AI Dev Co-worker</div>
+      <div id="status" style="font-size:13px;color:#6f6b63;margin-bottom:12px">Checking for updates…</div>
+      <div style="height:6px;border-radius:3px;background:#e4e1d8;overflow:hidden">
+        <div id="bar" style="height:100%;width:0%;background:#d96b4a;transition:width .25s"></div>
+      </div>
+    </div>
+  </body></html>`;
+  void gate.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+  return gate;
+}
+
+function setGateStatus(gate, text, percent) {
+  if (!gate || gate.isDestroyed()) return;
+  const script = `(() => {
+    const s = document.getElementById("status");
+    const b = document.getElementById("bar");
+    if (s) s.textContent = ${JSON.stringify(text)};
+    if (b && ${Number.isFinite(percent) ? "true" : "false"}) b.style.width = "${Number.isFinite(percent) ? Math.max(0, Math.min(100, Math.round(percent))) : 0}%";
+  })()`;
+  gate.webContents.executeJavaScript(script).catch(() => {});
+}
+
+function runUpdateGate() {
+  if (!app.isPackaged) {
+    startMainApp();
+    return;
+  }
+
+  const gate = createUpdateGateWindow();
+  let updateFound = false;
+  let finished = false;
+
+  const proceed = () => {
+    if (finished) return;
+    finished = true;
+    autoUpdater.removeAllListeners();
+    startMainApp();
+    startBackgroundUpdater();
+    setTimeout(() => {
+      if (!gate.isDestroyed()) gate.destroy();
+    }, 250);
+  };
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("update-available", (info) => {
+    updateFound = true;
+    setGateStatus(gate, `Update found: v${info?.version ?? ""} — downloading…`, 0);
+  });
+  autoUpdater.on("download-progress", (progress) => {
+    const percent = Math.round(progress?.percent ?? 0);
+    setGateStatus(gate, `Downloading update… ${percent}%`, percent);
+  });
+  autoUpdater.on("update-downloaded", () => {
+    finished = true;
+    setGateStatus(gate, "Installing update… the app will restart.", 100);
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 600);
+  });
+  autoUpdater.on("update-not-available", () => {
+    setGateStatus(gate, "You are up to date.", 100);
+    setTimeout(proceed, 350);
+  });
+  autoUpdater.on("error", (error) => {
+    emitBackendLog("stderr", `Auto-update error: ${error?.message ?? error}`);
+    setGateStatus(gate, "Update check failed — starting the app.", 0);
+    setTimeout(proceed, 600);
+  });
+
+  setTimeout(() => {
+    if (!updateFound) proceed();
+  }, UPDATE_CHECK_TIMEOUT_MS);
+
+  autoUpdater.checkForUpdates().catch((error) => {
+    emitBackendLog("stderr", `Auto-update check failed: ${error?.message ?? error}`);
+    proceed();
+  });
+}
+
 let backgroundUpdaterStarted = false;
 let pendingUpdateReady = false;
 let appUpdateState = { state: "idle", version: "", percent: 0 };
@@ -489,8 +584,7 @@ function createMainWindow() {
 }
 
 app.whenReady().then(() => {
-  startMainApp();
-  startBackgroundUpdater();
+  runUpdateGate();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
