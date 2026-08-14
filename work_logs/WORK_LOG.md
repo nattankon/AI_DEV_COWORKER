@@ -2060,3 +2060,9 @@ This file is append-only. Runtime conversation details are stored separately in 
 - TDD evidence: added a renderer regression test for a startup-discovered ready update and a source/release contract test. Both tests failed before implementation because no status snapshot existed, the startup gate remained, auto-install-on-quit was enabled, and no stable artifact name was configured.
 - Focused verification: `npm.cmd run test -- --run frontend/tests/updaterContract.test.js frontend/tests/CoworkApp.test.jsx frontend/tests/coworkBridge.test.js frontend/tests/ipcChannelAllowlist.test.js` passed 55/55.
 - Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-14 - Published desktop update v0.1.18
+
+- Committed the UI-controlled updater fix as `a8be08b`, pushed `main`, and published GitHub Release `v0.1.18`.
+- Built the NSIS installer from the tagged source. The generated `latest.yml` and the uploaded release assets agree on `AI-Dev-Co-worker-Setup-0.1.18.exe` and its blockmap.
+- Verified the GitHub release is published (not draft or prerelease) and downloaded its remote `latest.yml` through the GitHub API to confirm that exact filename, size, SHA-512, and version `0.1.18` are available to Electron updater clients.
