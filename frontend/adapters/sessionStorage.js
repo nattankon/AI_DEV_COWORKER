@@ -41,7 +41,13 @@ function normalizeSessionRecord(value, fallbackMode = "Cowork") {
 
 function isTransientTimelineEvent(event) {
   if (!event || typeof event !== "object") return true;
-  if (event.type === "agent.status" || event.type === "chat.status" || event.type === "verification.finished") {
+  if (
+    event.type === "agent.status"
+    || event.type === "chat.status"
+    || event.type === "verification.finished"
+    || event.type === "approval.requested"
+    || event.type === "approval.resolved"
+  ) {
     return true;
   }
   return event.type === "message.assistant" && event.payload?.streaming === true;

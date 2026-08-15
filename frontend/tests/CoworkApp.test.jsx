@@ -127,6 +127,53 @@ describe("CoworkApp", () => {
     expect(screen.getAllByText("scilp").length).toBeGreaterThanOrEqual(2);
   });
 
+  it("does not restore an expired approval prompt after the app reopens", async () => {
+    const sessionStorageAdapter = createSessionStorageAdapter(createMemoryStorage());
+    sessionStorageAdapter.save({
+      activeSessionIdsByMode: { Chat: "chat-1", Cowork: "cowork-1", Code: "code-1" },
+      sessions: [
+        { id: "chat-1", mode: "Chat", title: "Chat task" },
+        { id: "cowork-1", mode: "Cowork", title: "Write task" },
+        { id: "code-1", mode: "Code", title: "Code task" },
+      ],
+      eventsBySessionId: {
+        "cowork-1": [
+          {
+            id: "expired-approval",
+            sessionId: "cowork-1",
+            timestamp: "2026-08-15T00:00:00.000Z",
+            type: "approval.requested",
+            status: "pending",
+            payload: {
+              approvalId: "approval-from-previous-process",
+              approvalKind: "write_file",
+              title: "Approve file write",
+              question: "Approve writing speed_game.py?",
+              mode: "Cowork",
+              proposal: {},
+            },
+          },
+        ],
+      },
+    });
+
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{ subscribe: () => () => {} }}
+        sessionStorageAdapter={sessionStorageAdapter}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^mode cowork$/i }));
+
+    await waitFor(() => expect(screen.queryByLabelText("Approval prompt")).not.toBeInTheDocument());
+    expect(screen.queryByText("Approve file write")).not.toBeInTheDocument();
+  });
+
   it("opens the Chat quality evaluation panel from the sidebar", async () => {
     const listChatQualityEval = vi.fn();
     let qualityListener = null;
@@ -783,6 +830,57 @@ describe("CoworkApp", () => {
     expect(cancelPrompt).toHaveBeenCalledWith({ sessionId: expect.any(String), mode: "Chat" });
     await waitFor(() => expect(screen.queryByText(/Working for/)).not.toBeInTheDocument());
     expect(textbox).not.toBeDisabled();
+  });
+
+  it("denies a live approval before stopping its request", async () => {
+    let eventListener;
+    const sendPrompt = vi.fn();
+    const answerApproval = vi.fn();
+    const cancelPrompt = vi.fn();
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{
+          sendPrompt,
+          answerApproval,
+          cancelPrompt,
+          subscribe(_sessionId, listener) {
+            eventListener = listener;
+            return () => {};
+          },
+        }}
+        sessionStorageAdapter={createSessionStorageAdapter(createMemoryStorage())}
+      />,
+    );
+
+    const textbox = screen.getByPlaceholderText("How can I help you today?");
+    fireEvent.change(textbox, { target: { value: "wait for approval" } });
+    fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
+    const sessionId = sendPrompt.mock.calls[0][0].sessionId;
+    eventListener({
+      id: "stop-approval",
+      sessionId,
+      timestamp: "2026-08-15T00:00:00.000Z",
+      type: "approval.requested",
+      status: "pending",
+      payload: {
+        approvalId: "approval-stop",
+        approvalKind: "write_file",
+        title: "Approve file write",
+        question: "Approve writing speed_game.py?",
+        mode: "Chat",
+        proposal: {},
+      },
+    });
+
+    expect(await screen.findByLabelText("Approval prompt")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+
+    expect(answerApproval).toHaveBeenCalledWith({ approvalId: "approval-stop", answer: "deny" });
+    expect(cancelPrompt).toHaveBeenCalledWith({ sessionId, mode: "Chat" });
   });
 
   it("regenerates the last Chat answer with trimmed history", async () => {

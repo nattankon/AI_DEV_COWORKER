@@ -865,6 +865,9 @@ export default function CoworkApp({
   };
 
   const stopActiveRequest = () => {
+    // Approval ids are owned by the live sidecar process. Deny before cancelling so
+    // an approval wait is released immediately and cannot resurface as stale UI.
+    if (pendingApproval) resolveApproval(pendingApproval, "deny");
     setBusySessionIds((current) => {
       const next = new Set(current);
       next.delete(activeSessionId);

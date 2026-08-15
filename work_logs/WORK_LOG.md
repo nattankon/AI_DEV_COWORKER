@@ -2173,3 +2173,11 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Committed the selected-session project context restore as `4f2aab8`, then released the source at `a96664b` with pushed tag `v0.1.25`.
 - Built the Windows NSIS installer from the tagged source. GitHub Release verification confirms `AI-Dev-Co-worker-Setup-0.1.25.exe` (`110811382` bytes), its matching blockmap, and `latest.yml` are published; the release is neither draft nor prerelease.
 - This release restores a selected session's project context to the header, composer, and sidecar workspace, preventing a project group such as `scilp` from being displayed alongside `No project selected`.
+
+## 2026-08-15 - Prevent stale approval prompts after restart
+
+- Diagnosed persisted `approval.requested` timeline events as the cause of an old write/verification prompt reappearing after the sidecar process that owned its approval id had ended. Such a card cannot be answered by a new sidecar and therefore must not be restored as conversation history.
+- Session persistence now strips approval request/resolution events while retaining them in the live renderer state for the duration of the active request. Stopping a request now sends an explicit `deny` for its active approval before cancellation, which releases the backend approval wait instead of leaving it to timeout.
+- TDD evidence: restart and stop-with-pending-approval tests both failed before the change and pass after it. Full frontend verification passed `25/25` files and `183/183` tests; `npm run build` passed with only the existing non-blocking Vite chunk-size advisory.
+- Release decision: source-only change held for the next planned update batch; no installer, GitHub Release, or updater publication was created.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
