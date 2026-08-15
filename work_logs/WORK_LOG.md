@@ -2139,3 +2139,11 @@ This file is append-only. Runtime conversation details are stored separately in 
 
 - Committed the non-Chat image timeline fix as `785a9b6`, pushed `main`, and published tag/GitHub Release `v0.1.23`.
 - Built the Windows NSIS installer from the tagged source. GitHub Release verification confirms `AI-Dev-Co-worker-Setup-0.1.23.exe` (`110811239` bytes), its matching blockmap, and `latest.yml` are published; the release is neither draft nor prerelease.
+
+## 2026-08-15 - Transient live work progress
+
+- Reworked the existing processing indicator so it measures the full request lifetime rather than restarting at every backend status change. While the model is working, it shows `Working for <elapsed>` plus a rotating generic progress line; when the sidecar reports a real action such as searching, reading, writing, MCP activity, or vision analysis, that real action replaces the generic line without resetting the elapsed time.
+- The reducer now creates the transient work record from the local `agent.status: busy` event, retains the original `startedAt` through subsequent `chat.status` events, and clears it on assistant streaming/final output, failure, cancellation/idle, or session completion. It remains outside durable session history and therefore disappears completely when a turn ends.
+- TDD evidence: new component and reducer regression tests failed before the change because no request-level start time existed and the UI only showed the old per-step `Thinking` label. They pass after the implementation. Existing app-level expectations were updated from the former label to the new explicit elapsed-progress text.
+- Verification: focused frontend tests passed `51/51`; final full frontend suite passed `180/180`; `npm run build` passed. The existing Vite bundle-size warning remains non-blocking. Browser-level Playwright verification was unavailable because the local Python environment does not include the `playwright` package.
+- Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.

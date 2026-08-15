@@ -424,7 +424,7 @@ describe("CoworkApp", () => {
     const textbox = screen.getByPlaceholderText("How can I help you today?");
     fireEvent.change(textbox, { target: { value: "Hello" } });
     fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
-    expect(await screen.findByText("Thinking")).toBeInTheDocument();
+    expect(await screen.findByText(/Working for 0s .*Thinking through your request/)).toBeInTheDocument();
 
     listener({
       id: "failure-1",
@@ -436,7 +436,7 @@ describe("CoworkApp", () => {
     });
 
     expect(await screen.findByText(/Local AI request timed out/i)).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByText("Thinking")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/Working for/)).not.toBeInTheDocument());
     expect(textbox).not.toBeDisabled();
   });
 
@@ -723,7 +723,7 @@ describe("CoworkApp", () => {
     });
     expect(screen.getByText("Map this repo", { selector: ".whitespace-pre-wrap" })).toBeInTheDocument();
     expect(screen.getByText("working")).toBeInTheDocument();
-    expect(await screen.findByText("Thinking")).toBeInTheDocument();
+    expect(await screen.findByText(/Working for 0s .*Thinking through your request/)).toBeInTheDocument();
   });
 
   it("stops an active Chat request through the bridge", async () => {
@@ -747,6 +747,8 @@ describe("CoworkApp", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
 
     expect(cancelPrompt).toHaveBeenCalledWith({ sessionId: expect.any(String), mode: "Chat" });
+    await waitFor(() => expect(screen.queryByText(/Working for/)).not.toBeInTheDocument());
+    expect(textbox).not.toBeDisabled();
   });
 
   it("regenerates the last Chat answer with trimmed history", async () => {

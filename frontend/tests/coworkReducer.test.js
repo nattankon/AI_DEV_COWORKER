@@ -91,6 +91,49 @@ describe("cowork reducer", () => {
     expect(complete.runStatus).toBe("idle");
   });
 
+  it("tracks one transient work lifetime across local and backend status updates", () => {
+    const started = coworkReducer(createInitialCoworkState(), {
+      type: "event.received",
+      event: event({
+        id: "busy",
+        timestamp: "2026-08-15T07:31:00.000Z",
+        type: "agent.status",
+        status: "running",
+        payload: { state: "busy", mode: "Cowork" },
+      }),
+    });
+    const withBackendStatus = coworkReducer(started, {
+      type: "event.received",
+      event: event({
+        id: "status",
+        timestamp: "2026-08-15T07:31:04.000Z",
+        type: "chat.status",
+        status: "running",
+        payload: { text: "Checking the result...", mode: "Cowork", transient: true },
+      }),
+    });
+
+    expect(selectTransientStatus(withBackendStatus, "session-1", "Cowork")).toEqual({
+      text: "Checking the result...",
+      mode: "Cowork",
+      sessionId: "session-1",
+      startedAt: "2026-08-15T07:31:00.000Z",
+    });
+  });
+
+  it("clears live work status when an agent becomes idle", () => {
+    const busy = coworkReducer(createInitialCoworkState(), {
+      type: "event.received",
+      event: event({ id: "busy", type: "agent.status", status: "running", payload: { state: "busy", mode: "Cowork" } }),
+    });
+    const idle = coworkReducer(busy, {
+      type: "event.received",
+      event: event({ id: "idle", type: "agent.status", payload: { state: "idle", mode: "Cowork" } }),
+    });
+
+    expect(selectTransientStatus(idle, "session-1", "Cowork")).toBeNull();
+  });
+
   it("returns to idle after a failed backend message", () => {
     const busy = coworkReducer(createInitialCoworkState(), {
       type: "event.received",
@@ -195,6 +238,7 @@ describe("cowork reducer", () => {
       text: "🔍 Searching: fuel price",
       mode: "Chat",
       sessionId: "session-1",
+      startedAt: "2026-06-12T00:00:00.000Z",
     });
   });
 

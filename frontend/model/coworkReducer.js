@@ -49,6 +49,21 @@ function clearTransientStatusForEvent(transientStatus, event) {
   return next;
 }
 
+function startTransientStatusForEvent(transientStatus, event, text = "") {
+  const mode = event.payload?.mode ?? "";
+  const key = transientStatusKey(event.sessionId, mode);
+  const previous = transientStatus?.[key];
+  return {
+    ...transientStatus,
+    [key]: {
+      text,
+      mode,
+      sessionId: event.sessionId,
+      startedAt: previous?.startedAt ?? event.timestamp,
+    },
+  };
+}
+
 function clearCompletionEvidenceForNewRun(completionEvidence, event) {
   if (!(event.type === "agent.status" && event.payload?.state === "busy")) {
     return completionEvidence;
@@ -84,19 +99,11 @@ export function coworkReducer(state, action) {
   }
 
   if (event.type === "chat.status") {
-    const mode = event.payload?.mode ?? "";
     const text = String(event.payload?.text ?? "").trim();
     if (!text) return state;
     return {
       ...state,
-      transientStatus: {
-        ...(state.transientStatus ?? {}),
-        [transientStatusKey(event.sessionId, mode)]: {
-          text,
-          mode,
-          sessionId: event.sessionId,
-        },
-      },
+      transientStatus: startTransientStatusForEvent(state.transientStatus ?? {}, event, text),
     };
   }
 
@@ -130,10 +137,15 @@ export function coworkReducer(state, action) {
     event.type === "message.assistant" && event.status === "running" && event.payload?.streaming === true;
   const shouldClearTransientStatus =
     event.status === "failed" ||
+    (event.type === "agent.status" && event.payload?.state === "idle") ||
+    event.type === "session.finished" ||
     (event.type === "message.assistant" && (event.payload?.streaming === true || event.status !== "running"));
-  const transientStatus = shouldClearTransientStatus
-    ? clearTransientStatusForEvent(state.transientStatus ?? {}, event)
-    : state.transientStatus ?? {};
+  const startsTransientStatus = event.type === "agent.status" && event.payload?.state === "busy";
+  const transientStatus = startsTransientStatus
+    ? startTransientStatusForEvent(state.transientStatus ?? {}, event)
+    : shouldClearTransientStatus
+      ? clearTransientStatusForEvent(state.transientStatus ?? {}, event)
+      : state.transientStatus ?? {};
   const completionEvidence = clearCompletionEvidenceForNewRun(state.completionEvidence ?? {}, event);
 
   if (state.eventIds.has(event.id)) {

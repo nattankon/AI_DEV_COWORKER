@@ -856,6 +856,17 @@ export default function CoworkApp({
       next.delete(activeSessionId);
       return next;
     });
+    dispatch({
+      type: "event.received",
+      event: createCoworkEvent({
+        id: createId(),
+        sessionId: activeSessionId,
+        timestamp: new Date().toISOString(),
+        type: "agent.status",
+        status: "complete",
+        payload: { state: "idle", mode: activeMode },
+      }),
+    });
     void coworkBridge.cancelPrompt?.({ sessionId: activeSessionId, mode: activeMode });
   };
 
@@ -1150,7 +1161,12 @@ export default function CoworkApp({
         </main>
         {activeView === "chat" && hasTimeline && (
           <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-5">
-            <ProcessingIndicator active={runStatus === "busy"} waitingForApproval={Boolean(pendingApproval)} statusText={transientStatus?.text ?? ""} />
+            <ProcessingIndicator
+              active={runStatus === "busy"}
+              waitingForApproval={Boolean(pendingApproval)}
+              startedAt={transientStatus?.startedAt ?? ""}
+              statusText={transientStatus?.text ?? ""}
+            />
             {activeMode !== "Chat" && runStatus !== "busy" ? <VerificationPanel evidence={completionEvidence} /> : null}
             <div className="mb-2 flex justify-end gap-2">
               {runStatus === "busy" && (
