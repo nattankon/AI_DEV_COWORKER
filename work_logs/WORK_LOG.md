@@ -2167,3 +2167,9 @@ This file is append-only. Runtime conversation details are stored separately in 
 
 - Full frontend verification passed `25/25` files and `181/181` tests; `npm run build` also passed. The existing Vite chunk-size advisory remains non-blocking.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-15 - Published desktop update v0.1.25
+
+- Committed the selected-session project context restore as `4f2aab8`, then released the source at `a96664b` with pushed tag `v0.1.25`.
+- Built the Windows NSIS installer from the tagged source. GitHub Release verification confirms `AI-Dev-Co-worker-Setup-0.1.25.exe` (`110811382` bytes), its matching blockmap, and `latest.yml` are published; the release is neither draft nor prerelease.
+- This release restores a selected session's project context to the header, composer, and sidecar workspace, preventing a project group such as `scilp` from being displayed alongside `No project selected`.
