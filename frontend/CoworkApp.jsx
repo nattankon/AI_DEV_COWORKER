@@ -670,12 +670,25 @@ export default function CoworkApp({
     openNewSession(normalized);
   };
 
+  const restoreSessionProject = (sessionId) => {
+    const session = sessionStore.sessions.find((candidate) => candidate.id === sessionId);
+    const project = normalizeProject(session?.project);
+    if (!project) return;
+
+    setWorkingDirectory(project.path);
+    setProjects((current) => (current.some((candidate) => candidate.path === project.path) ? current : [project, ...current]));
+    if (project.path !== workingDirectory) {
+      void coworkBridge.setWorkspace?.(project.path);
+    }
+  };
+
   const selectSession = (sessionId) => {
     setSessionStore((current) => ({
       ...current,
       activeSessionId: activeMode === "Cowork" ? sessionId : current.activeSessionId,
       activeSessionIdsByMode: { ...current.activeSessionIdsByMode, [activeMode]: sessionId },
     }));
+    restoreSessionProject(sessionId);
     setActiveView("chat");
   };
 
@@ -824,6 +837,7 @@ export default function CoworkApp({
   const selectMode = (mode) => {
     setActiveMode(mode);
     setActiveView("chat");
+    restoreSessionProject(sessionStore.activeSessionIdsByMode[mode]);
   };
 
   const setActiveModeModel = (modelLabel) => {

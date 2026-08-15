@@ -93,6 +93,40 @@ describe("CoworkApp", () => {
     expect(screen.getByText(/^v\d+\.\d+\.\d+$/)).toBeInTheDocument();
   });
 
+  it("restores the selected session project when switching modes or sessions", async () => {
+    const storage = createMemoryStorage();
+    const sessionStorageAdapter = createSessionStorageAdapter(storage);
+    sessionStorageAdapter.save({
+      activeSessionIdsByMode: { Chat: "chat-1", Cowork: "cowork-other", Code: "code-1" },
+      sessions: [
+        { id: "chat-1", mode: "Chat", title: "General chat" },
+        { id: "cowork-other", mode: "Cowork", title: "Other task", project: { path: "C:\\Work\\other", name: "other" } },
+        { id: "cowork-scilp", mode: "Cowork", title: "Roblox task", project: { path: "C:\\Work\\scilp", name: "scilp" } },
+        { id: "code-1", mode: "Code", title: "Code task" },
+      ],
+      eventsBySessionId: { "chat-1": [], "cowork-other": [], "cowork-scilp": [], "code-1": [] },
+    });
+    const setWorkspace = vi.fn();
+
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{ setWorkspace, subscribe: () => () => {} }}
+        sessionStorageAdapter={sessionStorageAdapter}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^mode cowork$/i }));
+
+    await waitFor(() => expect(setWorkspace).toHaveBeenCalledWith("C:\\Work\\other"));
+    fireEvent.click(screen.getByRole("button", { name: "Roblox task" }));
+    await waitFor(() => expect(setWorkspace).toHaveBeenCalledWith("C:\\Work\\scilp"));
+    expect(screen.getAllByText("scilp").length).toBeGreaterThanOrEqual(2);
+  });
+
   it("opens the Chat quality evaluation panel from the sidebar", async () => {
     const listChatQualityEval = vi.fn();
     let qualityListener = null;

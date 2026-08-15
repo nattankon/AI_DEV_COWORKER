@@ -2153,3 +2153,17 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Committed the transient live work-progress feature as `2e872a4`, pushed `main`, and pushed tag `v0.1.24`.
 - Built the Windows NSIS installer from the tagged source. GitHub Release verification confirms `AI-Dev-Co-worker-Setup-0.1.24.exe` (`110811345` bytes), its matching blockmap, and `latest.yml` are published; the release is neither draft nor prerelease.
 - The release preserves both supported update routes: the startup updater can apply an available release before the app opens, and the in-app updater can surface the top-right Update control after its background check finds this release.
+
+## 2026-08-15 - Restore project context from selected sessions
+
+- Diagnosed a state mismatch where session records retained a project for sidebar grouping while `workingDirectory` stayed empty. This left an active session under a project such as `scilp` while the header incorrectly displayed `No project selected`.
+- Selecting a project-scoped session or entering a mode now restores that session's project into both the renderer workspace state and the sidecar workspace bridge. The session project remains the source of truth for this transition; unrelated sessions are unchanged.
+- TDD evidence: added a regression test covering both entering Cowork and selecting a different project-scoped Cowork session. The test failed before the change because `setWorkspace` was never called and passes after the restore path was wired.
+- Release decision: this is source-only work for the next batch. No package version, installer, GitHub Release, or updater publication was created.
+- Verification: focused CoworkApp suite passed `32/32`.
+- Skills used: `systematic-debugging` and `test-driven-development`.
+
+## 2026-08-15 - Project-context restore verification follow-up
+
+- Full frontend verification passed `25/25` files and `181/181` tests; `npm run build` also passed. The existing Vite chunk-size advisory remains non-blocking.
+- Skills used: `verification-before-completion`.
