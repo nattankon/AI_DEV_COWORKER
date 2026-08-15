@@ -2147,3 +2147,9 @@ This file is append-only. Runtime conversation details are stored separately in 
 - TDD evidence: new component and reducer regression tests failed before the change because no request-level start time existed and the UI only showed the old per-step `Thinking` label. They pass after the implementation. Existing app-level expectations were updated from the former label to the new explicit elapsed-progress text.
 - Verification: focused frontend tests passed `51/51`; final full frontend suite passed `180/180`; `npm run build` passed. The existing Vite bundle-size warning remains non-blocking. Browser-level Playwright verification was unavailable because the local Python environment does not include the `playwright` package.
 - Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.
+
+## 2026-08-15 - Published desktop update v0.1.24
+
+- Committed the transient live work-progress feature as `2e872a4`, pushed `main`, and pushed tag `v0.1.24`.
+- Built the Windows NSIS installer from the tagged source. GitHub Release verification confirms `AI-Dev-Co-worker-Setup-0.1.24.exe` (`110811345` bytes), its matching blockmap, and `latest.yml` are published; the release is neither draft nor prerelease.
+- The release preserves both supported update routes: the startup updater can apply an available release before the app opens, and the in-app updater can surface the top-right Update control after its background check finds this release.
