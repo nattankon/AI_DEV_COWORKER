@@ -2181,3 +2181,11 @@ This file is append-only. Runtime conversation details are stored separately in 
 - TDD evidence: restart and stop-with-pending-approval tests both failed before the change and pass after it. Full frontend verification passed `25/25` files and `183/183` tests; `npm run build` passed with only the existing non-blocking Vite chunk-size advisory.
 - Release decision: source-only change held for the next planned update batch; no installer, GitHub Release, or updater publication was created.
 - Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-16 - Published desktop update v0.1.26
+
+- Published the stale-approval fix as tag and GitHub Release `v0.1.26` from source commit `bc1b2a8`.
+- Built the Windows NSIS installer from the tagged source. GitHub Release verification confirms `AI-Dev-Co-worker-Setup-0.1.26.exe` (`110811469` bytes), its matching blockmap, and `latest.yml` are published; the release is neither draft nor prerelease.
+- Verified the public updater manifest reports `0.1.26` and the matching installer name, SHA-512, and size. Both updater paths remain supported: the startup gate and the in-app top-right Update control.
+- Verification carried forward from the source task: full frontend suite `183/183` passed and `npm run build` passed. The release build with `npm run dist` passed; the existing Vite bundle-size advisory remains non-blocking.
+- Skills used: `verification-before-completion`.
