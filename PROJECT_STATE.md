@@ -1,6 +1,6 @@
 # Cowork Project State
 
-Last updated: 2026-08-15
+Last updated: 2026-08-19
 
 ## Core Product Architecture Decision
 
@@ -89,9 +89,10 @@ Effort must eventually control backend behavior: model settings, context budget,
 - `ipc_sidecar.py` is the Cowork-owned JSONL adapter for Electron. It runs Cowork requests on background workers so stdin remains available, emits renderer events on stdout, lists Local AI models, and pauses write/verification operations until a matching UI approval response arrives.
 - Sidecar worker failures are converted into structured `backend-log` events instead of escaping silently from a background thread.
 - Python backend coverage currently has 360 unittests across CLI, config, agent loop, agent state snapshots, workspace tools, Secret Guard, DeveloperTools, rollback backups, backup listing, restore tools, audit events, process cleanup, IPC sidecar approvals/workspace actions, Chat runtime separation, Chat effort runtime settings, Chat personal memory, model fallback, API provider runtime/catalog metadata, mode metadata, memory safety, MCP connector hardening/live tool execution, package imports, quality runner diagnostics, optional embeddings, and independence checks.
-- Frontend prototype has 25 Vitest files / 183 tests and builds successfully.
+- Frontend prototype has 26 Vitest files / 185 tests and builds successfully.
 - React/Electron Cowork workspace now uses a Claude-like chat-first surface based on `local_agent_claude_app_style_preview.html`: light sidebar, slim top chrome, centered greeting, large composer, quick actions, and status chips.
 - Electron now uses a frameless window (`BrowserWindow` `frame: false`) so the React custom chrome is the only visible titlebar.
+- The Windows desktop/taskbar icon now comes from the approved black, transparent companion-mark logo. `assets/app-icon.png` is the source artwork and `assets/app-icon.ico` carries nine Windows icon sizes; both main and startup-update windows use it, and Electron Builder packages the same ICO into release installers.
 - The custom titlebar now shows the app version from `package.json` in the top-right chrome for easier update verification.
 - The latest published desktop release is `v0.1.26`. Its GitHub Release includes a matching installer, `latest.yml`, and blockmap so installed copies can receive the update through the Electron updater without modifying the current installation in place. Cowork/Code streaming deltas, status telemetry, verification evidence, and approval request/resolution events are transient runtime state rather than persisted conversation events. This keeps one streamed answer in one bubble after session switches or restart, removes old raw `verification.finished` payloads, and prevents an approval card owned by a previous sidecar process from returning after reopening the app. Stopping a live request explicitly denies its active approval before cancellation so the backend wait is released immediately. User-selected image attachments now reach Cowork and Code through the same bounded multimodal request shape already used by Chat. The agent keeps only the textual user prompt in durable history, not image data. The catalog adds Z.ai `GLM-4.6V-Flash` as a free vision-capable choice; explicitly selected text-only models remain text-only rather than being silently overridden. The internal Role Settings navigation requests fresh local-memory state when opened, and the Role panel also has a manual refresh control.
 - Approval prompts are live process state, not conversation history. The renderer keeps them available while the current sidecar request is active, but excludes both request and resolution events from persisted session storage so a process restart cannot restore an unanswerable old prompt. Stopping a request explicitly sends `deny` for its active approval before requesting cancellation, releasing the waiting backend operation immediately.

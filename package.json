@@ -44,6 +44,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "assets/**/*",
       "tools/pyodide_runner.mjs",
       "package.json"
     ],
@@ -64,6 +65,7 @@
       "output": "release"
     },
     "win": {
+      "icon": "assets/app-icon.ico",
       "target": [
         "nsis"
       ]

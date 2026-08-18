@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 const appRoot = path.resolve(__dirname, "..");
 const preloadPath = path.join(__dirname, "preload.cjs");
 const rendererDistPath = path.join(appRoot, "dist", "index.html");
+const appIconPath = path.join(appRoot, "assets", "app-icon.ico");
 const isDev = process.env.NODE_ENV === "development";
 
 let mainWindow;
@@ -424,6 +425,7 @@ function createUpdateGateWindow() {
   const gate = new BrowserWindow({
     width: 380,
     height: 150,
+    icon: appIconPath,
     frame: false,
     resizable: false,
     alwaysOnTop: true,
@@ -568,6 +570,7 @@ function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 920,
+    icon: appIconPath,
     minWidth: 980,
     minHeight: 680,
     frame: false,

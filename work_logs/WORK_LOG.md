@@ -2189,3 +2189,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Verified the public updater manifest reports `0.1.26` and the matching installer name, SHA-512, and size. Both updater paths remain supported: the startup gate and the in-app top-right Update control.
 - Verification carried forward from the source task: full frontend suite `183/183` passed and `npm run build` passed. The release build with `npm run dist` passed; the existing Vite bundle-size advisory remains non-blocking.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-19 - Added approved desktop companion-mark icon
+
+- Added the user-approved monochrome companion-mark logo as transparent source artwork at `assets/app-icon.png` and generated `assets/app-icon.ico` with nine frames from 16px through 256px for Windows shell use.
+- Wired the ICO into the main Electron window, the startup update-gate window, and Electron Builder packaging. This replaces the previous default Electron icon for desktop shortcuts, taskbar grouping, and installer output while retaining the original logo source for future refinement.
+- TDD evidence: the new icon configuration test first failed because neither icon files nor packaging/window configuration existed; it passes after the asset and wiring changes.
+- Verification: focused icon tests passed `2/2`; full frontend suite passed `26/26` files and `185/185` tests; `npm run pack` passed and Electron Builder no longer reported its default-icon warning. The existing Vite bundle-size advisory remains non-blocking.
+- Release decision: source-only change held for the next planned update batch. No version bump, installer publication, or updater release was created.
+- Skills used: `imagegen`, `test-driven-development`, and `verification-before-completion`.
