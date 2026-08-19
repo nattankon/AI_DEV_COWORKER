@@ -880,6 +880,61 @@ describe("CoworkApp", () => {
     expect(await screen.findByText(/Working for 0s .*Thinking through your request/)).toBeInTheDocument();
   });
 
+  it("shows elapsed processing status while Cowork is working and clears it on completion", async () => {
+    let listener;
+    let sentSessionId;
+    const sendPrompt = vi.fn(({ sessionId }) => {
+      sentSessionId = sessionId;
+    });
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{
+          sendPrompt,
+          subscribe(_sessionId, nextListener) {
+            listener = nextListener;
+            return () => {};
+          },
+        }}
+        sessionStorageAdapter={createSessionStorageAdapter(createMemoryStorage())}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Mode Cowork" }));
+    const textbox = screen.getByPlaceholderText("How can I help you today?");
+    fireEvent.change(textbox, { target: { value: "Inspect this workspace" } });
+    fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
+
+    expect(sendPrompt).toHaveBeenCalledWith(expect.objectContaining({ mode: "Cowork" }));
+    expect(await screen.findByText(/Working for 0s .*Thinking through your request/)).toBeInTheDocument();
+
+    listener({
+      id: "cowork-stream",
+      sessionId: sentSessionId,
+      timestamp: "2026-08-19T07:59:59.000Z",
+      type: "message.assistant",
+      status: "running",
+      payload: { mode: "Cowork", text: "Inspecting", streaming: true },
+    });
+
+    expect(await screen.findByText(/Working for 0s/)).toBeInTheDocument();
+
+    listener({
+      id: "cowork-finished",
+      sessionId: sentSessionId,
+      timestamp: "2026-08-19T08:00:00.000Z",
+      type: "message.assistant",
+      status: "complete",
+      payload: { mode: "Cowork", text: "Workspace inspection complete." },
+    });
+
+    expect(await screen.findByText("Workspace inspection complete.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/Working for/)).not.toBeInTheDocument());
+  });
+
   it("stops an active Chat request through the bridge", async () => {
     const sendPrompt = vi.fn();
     const cancelPrompt = vi.fn();

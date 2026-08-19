@@ -410,6 +410,9 @@ export default function CoworkApp({
   const transientStatus = selectTransientStatus(state, activeSessionId, activeMode);
   const completionEvidence = selectCompletionEvidence(state, activeSessionId, activeMode);
   const hasTimeline = timeline.length > 0;
+  const hasStreamingAssistant = timeline.some(
+    (event) => event.type === "message.assistant" && event.status === "running" && event.payload?.streaming === true,
+  );
   const pendingApproval = [...timeline]
     .reverse()
     .find(
@@ -652,7 +655,7 @@ export default function CoworkApp({
           return next;
         });
       } else if (
-        event.type === "message.assistant"
+        (event.type === "message.assistant" && !(event.status === "running" && event.payload?.streaming === true))
         || event.type === "session.finished"
         || event.status === "failed"
       ) {
@@ -1228,7 +1231,7 @@ export default function CoworkApp({
         {activeView === "chat" && hasTimeline && (
           <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-5">
             <ProcessingIndicator
-              active={runStatus === "busy"}
+              active={runStatus === "busy" && !(activeMode === "Chat" && hasStreamingAssistant)}
               waitingForApproval={Boolean(pendingApproval)}
               startedAt={transientStatus?.startedAt ?? ""}
               statusText={transientStatus?.text ?? ""}

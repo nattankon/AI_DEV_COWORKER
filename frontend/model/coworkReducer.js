@@ -29,6 +29,9 @@ function runStatusForEvent(event, currentStatus) {
     return "idle";
   }
   if (event.type === "message.assistant") {
+    if (event.status === "running" && event.payload?.streaming === true) {
+      return currentStatus;
+    }
     return "idle";
   }
   return currentStatus;
@@ -139,7 +142,10 @@ export function coworkReducer(state, action) {
     event.status === "failed" ||
     (event.type === "agent.status" && event.payload?.state === "idle") ||
     event.type === "session.finished" ||
-    (event.type === "message.assistant" && (event.payload?.streaming === true || event.status !== "running"));
+    (event.type === "message.assistant" && (
+      event.status !== "running"
+      || (event.payload?.streaming === true && event.payload?.mode === "Chat")
+    ));
   const startsTransientStatus = event.type === "agent.status" && event.payload?.state === "busy";
   const transientStatus = startsTransientStatus
     ? startTransientStatusForEvent(state.transientStatus ?? {}, event)
