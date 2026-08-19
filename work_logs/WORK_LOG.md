@@ -2254,3 +2254,15 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Verified the public latest-release endpoint resolves to `v0.1.28`. The public updater manifest returned HTTP 200 and reports version `0.1.28`, the matching installer path, size, and SHA-512.
 - This batch publishes both registered-project selection/persistence and the Cowork/Code elapsed-progress fix. The startup installer gate and the in-app top-right Update control remain independent supported paths.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-19 - Replace simulated progress rotation with truthful agent activity
+
+- Diagnosed the misleading `Working...` behavior: the renderer rotated a hard-coded list of generic phrases every four seconds, while the shared tool loop emitted only `tool_execution` after a tool had already completed. The UI therefore could not truthfully say which operation was currently running.
+- Removed the rotating phrases. While no backend detail is available, the elapsed indicator now uses one stable fallback: `Waiting for agent activity...`.
+- Added the additive `tool_started` event immediately before each real sequential or parallel tool dispatch. Duplicate/skipped calls do not emit a false start. Existing `tool_execution` events remain result events, preserving audit and tool-result behavior.
+- Cowork now translates real stages and tool arguments into transient activity such as reading a path, searching a query, checking Git, running a verification preset, and preparing a write. It reports a concise status when a tool is denied, times out, fails, or returns an invalid-argument error, then switches to writing when final answer streaming begins.
+- Chat web/MCP research now derives `Searching`, `Reading`, and `MCP` activity from `tool_started`; persistent MCP result cards still come only from `tool_execution`. Cowork/Code status remains transient and is not added to conversation history.
+- TDD evidence: component tests first failed because the old phrases rotated; shared-loop tests first failed because no pre-dispatch event existed; Cowork tests first failed because statuses were vague and errors were silent. After implementation, focused frontend tests passed `57/57`, focused backend agent/loop tests passed `25/25`, targeted sidecar research tests passed `2/2`, the full frontend suite passed `26/26` files and `190/190` tests, the frontend production build passed, and the full backend suite passed `420/420`. `git diff --check` reported no whitespace errors beyond existing Windows line-ending notices.
+- Release decision: source-only change held for the next planned update batch. No version bump, installer build, GitHub Release, or updater publication was created.
+- Review: inspected event ordering, duplicate-call handling, transient renderer state, Chat/Cowork separation, and MCP result-card behavior in-session. No blocking findings remained.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.

@@ -918,26 +918,28 @@ class IpcSidecar:
 
         def on_research_event(event_type: str, payload: dict) -> None:
             nonlocal research_activity_seen
-            if event_type != "tool_execution":
+            if event_type not in {"tool_started", "tool_execution"}:
                 return
             tool_name = str(payload.get("tool_name") or "")
             arguments = payload.get("arguments") if isinstance(payload.get("arguments"), dict) else {}
-            if tool_name == "web_search":
+            if event_type == "tool_started" and tool_name == "web_search":
                 research_activity_seen = True
                 query = str(arguments.get("query") or "").strip()
                 if query:
                     emit_chat_status(f"Searching: {query}")
-            elif tool_name == "web_fetch":
+            elif event_type == "tool_started" and tool_name == "web_fetch":
                 research_activity_seen = True
                 raw_url = str(arguments.get("url") or "").strip()
                 parsed = urlparse(raw_url)
                 domain = parsed.netloc or urlparse(f"//{raw_url}").netloc or raw_url
                 if domain:
                     emit_chat_status(f"Reading: {domain}")
-            elif tool_name.startswith("mcp__"):
+            elif event_type == "tool_started" and tool_name.startswith("mcp__"):
                 research_activity_seen = True
                 server_name, mcp_tool = _parse_mcp_tool_name(tool_name)
                 emit_chat_status(f"MCP: {server_name}/{mcp_tool}")
+            elif event_type == "tool_execution" and tool_name.startswith("mcp__"):
+                server_name, mcp_tool = _parse_mcp_tool_name(tool_name)
                 result_text = str(payload.get("result") or "")
                 try:
                     result_payload = json.loads(result_text)

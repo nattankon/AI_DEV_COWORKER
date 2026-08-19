@@ -578,7 +578,7 @@ describe("CoworkApp", () => {
     const textbox = screen.getByPlaceholderText("How can I help you today?");
     fireEvent.change(textbox, { target: { value: "Hello" } });
     fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
-    expect(await screen.findByText(/Working for 0s .*Thinking through your request/)).toBeInTheDocument();
+    expect(await screen.findByText(/Working for 0s .*Waiting for agent activity/)).toBeInTheDocument();
 
     listener({
       id: "failure-1",
@@ -877,7 +877,7 @@ describe("CoworkApp", () => {
     });
     expect(screen.getByText("Map this repo", { selector: ".whitespace-pre-wrap" })).toBeInTheDocument();
     expect(screen.getByText("working")).toBeInTheDocument();
-    expect(await screen.findByText(/Working for 0s .*Thinking through your request/)).toBeInTheDocument();
+    expect(await screen.findByText(/Working for 0s .*Waiting for agent activity/)).toBeInTheDocument();
   });
 
   it("shows elapsed processing status while Cowork is working and clears it on completion", async () => {
@@ -909,7 +909,7 @@ describe("CoworkApp", () => {
     fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
 
     expect(sendPrompt).toHaveBeenCalledWith(expect.objectContaining({ mode: "Cowork" }));
-    expect(await screen.findByText(/Working for 0s .*Thinking through your request/)).toBeInTheDocument();
+    expect(await screen.findByText(/Working for 0s .*Waiting for agent activity/)).toBeInTheDocument();
 
     listener({
       id: "cowork-stream",

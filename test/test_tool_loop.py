@@ -137,7 +137,9 @@ class ToolLoopTests(unittest.TestCase):
         self.assertEqual(tool_message["tool_call_id"], "call-1")
         self.assertIn("tool-result", tool_message["content"])
         self.assertEqual(hook_results[0][0], "read_file")
-        self.assertEqual(events[0][0], "tool_execution")
+        self.assertEqual([event[0] for event in events], ["tool_started", "tool_execution"])
+        self.assertEqual(events[0][1]["tool_name"], "read_file")
+        self.assertNotIn("result", events[0][1])
 
     def test_duplicate_tool_call_is_skipped_without_dispatching_again(self):
         duplicate_call = {"id": "call-1", "name": "read_file", "arguments": '{"path":"README.md"}'}
@@ -169,8 +171,11 @@ class ToolLoopTests(unittest.TestCase):
         skipped_payload = json.loads(skipped_tool_message["content"])
         self.assertEqual(skipped_payload["status"], "skipped")
         self.assertIn("duplicate", skipped_payload["reason"])
-        self.assertEqual([event[1]["tool_name"] for event in events], ["read_file", "read_file"])
-        self.assertEqual(json.loads(events[1][1]["result"])["status"], "skipped")
+        started_events = [event for event in events if event[0] == "tool_started"]
+        execution_events = [event for event in events if event[0] == "tool_execution"]
+        self.assertEqual([event[1]["tool_name"] for event in started_events], ["read_file"])
+        self.assertEqual([event[1]["tool_name"] for event in execution_events], ["read_file", "read_file"])
+        self.assertEqual(json.loads(execution_events[1][1]["result"])["status"], "skipped")
         self.assertEqual(json.loads(hook_results[1][2])["status"], "skipped")
 
     def test_unproductive_tool_results_inject_steering_once_when_opted_in(self):

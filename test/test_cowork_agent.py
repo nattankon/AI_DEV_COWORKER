@@ -179,8 +179,9 @@ class CoworkAgentTests(unittest.TestCase):
             recorder=self.recorder,
             max_iterations=4,
         )
+        statuses = []
 
-        reply = agent.run("Read the repository overview")
+        reply = agent.run("Read the repository overview", on_status=statuses.append)
 
         self.assertEqual(reply, "Repository inspected.")
         tool_message = model.requests[1]["messages"][-1]
@@ -188,6 +189,16 @@ class CoworkAgentTests(unittest.TestCase):
         self.assertEqual(tool_message["tool_call_id"], "call-1")
         self.assertIn("# Standalone", tool_message["content"])
         self.assertEqual(self.recorder.finished, [("completed", "Repository inspected.")])
+        self.assertEqual(
+            statuses,
+            [
+                "Inspecting project context...",
+                "Planning the next action...",
+                "Reading README.md...",
+                "Reviewing read_file result...",
+                "Writing the final response...",
+            ],
+        )
 
     def test_requires_verification_after_write_before_final_report(self):
         model = FakeModel(
@@ -348,11 +359,16 @@ class CoworkAgentTests(unittest.TestCase):
             recorder=self.recorder,
             max_iterations=4,
         )
+        statuses = []
 
-        reply = agent.run("Read a file")
+        reply = agent.run("Read a file", on_status=statuses.append)
 
         self.assertEqual(reply, "Recovered from the tool error.")
         self.assertIn("Invalid tool arguments", model.requests[1]["messages"][-1]["content"])
+        self.assertTrue(
+            any(status.startswith("read_file error: Invalid tool arguments") for status in statuses),
+            statuses,
+        )
 
     def test_returns_best_effort_report_when_tool_limit_is_reached(self):
         repeated_call = {

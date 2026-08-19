@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
@@ -144,11 +145,11 @@ class OpenAIChatModel:
 
 
 _STAGE_STATUS = {
-    "inspect": "Inspecting the project…",
-    "plan": "Planning the change…",
-    "act": "Working…",
-    "verify": "Running verification…",
-    "report": "Writing response…",
+    "inspect": "Inspecting project context...",
+    "plan": "Planning the next action...",
+    "act": "Reviewing tool results...",
+    "verify": "Reviewing verification results...",
+    "report": "Writing the final response...",
 }
 
 
@@ -157,15 +158,53 @@ def _tool_status_text(tool_name: str, arguments: dict) -> str:
     args = arguments if isinstance(arguments, dict) else {}
     path = str(args.get("path") or args.get("relative_path") or "").strip()
     if name in {"write_file", "edit_file"}:
-        return f"Editing {path}…" if path else "Editing a file…"
+        return f"Preparing changes to {path}..." if path else "Preparing file changes..."
     if name == "read_file":
-        return f"Reading {path}…" if path else "Reading a file…"
+        return f"Reading {path}..." if path else "Reading a file..."
     if name == "run_verification":
         preset = str(args.get("name") or "").strip()
-        return f"Running {preset}…" if preset else "Running verification…"
-    if name in {"list_directory", "search_files"}:
-        return "Searching the project…"
-    return f"Using {name}…" if name else "Working…"
+        return f"Running {preset}..." if preset else "Running verification..."
+    if name == "list_directory":
+        return f"Listing {path}..." if path else "Listing project files..."
+    if name == "search_files":
+        query = str(args.get("query") or args.get("pattern") or "").strip()
+        return f"Searching project for {query}..." if query else "Searching the project..."
+    if name == "git_status":
+        return "Checking Git status..."
+    if name == "git_diff":
+        return "Reviewing Git changes..."
+    if name == "list_backups":
+        return "Checking available backups..."
+    if name == "restore_backup":
+        return "Preparing backup restore..."
+    return f"Using {name}..." if name else "Waiting for the next agent action..."
+
+
+def _tool_result_status_text(tool_name: str, arguments: dict, result: str) -> str:
+    try:
+        payload = json.loads(str(result or ""))
+    except (TypeError, ValueError):
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+
+    status = str(payload.get("status") or "").strip().lower()
+    name = str(tool_name or "tool").strip() or "tool"
+    detail = str(payload.get("error") or payload.get("message") or payload.get("reason") or "").strip()
+    detail = " ".join(detail.split())[:160]
+    if status in {"error", "failed", "failure", "denied", "timeout", "timed_out", "skipped"}:
+        suffix = f": {detail}" if detail else ""
+        return f"{name} {status}{suffix}"
+    if name == "run_verification" and status:
+        preset = str(arguments.get("name") or payload.get("name") or "").strip()
+        suffix = f": {preset}" if preset else ""
+        return f"Verification {status}{suffix}"
+    if name in {"write_file", "edit_file"} and status in {"written", "updated", "ok"}:
+        path = str(arguments.get("path") or arguments.get("relative_path") or payload.get("path") or "").strip()
+        return f"Prepared changes to {path}." if path else "Prepared file changes."
+    if name == "restore_backup" and status in {"restored", "ok"}:
+        return "Backup restore completed."
+    return ""
 
 
 class CoworkAgent:
@@ -210,9 +249,9 @@ class CoworkAgent:
             if on_status and text:
                 on_status(text)
 
-        def record_stage(stage: str) -> None:
+        def record_stage(stage: str, status_text: str | None = None) -> None:
             self._record_stage(run_state, stage)
-            emit_status(_STAGE_STATUS.get(stage, ""))
+            emit_status(_STAGE_STATUS.get(stage, "") if status_text is None else status_text)
 
         memory_context = load_cowork_memory_context(
             prompt="",
@@ -234,15 +273,34 @@ class CoworkAgent:
         try:
             def on_loop_event(event_type: str, payload: dict) -> None:
                 self.recorder.record(event_type, payload)
-                if event_type == "tool_execution":
+                if event_type in {"tool_started", "tool_execution"}:
                     self.event_sink(event_type, payload)
+                if event_type == "tool_started":
                     emit_status(_tool_status_text(payload.get("tool_name", ""), payload.get("arguments") or {}))
 
             def on_tool_result(tool_name: str, _arguments: dict, result: str) -> None:
                 stage = "verify" if tool_name == "run_verification" else "act"
-                record_stage(stage)
+                review_status = (
+                    "Reviewing verification result..."
+                    if tool_name == "run_verification"
+                    else f"Reviewing {tool_name or 'tool'} result..."
+                )
+                record_stage(stage, review_status)
+                result_status = _tool_result_status_text(tool_name, _arguments, result)
+                if result_status:
+                    emit_status(result_status)
                 run_state.observe_tool_result(tool_name, result)
                 self._record_state_snapshot(run_state)
+
+            writing_started = False
+
+            def on_final_delta(delta: str) -> None:
+                nonlocal writing_started
+                if delta and not writing_started:
+                    writing_started = True
+                    emit_status("Writing the response...")
+                if on_delta:
+                    on_delta(delta)
 
             def before_finalize(_content: str) -> str | None:
                 if run_state.requires_verification_before_report():
@@ -261,7 +319,7 @@ class CoworkAgent:
                 tools=self.tools,
                 max_iterations=self.max_iterations,
                 on_event=on_loop_event,
-                on_final_delta=on_delta,
+                on_final_delta=on_final_delta,
                 on_stream_reset=on_stream_reset,
                 hooks=LoopHooks(before_finalize=before_finalize, on_tool_result=on_tool_result),
                 force_final_answer=True,

@@ -1,12 +1,5 @@
 import { useEffect, useState } from "react";
 
-const GENERIC_PROGRESS = [
-  "Thinking through your request...",
-  "Preparing the response...",
-  "Reviewing the details...",
-  "Keeping this task active...",
-];
-
 function formatElapsed(totalSeconds) {
   if (totalSeconds < 60) return `${totalSeconds}s`;
   const minutes = Math.floor(totalSeconds / 60);
@@ -42,7 +35,7 @@ export default function ProcessingIndicator({ active = false, waitingForApproval
 
   if (!active || waitingForApproval) return null;
 
-  const label = cleanStatusText || GENERIC_PROGRESS[Math.floor(elapsedSeconds / 4) % GENERIC_PROGRESS.length];
+  const label = cleanStatusText || "Waiting for agent activity...";
 
   return (
     <div role="status" aria-live="polite" className="mb-3 flex min-h-6 items-center gap-2 px-1 text-[13px] text-[#929089]">

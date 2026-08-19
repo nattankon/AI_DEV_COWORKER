@@ -99,6 +99,7 @@ def run_tool_loop(
                 tool_calls=tool_calls,
                 seen_tool_calls=seen_tool_calls,
                 parallel=parallel_tools,
+                event_sink=event_sink,
             )
             for call, tool_name, arguments, result in tool_results:
                 event_payload = {"tool_name": tool_name, "arguments": arguments, "result": result}
@@ -218,6 +219,7 @@ def _dispatch_tool_calls(
     tool_calls: list[dict],
     seen_tool_calls: set[tuple[str, str]],
     parallel: bool,
+    event_sink: Callable[[str, dict], None],
 ) -> list[tuple[dict, str, dict, str]]:
     prepared: list[dict] = []
     jobs: list[tuple[int, str, dict]] = []
@@ -258,6 +260,8 @@ def _dispatch_tool_calls(
                     for index, _tool_name, _arguments in jobs
                 ]
             )
+        for index, tool_name, arguments in jobs:
+            event_sink("tool_started", {"tool_name": tool_name, "arguments": dict(arguments)})
         with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as executor:
             futures = {
                 executor.submit(_dispatch_single_tool, tools, tool_name, arguments): index
@@ -267,6 +271,7 @@ def _dispatch_tool_calls(
                 prepared[index]["result"] = future.result()
     else:
         for index, tool_name, arguments in jobs:
+            event_sink("tool_started", {"tool_name": tool_name, "arguments": dict(arguments)})
             prepared[index]["result"] = _dispatch_single_tool(tools, tool_name, arguments)
 
     return [

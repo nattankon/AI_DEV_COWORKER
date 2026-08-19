@@ -5,18 +5,18 @@ import ProcessingIndicator from "../components/ProcessingIndicator";
 describe("ProcessingIndicator", () => {
   afterEach(() => vi.useRealTimers());
 
-  it("shows total request duration and rotates truthful generic progress while active", () => {
+  it("shows total request duration without inventing rotating activity", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-15T00:00:00.000Z"));
     render(<ProcessingIndicator active startedAt="2026-08-15T00:00:00.000Z" />);
 
-    expect(screen.getByText("Working for 0s · Thinking through your request...")).toBeInTheDocument();
+    expect(screen.getByText("Working for 0s · Waiting for agent activity...")).toBeInTheDocument();
 
     act(() => vi.advanceTimersByTime(4_000));
-    expect(screen.getByText("Working for 4s · Preparing the response...")).toBeInTheDocument();
+    expect(screen.getByText("Working for 4s · Waiting for agent activity...")).toBeInTheDocument();
 
     act(() => vi.advanceTimersByTime(60_000));
-    expect(screen.getByText("Working for 1m 4s · Thinking through your request...")).toBeInTheDocument();
+    expect(screen.getByText("Working for 1m 4s · Waiting for agent activity...")).toBeInTheDocument();
   });
 
   it("renders nothing while idle or waiting for approval", () => {

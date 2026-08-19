@@ -234,11 +234,14 @@ class ChatResearchRunnerTests(unittest.TestCase):
             on_event=lambda event_type, payload: events.append((event_type, payload)),
         )
 
-        self.assertEqual([event[0] for event in events], ["tool_execution", "tool_execution"])
+        self.assertEqual(
+            [event[0] for event in events],
+            ["tool_started", "tool_execution", "tool_started", "tool_execution"],
+        )
         self.assertEqual(events[0][1]["tool_name"], "web_search")
         self.assertEqual(events[0][1]["arguments"]["query"], "latest docs")
-        self.assertEqual(events[1][1]["tool_name"], "web_fetch")
-        self.assertEqual(events[1][1]["arguments"]["url"], "https://example.test/page")
+        self.assertEqual(events[2][1]["tool_name"], "web_fetch")
+        self.assertEqual(events[2][1]["arguments"]["url"], "https://example.test/page")
 
     def test_extra_system_messages_are_inserted_per_attempt_and_evidence_corpus_is_returned(self):
         connector = FakeConnector()
