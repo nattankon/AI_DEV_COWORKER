@@ -2246,3 +2246,11 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Verification: focused frontend suites passed `54/54`; the full frontend suite passed `26/26` files and `190/190` tests; the full backend suite passed `420/420`; `npm run dist` completed and produced a `111013340` byte installer. `git diff --check` found no whitespace errors; only the existing Windows line-ending notices were emitted.
 - Review: the dedicated reviewer/subagent tool was unavailable, so the renderer state transitions and updater contract were reviewed in-session. No blocking findings remained.
 - Skills used: `systematic-debugging`, `test-driven-development`, `requesting-code-review`, and `verification-before-completion`.
+
+## 2026-08-19 - Published desktop update v0.1.28
+
+- Published source commit `728b468` and annotated tag `v0.1.28` to `origin/main` / GitHub Releases.
+- The public, non-draft, non-prerelease GitHub Release contains `AI-Dev-Co-worker-Setup-0.1.28.exe` (`111013340` bytes), its `116823` byte blockmap, and `latest.yml`.
+- Verified the public latest-release endpoint resolves to `v0.1.28`. The public updater manifest returned HTTP 200 and reports version `0.1.28`, the matching installer path, size, and SHA-512.
+- This batch publishes both registered-project selection/persistence and the Cowork/Code elapsed-progress fix. The startup installer gate and the in-app top-right Update control remain independent supported paths.
+- Skills used: `verification-before-completion`.
