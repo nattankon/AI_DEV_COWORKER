@@ -169,6 +169,37 @@ describe("CoworkApp", () => {
     }));
   });
 
+  it("registers a chosen project in the sidebar and opens it from the Projects view", async () => {
+    const storage = createMemoryStorage();
+    const setWorkspace = vi.fn();
+    const selectWorkspace = vi.fn().mockResolvedValue("C:\\Work\\A-Mod");
+
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{ selectWorkspace, setWorkspace, subscribe: () => () => {} }}
+        sessionStorageAdapter={createSessionStorageAdapter(storage)}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Projects" }));
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+
+    expect(await screen.findByRole("button", { name: "Open project A-Mod" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Select project A-Mod" }));
+
+    expect(await screen.findByPlaceholderText("How can I help you today?")).toBeInTheDocument();
+    expect(screen.getAllByText("A-Mod").length).toBeGreaterThanOrEqual(2);
+    expect(setWorkspace).toHaveBeenCalledWith("C:\\Work\\A-Mod");
+    await waitFor(() => expect(createSessionStorageAdapter(storage).load().projects).toContainEqual({
+      path: "C:\\Work\\A-Mod",
+      name: "A-Mod",
+    }));
+  });
+
   it("does not restore an expired approval prompt after the app reopens", async () => {
     const sessionStorageAdapter = createSessionStorageAdapter(createMemoryStorage());
     sessionStorageAdapter.save({

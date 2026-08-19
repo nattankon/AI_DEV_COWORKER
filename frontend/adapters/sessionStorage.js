@@ -6,6 +6,7 @@ const EMPTY_SESSION_STATE = Object.freeze({
   activeSessionId: null,
   activeSessionIdsByMode: Object.freeze({ Chat: null, Cowork: null, Code: null }),
   sessions: [],
+  projects: [],
   eventsBySessionId: {},
   chatSettings: Object.freeze({ webMode: "auto", searchProvider: "auto", artifacts: "on", codeExecution: "off", mcp: "off" }),
 });
@@ -37,6 +38,22 @@ function normalizeSessionRecord(value, fallbackMode = "Cowork") {
     ...(project ? { project } : {}),
     ...(value.pinned ? { pinned: true } : {}),
   };
+}
+
+function normalizeProjects(value, sessions = []) {
+  const candidates = [
+    ...(Array.isArray(value) ? value : []),
+    ...sessions.map((session) => session.project),
+  ];
+  const projects = [];
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const project = normalizeSessionProject(candidate);
+    if (!project || seen.has(project.path)) continue;
+    seen.add(project.path);
+    projects.push(project);
+  }
+  return projects;
 }
 
 function isTransientTimelineEvent(event) {
@@ -111,6 +128,7 @@ function normalizeSessionState(value, fallbackMode = "Cowork") {
     activeSessionId: activeSessionIdsByMode[fallbackMode],
     activeSessionIdsByMode,
     sessions,
+    projects: normalizeProjects(value.projects, sessions),
     eventsBySessionId: normalizeEventsBySessionId(value.eventsBySessionId),
     chatSettings: normalizeChatSettings(value.chatSettings),
     ...(Object.keys(modelRoutes).length > 0 ? { modelRoutes } : {}),

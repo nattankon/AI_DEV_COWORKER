@@ -2226,3 +2226,13 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Publication evidence: commit `cd63bb6` was pushed to `main`; annotated tag `v0.1.27` was pushed; the public, non-draft GitHub Release was published with installer, blockmap, and `latest.yml`, and GitHub reports it as the latest release.
 - Review: the dedicated reviewer/subagent tool was unavailable in this environment, so the release diff and updater contract were reviewed in-session. No blocking findings remained.
 - Skills used: `requesting-code-review` and `verification-before-completion`.
+
+## 2026-08-19 - Persist and open registered projects from the left rail
+
+- Diagnosed why projects shown in the Projects view could not be selected from the sidebar: the project list lived only in transient React state, Projects cards were non-interactive, and the sidebar derived project groups only from sessions that already existed. A new project with zero sessions therefore had no durable registry entry and no selectable left-rail item.
+- Added a normalized project registry to the existing v4 session state. It is deduplicated by path, backfilled from legacy project-scoped sessions, persisted across reloads, and kept independent from Chat/Cowork/Code conversation histories.
+- The left rail now displays registered projects even at zero sessions. The project name opens the project, while the chevron remains a separate collapse control. Projects-view cards are keyboard-accessible buttons. Opening a project selects an existing session in the active mode or creates a new project-scoped session when none exists.
+- Preserved the mode boundary: top-level Chat `New chat` remains unscoped and never inherits a Cowork/Code project. Project scope is introduced only by an explicit project selection or project-specific new-session action.
+- TDD evidence: three new tests first failed for missing registry persistence, missing zero-session project rendering, and a non-selectable Projects card. After implementation, the focused suites passed `52/52`; the full frontend suite passed `26/26` files and `189/189` tests; `npm run build` passed. The existing Vite chunk-size advisory remains non-blocking. Browser-level Playwright screenshot verification was attempted but unavailable because the installed project dependencies do not include Playwright; component integration coverage exercises the same create, render, select, and reload state paths.
+- Release decision: source-only change held for the next planned update batch. No version bump, installer build, GitHub Release, or updater publication was created.
+- Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.

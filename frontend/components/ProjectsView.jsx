@@ -1,7 +1,7 @@
 import { FolderOpen, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
-export default function ProjectsView({ projects = [], onChooseFolder }) {
+export default function ProjectsView({ projects = [], onChooseFolder, onOpenProject }) {
   const [query, setQuery] = useState("");
   const visibleProjects = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -35,13 +35,20 @@ export default function ProjectsView({ projects = [], onChooseFolder }) {
 
       <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         {visibleProjects.map((project) => (
-          <article key={project.path} className="flex min-h-36 flex-col rounded-xl border border-[#e1ded7] bg-white p-4">
-            <div className="flex items-center gap-2 text-[14px] font-semibold text-[#302f2b]">
-              <FolderOpen size={16} />
-              {project.name}
-            </div>
-            <div className="mt-2 break-all text-[12px] leading-5 text-[#858178]">{project.path}</div>
-            <div className="mt-auto pt-5 text-[12px] text-[#aaa69c]">Local workspace</div>
+          <article key={project.path} className="min-h-36">
+            <button
+              type="button"
+              aria-label={`Select project ${project.name}`}
+              onClick={() => onOpenProject?.(project)}
+              className="flex h-full min-h-36 w-full flex-col rounded-xl border border-[#e1ded7] bg-white p-4 text-left transition hover:border-[#c9c5bb] hover:bg-[#faf9f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8e9fe8]"
+            >
+              <span className="flex items-center gap-2 text-[14px] font-semibold text-[#302f2b]">
+                <FolderOpen size={16} />
+                {project.name}
+              </span>
+              <span className="mt-2 break-all text-[12px] leading-5 text-[#858178]">{project.path}</span>
+              <span className="mt-auto pt-5 text-[12px] text-[#aaa69c]">Local workspace</span>
+            </button>
           </article>
         ))}
       </div>

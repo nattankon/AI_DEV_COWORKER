@@ -55,9 +55,9 @@ describe("SessionRail", () => {
     );
 
     // Active project first, then other projects, then the ungrouped bucket.
-    const dragon = screen.getByRole("button", { name: "DragonNest1" });
-    expect(dragon).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "PB1" })).toBeInTheDocument();
+    const dragon = screen.getByRole("button", { name: "Collapse project DragonNest" });
+    expect(screen.getByRole("button", { name: "Open project DragonNest" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open project PB" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /No project/ })).toBeInTheDocument();
     expect(screen.getByText("Config edit")).toBeInTheDocument();
 
@@ -85,6 +85,24 @@ describe("SessionRail", () => {
     fireEvent.click(screen.getByRole("button", { name: "New chat in PB" }));
 
     expect(onNewSessionInProject).toHaveBeenCalledWith({ path: "C:/PB", name: "PB" });
+  });
+
+  it("shows and selects a registered project before it has any sessions", () => {
+    const onSelectProject = vi.fn();
+    render(
+      <SessionRail
+        activeMode="Chat"
+        activeSessionId="s1"
+        sessions={[{ id: "s1", title: "General chat", eventCount: 0 }]}
+        projects={[{ path: "C:/A-Mod", name: "A-Mod" }]}
+        onSelectProject={onSelectProject}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open project A-Mod" }));
+
+    expect(onSelectProject).toHaveBeenCalledWith({ path: "C:/A-Mod", name: "A-Mod" });
+    expect(screen.getByText("0")).toBeInTheDocument();
   });
 
   it("does not offer a per-project new-chat button on the ungrouped Recents list", () => {

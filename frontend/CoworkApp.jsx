@@ -74,6 +74,22 @@ function normalizeProject(project) {
   return { path, name };
 }
 
+function normalizeProjects(projects, sessions = []) {
+  const candidates = [
+    ...(Array.isArray(projects) ? projects : []),
+    ...sessions.map((session) => session.project),
+  ];
+  const normalized = [];
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const project = normalizeProject(candidate);
+    if (!project || seen.has(project.path)) continue;
+    seen.add(project.path);
+    normalized.push(project);
+  }
+  return normalized;
+}
+
 function createSessionRecord(id, title = "New task", mode = "Cowork", project = null) {
   const now = new Date().toISOString();
   const normalizedProject = normalizeProject(project);
@@ -100,6 +116,7 @@ function createInitialSessionStore() {
     activeSessionId: sessions.find((session) => session.mode === "Cowork").id,
     activeSessionIdsByMode: Object.fromEntries(sessions.map((session) => [session.mode, session.id])),
     sessions,
+    projects: [],
     eventsBySessionId: Object.fromEntries(sessions.map((session) => [session.id, []])),
   };
 }
@@ -137,6 +154,7 @@ function normalizeSessionStore(store) {
     activeSessionId: activeSessionIdsByMode.Cowork,
     activeSessionIdsByMode,
     sessions: normalizedSessions,
+    projects: normalizeProjects(store.projects, normalizedSessions),
     eventsBySessionId: normalizedEventsBySessionId,
     modelRoutes: normalizeModelRoutes(store.modelRoutes),
   };
@@ -312,7 +330,7 @@ export default function CoworkApp({
   const [activeView, setActiveView] = useState("chat");
   const [composerFocusSignal, setComposerFocusSignal] = useState(0);
   const [effort, setEffort] = useState("Medium");
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState(() => sessionStore.projects ?? []);
   const [resolvedApprovalIds, setResolvedApprovalIds] = useState(() => new Set());
   const [busySessionIds, setBusySessionIds] = useState(() => new Set());
   const [modelRoutes, setModelRoutes] = useState(() => ({
@@ -415,6 +433,14 @@ export default function CoworkApp({
   useEffect(() => {
     resolvedSessionStorageAdapter.save(sessionStore);
   }, [resolvedSessionStorageAdapter, sessionStore]);
+
+  useEffect(() => {
+    setSessionStore((current) => {
+      const normalized = normalizeProjects(projects, current.sessions);
+      if (JSON.stringify(current.projects ?? []) === JSON.stringify(normalized)) return current;
+      return { ...current, projects: normalized };
+    });
+  }, [projects]);
 
   useEffect(() => {
     setSessionStore((current) => {
@@ -839,6 +865,22 @@ export default function CoworkApp({
     });
   };
 
+  const openProject = async (project) => {
+    const normalized = normalizeProject(project);
+    if (!normalized) return;
+    setProjects((current) => normalizeProjects([normalized, ...current]));
+    const existingSession = modeSessions.find((session) => session.project?.path === normalized.path);
+    if (existingSession) {
+      selectSession(existingSession.id);
+      return;
+    }
+    if (normalized.path !== workingDirectory) {
+      setWorkingDirectory(normalized.path);
+      await coworkBridge.setWorkspace?.(normalized.path);
+    }
+    openNewSession(normalized);
+  };
+
   const selectMode = (mode) => {
     setActiveMode(mode);
     setActiveView("chat");
@@ -1050,6 +1092,7 @@ export default function CoworkApp({
         activeProjectName={workspaceLabel}
         activeSessionId={activeSessionId}
         sessions={modeSessions}
+        projects={projects}
         visible={sidebarOpen}
         workspaceLabel={workspaceLabel}
         onCustomize={() =>
@@ -1071,6 +1114,7 @@ export default function CoworkApp({
         onPinSession={togglePinSession}
         onRenameSession={renameSession}
         onSelectMode={selectMode}
+        onSelectProject={openProject}
         onSelectSession={selectSession}
       />
 
@@ -1082,7 +1126,7 @@ export default function CoworkApp({
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
         >
           {activeView === "projects" ? (
-            <ProjectsView projects={projects} onChooseFolder={selectWorkspace} />
+            <ProjectsView projects={projects} onChooseFolder={selectWorkspace} onOpenProject={openProject} />
           ) : activeView === "workspace" ? (
             <WorkspacePanel bridge={coworkBridge} mode={activeMode} workspacePath={workingDirectory} />
           ) : activeView === "artifacts" ? (

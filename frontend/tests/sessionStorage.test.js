@@ -84,6 +84,24 @@ describe("session storage adapter", () => {
     expect(restoredSession.project).toEqual({ path: "C:/DragonNest", name: "DragonNest" });
   });
 
+  it("round-trips registered projects even before they have sessions", () => {
+    const backingStore = createMemoryStorage();
+    const storage = createSessionStorageAdapter(backingStore);
+    const projects = [
+      { path: "C:/DragonNest", name: "DragonNest" },
+      { path: "C:/A-Mod", name: "A-Mod" },
+    ];
+
+    storage.save({
+      activeSessionIdsByMode: { Chat: "chat-1", Cowork: null, Code: null },
+      sessions: [{ id: "chat-1", mode: "Chat", title: "General chat" }],
+      eventsBySessionId: { "chat-1": [] },
+      projects,
+    });
+
+    expect(storage.load().projects).toEqual(projects);
+  });
+
   it("drops a malformed session project instead of persisting it", () => {
     const backingStore = createMemoryStorage();
     const storage = createSessionStorageAdapter(backingStore);
@@ -166,6 +184,7 @@ describe("session storage adapter", () => {
       activeSessionId: null,
       activeSessionIdsByMode: { Chat: null, Cowork: null, Code: null },
       sessions: [],
+      projects: [],
       eventsBySessionId: {},
       chatSettings: { webMode: "auto", searchProvider: "auto", artifacts: "on", codeExecution: "off", mcp: "off" },
     });

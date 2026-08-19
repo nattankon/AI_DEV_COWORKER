@@ -12,29 +12,35 @@ const modeTabs = [
   { label: "Code", icon: Code2 },
 ];
 
-function groupSessionsByProject(sessions, activeProjectName) {
-  const hasProjects = sessions.some((session) => session.project?.name);
+function groupSessionsByProject(sessions, activeProjectName, projects = []) {
+  const registeredProjects = Array.isArray(projects) ? projects.filter((project) => project?.path && project?.name) : [];
+  const hasProjects = registeredProjects.length > 0 || sessions.some((session) => session.project?.name);
   if (!hasProjects) {
     return [{ key: "__recents__", name: "Recents", isProject: false, sessions }];
   }
   const byProject = new Map();
   const noProject = [];
+  for (const project of registeredProjects) {
+    byProject.set(project.path, { project, sessions: [] });
+  }
   for (const session of sessions) {
     const name = session.project?.name;
     if (!name) {
       noProject.push(session);
       continue;
     }
-    if (!byProject.has(name)) byProject.set(name, []);
-    byProject.get(name).push(session);
+    const project = session.project;
+    const key = project.path || `name:${name}`;
+    if (!byProject.has(key)) byProject.set(key, { project, sessions: [] });
+    byProject.get(key).sessions.push(session);
   }
   const projectGroups = [...byProject.entries()]
-    .map(([name, groupSessions]) => ({
-      key: `project:${name}`,
-      name,
+    .map(([key, entry]) => ({
+      key: `project:${key}`,
+      name: entry.project.name,
       isProject: true,
-      project: groupSessions.find((session) => session.project?.path)?.project ?? { name },
-      sessions: groupSessions,
+      project: entry.project,
+      sessions: entry.sessions,
     }))
     .sort((left, right) => {
       if (left.name === activeProjectName) return -1;
@@ -51,6 +57,7 @@ export default function SessionRail({
   activeMode = "Chat",
   activeProjectName = "",
   sessions = [],
+  projects = [],
   activeSessionId,
   visible = true,
   workspaceLabel,
@@ -67,6 +74,7 @@ export default function SessionRail({
   onPinSession,
   onRenameSession,
   onSelectMode,
+  onSelectProject,
   onSelectSession,
 }) {
   const shownSessions = sessions.length > 0 ? sessions : [{ id: "empty", title: "New chat", eventCount: 0 }];
@@ -79,7 +87,7 @@ export default function SessionRail({
   const filteredSessions = searchDraft.trim()
     ? shownSessions.filter((session) => String(session.title || "").toLowerCase().includes(searchDraft.trim().toLowerCase()))
     : shownSessions;
-  const sessionGroups = groupSessionsByProject(filteredSessions, activeProjectName);
+  const sessionGroups = groupSessionsByProject(filteredSessions, activeProjectName, projects);
   const toggleGroup = (key) =>
     setCollapsedGroups((current) => {
       const next = new Set(current);
@@ -192,17 +200,40 @@ export default function SessionRail({
           return (
             <div key={group.key} className="group/head mb-1">
               <div className="flex items-center gap-0.5 rounded-md pr-1 text-[12px] text-[#8a877f] transition hover:bg-[#ecece7]">
-                <button
-                  type="button"
-                  aria-expanded={!collapsed}
-                  onClick={() => toggleGroup(group.key)}
-                  className="flex min-w-0 flex-1 items-center gap-1 px-2 py-1 text-left"
-                >
-                  <ChevronDown size={12} strokeWidth={2} className={`shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
-                  {group.isProject ? <Folder size={12} strokeWidth={2} className="shrink-0 text-[#a5906a]" /> : null}
-                  <span className="min-w-0 flex-1 truncate">{group.name}</span>
-                  <span className="shrink-0 text-[11px] text-[#b6b3aa]">{group.sessions.length}</span>
-                </button>
+                {group.isProject ? (
+                  <>
+                    <button
+                      type="button"
+                      aria-label={`${collapsed ? "Expand" : "Collapse"} project ${group.name}`}
+                      aria-expanded={!collapsed}
+                      onClick={() => toggleGroup(group.key)}
+                      className="grid h-6 w-6 shrink-0 place-items-center rounded-md hover:bg-[#deddd6]"
+                    >
+                      <ChevronDown size={12} strokeWidth={2} className={`transition-transform ${collapsed ? "-rotate-90" : ""}`} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Open project ${group.name}`}
+                      onClick={() => onSelectProject?.(group.project)}
+                      className="flex min-w-0 flex-1 items-center gap-1 py-1 text-left"
+                    >
+                      <Folder size={12} strokeWidth={2} className="shrink-0 text-[#a5906a]" />
+                      <span className="min-w-0 flex-1 truncate">{group.name}</span>
+                      <span className="shrink-0 text-[11px] text-[#b6b3aa]">{group.sessions.length}</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    aria-expanded={!collapsed}
+                    onClick={() => toggleGroup(group.key)}
+                    className="flex min-w-0 flex-1 items-center gap-1 px-2 py-1 text-left"
+                  >
+                    <ChevronDown size={12} strokeWidth={2} className={`shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
+                    <span className="min-w-0 flex-1 truncate">{group.name}</span>
+                    <span className="shrink-0 text-[11px] text-[#b6b3aa]">{group.sessions.length}</span>
+                  </button>
+                )}
                 {group.isProject ? (
                   <button
                     type="button"
