@@ -2217,3 +2217,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Verification: focused regression and workspace-flow tests passed `2/2`; the complete CoworkApp file passed `35/35`; the full frontend suite passed `26/26` files and `186/186` tests; `npm run build` passed with only the existing non-blocking Vite chunk-size advisory.
 - Release decision: source-only change held for the next planned update batch. No version bump, installer build, GitHub Release, or updater publication was created.
 - Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-19 - Published desktop release v0.1.27
+
+- Released the approved companion-mark desktop/taskbar icon, Cowork tool-loop best-effort recovery, effort-scaled Chat model timeouts, and the Chat/Cowork project-boundary fix as one planned batch.
+- Updated `package.json` and `package-lock.json` from `0.1.26` to `0.1.27`. Updated the packaging guide to document both intentional update paths: the pre-window startup installer gate and the post-window top-right Update control.
+- Verification before publication: full backend suite passed `420/420`; full frontend suite passed `26/26` files and `186/186` tests, including the updater contract; `npm run dist` built `AI-Dev-Co-worker-Setup-0.1.27.exe`, its blockmap, and a matching `latest.yml`. The existing Vite chunk-size advisory remains non-blocking.
+- Publication evidence: commit `cd63bb6` was pushed to `main`; annotated tag `v0.1.27` was pushed; the public, non-draft GitHub Release was published with installer, blockmap, and `latest.yml`, and GitHub reports it as the latest release.
+- Review: the dedicated reviewer/subagent tool was unavailable in this environment, so the release diff and updater contract were reviewed in-session. No blocking findings remained.
+- Skills used: `requesting-code-review` and `verification-before-completion`.
