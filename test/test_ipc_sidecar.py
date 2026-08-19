@@ -607,7 +607,7 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertIn("pick a faster model", backend_errors[0]["message"])
         self.assertNotIn("Request timed out", backend_errors[0]["message"])
 
-    def test_chat_model_factory_receives_configured_timeout(self):
+    def test_chat_model_factory_receives_effort_scaled_timeout(self):
         captured: list[dict] = []
         model = RecordingChatModel("zai:glm-4.5-flash", "answer", [])
 
@@ -632,7 +632,7 @@ class IpcSidecarTests(unittest.TestCase):
             effort_config=sidecar.dependencies.chat_config.effort_config("Medium"),
         )
 
-        self.assertEqual(captured[0]["timeout"], 123.0)
+        self.assertEqual(captured[0]["timeout"], 180.0)
 
     def test_chat_mode_injects_explicit_attachments_without_logging_content(self):
         output = StringIO()
@@ -1823,6 +1823,7 @@ class IpcSidecarTests(unittest.TestCase):
     def test_chat_tool_research_web_route_returns_guarded_answer(self):
         output = StringIO()
         calls: list[tuple[str, str]] = []
+        captured_timeouts: list[float] = []
         (self.workspace / "key.txt").write_text("a01f99." + "z" * 42, encoding="utf-8")
         connector = FakeResearchConnector()
         connector.pages["https://example.test/page"] = """
@@ -1848,7 +1849,7 @@ class IpcSidecarTests(unittest.TestCase):
                 workspace=self.workspace,
                 app_root=self.workspace,
                 output=output,
-                chat_model_factory=lambda **kwargs: model,
+                chat_model_factory=lambda **kwargs: captured_timeouts.append(kwargs["timeout"]) or model,
                 chat_web_tools_factory=lambda query, max_fetch: WebResearchTools(
                     connector,
                     relevance_query=query,
@@ -1867,6 +1868,7 @@ class IpcSidecarTests(unittest.TestCase):
                     "model": "zai:glm-4.5-flash",
                     "client_session_id": "tool-web",
                     "mode": "Chat",
+                    "effort": "High",
                 }
             )
         )
@@ -1890,6 +1892,7 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertEqual(connector.fetches, ["https://example.test/page"])
         self.assertIn("web_fetch", json.dumps(model.requests[0]["tools"]))
         self.assertNotIn("api_key", json.dumps(events).casefold())
+        self.assertEqual(captured_timeouts, [300.0])
 
     def test_chat_tool_research_can_diagnose_missing_mcp_connector(self):
         output = StringIO()

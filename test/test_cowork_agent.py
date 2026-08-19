@@ -354,14 +354,20 @@ class CoworkAgentTests(unittest.TestCase):
         self.assertEqual(reply, "Recovered from the tool error.")
         self.assertIn("Invalid tool arguments", model.requests[1]["messages"][-1]["content"])
 
-    def test_raises_when_model_never_finishes(self):
+    def test_returns_best_effort_report_when_tool_limit_is_reached(self):
         repeated_call = {
             "content": None,
             "tool_calls": [
                 {"id": "loop", "name": "list_directory", "arguments": '{"path":"."}'}
             ],
         }
-        model = FakeModel([repeated_call, repeated_call])
+        model = FakeModel(
+            [
+                repeated_call,
+                repeated_call,
+                {"content": "I could not complete every inspection step, but no changes were made.", "tool_calls": []},
+            ]
+        )
         agent = CoworkAgent(
             model=model,
             model_name="local:test-model",
@@ -371,10 +377,12 @@ class CoworkAgentTests(unittest.TestCase):
             max_iterations=2,
         )
 
-        with self.assertRaisesRegex(RuntimeError, "exceeded 2 iterations"):
-            agent.run("Loop forever")
+        reply = agent.run("Loop forever")
 
-        self.assertEqual(self.recorder.finished[-1][0], "error")
+        self.assertEqual(reply, "I could not complete every inspection step, but no changes were made.")
+        self.assertEqual(model.requests[-1]["tools"], [])
+        self.assertIn("research limit", model.requests[-1]["messages"][-1]["content"])
+        self.assertEqual(self.recorder.finished[-1], ("completed", reply))
 
     def test_recovers_once_from_empty_model_response(self):
         model = FakeModel(

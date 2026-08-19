@@ -264,6 +264,7 @@ class CoworkAgent:
                 on_final_delta=on_delta,
                 on_stream_reset=on_stream_reset,
                 hooks=LoopHooks(before_finalize=before_finalize, on_tool_result=on_tool_result),
+                force_final_answer=True,
             )
             content = outcome.answer
             record_stage("report")

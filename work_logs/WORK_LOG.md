@@ -2198,3 +2198,22 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Verification: focused icon tests passed `2/2`; full frontend suite passed `26/26` files and `185/185` tests; `npm run pack` passed and Electron Builder no longer reported its default-icon warning. The existing Vite bundle-size advisory remains non-blocking.
 - Release decision: source-only change held for the next planned update batch. No version bump, installer publication, or updater release was created.
 - Skills used: `imagegen`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-19 - Bound difficult Chat turns and recover Cowork tool-loop limits
+
+- Diagnosed `Agent loop exceeded 20 iterations` as Cowork not opting into the existing shared-loop forced-final mechanism. Cowork now requests one final, tool-free best-effort answer at the cap. The existing `before_finalize` verification hook still runs, so a write without passing verification cannot be reported as complete.
+- Replaced Chat's one-size-fits-all 90-second model-call timeout with data in `ChatEffortConfig`: Low 90 seconds, Medium 180 seconds, and High 300 seconds. The existing `COWORK_CHAT_MODEL_TIMEOUT` setting remains a global floor, allowing a local installation to choose an even longer limit. Plain Chat, tool research, and Chat Vision Assist share this budget; Cowork and Code timeouts were not broadened.
+- TDD evidence: the new Cowork cap test and effort-timeout tests failed before implementation. A research-path test then caught an incorrect `ChatEffortConfig` object normalization that silently fell back to Medium; it now verifies that a High research request receives 300 seconds.
+- Verification: Python syntax compilation passed and the full backend suite passed `420/420` on 2026-08-19.
+- Release decision: source-only change held for the next planned update batch. No version bump, installer build, GitHub Release, or updater publication was created.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-19 - Stop Chat sessions inheriting Cowork project context
+
+- Diagnosed the project group leak shown after pressing Chat `New chat`: the handler passed the global renderer `currentProject` into every new session, while that value could still refer to the workspace most recently restored by Cowork. The new Chat record was therefore persisted under the Cowork project and its next request could carry the same working-directory path.
+- The top-level Chat `New chat` action now creates an unscoped session. Entering or selecting an unscoped Chat session clears the renderer workspace context, so its next request sends an empty `workingDirectory`. Explicit `New chat in <project>` behavior remains available and unchanged.
+- Kept Cowork and Code workspace continuity unchanged after the full CoworkApp suite caught that clearing every mode would break the existing select-workspace then open-Code workflow.
+- TDD evidence: the new mode-boundary regression test failed before the fix because a `scilp` project group appeared in Chat, then passed after the Chat-only boundary was applied.
+- Verification: focused regression and workspace-flow tests passed `2/2`; the complete CoworkApp file passed `35/35`; the full frontend suite passed `26/26` files and `186/186` tests; `npm run build` passed with only the existing non-blocking Vite chunk-size advisory.
+- Release decision: source-only change held for the next planned update batch. No version bump, installer build, GitHub Release, or updater publication was created.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.

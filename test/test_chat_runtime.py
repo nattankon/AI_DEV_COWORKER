@@ -14,6 +14,17 @@ class ChatRuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.effort_config("High").research_max_iterations, 12)
         self.assertEqual(config.effort_config("High").research_max_fetch, 8)
 
+    def test_model_timeout_budget_scales_with_effort_and_keeps_global_floor(self):
+        config = ChatRuntimeConfig(model_timeout_seconds=90.0)
+
+        self.assertEqual(config.model_timeout_for_effort("Low"), 90.0)
+        self.assertEqual(config.model_timeout_for_effort("Medium"), 180.0)
+        self.assertEqual(config.model_timeout_for_effort("High"), 300.0)
+
+        extended = ChatRuntimeConfig(model_timeout_seconds=420.0)
+        self.assertEqual(extended.model_timeout_for_effort("Low"), 420.0)
+        self.assertEqual(extended.model_timeout_for_effort("High"), 420.0)
+
     def test_deepseek_can_use_chat_tool_research(self):
         config = ChatRuntimeConfig()
 

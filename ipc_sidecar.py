@@ -614,6 +614,7 @@ class IpcSidecar:
         model = self._normalize_model_name(requested_model)
         effort_name = self.dependencies.chat_config.normalize_effort(effort)
         effort_config = self.dependencies.chat_config.effort_config(effort_name)
+        model_timeout = self.dependencies.chat_config.model_timeout_for_effort(effort_name)
         history_limit = max(0, effort_config.history_messages)
         history_key = client_session_id or "__default_chat__"
         history = history_override if history_override is not None else self._chat_histories.get(history_key, [])
@@ -632,6 +633,7 @@ class IpcSidecar:
             settings=vision_settings,
             client_session_id=client_session_id,
             mode="Chat",
+            timeout=model_timeout,
         )
         attachment_prompt = self._format_chat_attachments(normalized_attachments, vision_assist["attachment_model"])
         attachment_messages = [{"role": "system", "content": attachment_prompt}] if attachment_prompt else []
@@ -1027,7 +1029,7 @@ class IpcSidecar:
         runner = ChatResearchRunner(
             model_factory=lambda model: self._create_chat_model(
                 model,
-                timeout=self.dependencies.chat_config.model_timeout_seconds,
+                timeout=self.dependencies.chat_config.model_timeout_for_effort(effort_config),
             ),
             model_candidates=self._model_candidates,
             web_tools_factory=web_tools_factory,
@@ -1260,7 +1262,7 @@ class IpcSidecar:
         def attempt(model: str) -> str:
             chat_model = self._create_chat_model(
                 model,
-                timeout=self.dependencies.chat_config.model_timeout_seconds,
+                timeout=self.dependencies.chat_config.model_timeout_for_effort(effort_config),
             )
             if on_delta and hasattr(chat_model, "stream_complete"):
                 response = chat_model.stream_complete(
@@ -1387,6 +1389,7 @@ class IpcSidecar:
         settings: dict[str, Any] | None,
         client_session_id: str,
         mode: str,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         decision = select_vision_assist(
             attachments,
@@ -1419,7 +1422,7 @@ class IpcSidecar:
         try:
             helper_model = self._create_chat_model(
                 decision.helper_model,
-                timeout=self.dependencies.chat_config.model_timeout_seconds,
+                timeout=timeout or self.dependencies.chat_config.model_timeout_seconds,
             )
             helper_user_content = self._build_chat_user_content(
                 "Analyze the attached image evidence for this user request.\n\n"

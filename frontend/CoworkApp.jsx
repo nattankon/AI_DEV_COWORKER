@@ -643,13 +643,15 @@ export default function CoworkApp({
     });
   }, [activeSessionId, coworkBridge, sessionStore.sessions]);
 
-  const openNewSession = (project) => {
+  const openNewSession = (project = null) => {
     const sessionId = createId();
+    const normalizedProject = normalizeProject(project);
+    if (activeMode === "Chat" && !normalizedProject) setWorkingDirectory("");
     setSessionStore((current) => ({
       ...current,
       activeSessionId: activeMode === "Cowork" ? sessionId : current.activeSessionId,
       activeSessionIdsByMode: { ...current.activeSessionIdsByMode, [activeMode]: sessionId },
-      sessions: [createSessionRecord(sessionId, "New task", activeMode, project), ...current.sessions],
+      sessions: [createSessionRecord(sessionId, "New task", activeMode, normalizedProject), ...current.sessions],
       eventsBySessionId: {
         ...current.eventsBySessionId,
         [sessionId]: [],
@@ -659,7 +661,7 @@ export default function CoworkApp({
     setActiveView("chat");
   };
 
-  const startNewSession = () => openNewSession(currentProject);
+  const startNewSession = () => openNewSession(activeMode === "Chat" ? null : currentProject);
 
   const startNewSessionInProject = async (project) => {
     const normalized = normalizeProject(project);
@@ -673,7 +675,10 @@ export default function CoworkApp({
   const restoreSessionProject = (sessionId) => {
     const session = sessionStore.sessions.find((candidate) => candidate.id === sessionId);
     const project = normalizeProject(session?.project);
-    if (!project) return;
+    if (!project) {
+      if (session?.mode === "Chat") setWorkingDirectory("");
+      return;
+    }
 
     setWorkingDirectory(project.path);
     setProjects((current) => (current.some((candidate) => candidate.path === project.path) ? current : [project, ...current]));

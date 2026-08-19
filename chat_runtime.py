@@ -44,6 +44,9 @@ class ChatEffortConfig:
     temperature: float
     max_tokens: int
     history_messages: int
+    # Per-model-turn budget. A single shared 90-second request timeout made
+    # higher-effort Chat work fail before it could complete a difficult turn.
+    model_timeout_seconds: float = 90.0
     research_max_iterations: int = 6
     research_max_fetch: int = 5
     # Effort-scaled steering for the search->open->ground cycle (chat_router.py's
@@ -64,6 +67,7 @@ class ChatRuntimeConfig:
                 temperature=0.3,
                 max_tokens=1024,
                 history_messages=4,
+                model_timeout_seconds=90.0,
                 research_max_iterations=4,
                 research_max_fetch=3,
                 search_depth_hint="Search depth: open at least the single best source before answering.",
@@ -72,6 +76,7 @@ class ChatRuntimeConfig:
                 temperature=0.5,
                 max_tokens=4096,
                 history_messages=12,
+                model_timeout_seconds=180.0,
                 research_max_iterations=6,
                 research_max_fetch=5,
                 search_depth_hint="Search depth: open the 2-3 most relevant sources before answering.",
@@ -80,6 +85,7 @@ class ChatRuntimeConfig:
                 temperature=0.6,
                 max_tokens=8192,
                 history_messages=20,
+                model_timeout_seconds=300.0,
                 research_max_iterations=12,
                 research_max_fetch=8,
                 search_depth_hint="Search depth: search more than once if the first results are weak, and open several sources before answering.",
@@ -138,6 +144,12 @@ class ChatRuntimeConfig:
 
     def effort_config(self, value: object) -> ChatEffortConfig:
         return self.efforts[self.normalize_effort(value)]
+
+    def model_timeout_for_effort(self, value: object) -> float:
+        """Return the per-turn Chat timeout, respecting a longer global override."""
+        effort_config = value if isinstance(value, ChatEffortConfig) else self.effort_config(value)
+        effort_timeout = float(effort_config.model_timeout_seconds)
+        return max(float(self.model_timeout_seconds), effort_timeout)
 
 
 DEFAULT_CHAT_RUNTIME_CONFIG = ChatRuntimeConfig()

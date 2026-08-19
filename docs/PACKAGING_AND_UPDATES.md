@@ -15,11 +15,12 @@
     user can choose the folder.
   - `build.publish` = GitHub provider (owner/repo are placeholders you must set).
 - `electron/main.js`
-  - `setupAutoUpdater()` runs on launch **only in a packaged build**: checks GitHub
-    Releases, downloads in the background, and installs on the next quit
-    (`autoInstallOnAppQuit`). It emits `app-update` events to the UI (checking/available/
-    downloading/ready) and there is an `install-update-now` IPC handler if you want a
-    "restart to update" button later.
+  - `runUpdateGate()` runs before the main window **only in a packaged build**. If a newer
+    GitHub Release exists, the gate downloads and installs it before opening the app.
+  - `startBackgroundUpdater()` is the second, independent update path after the main window
+    opens. It emits `app-update` events to the UI (checking/available/downloading/ready),
+    keeps `autoInstallOnAppQuit` disabled, and exposes `install-update-now` for the explicit
+    top-right **Update** button. Both paths are intentional and must remain supported.
 - `ipc_sidecar.py` — provider keys now load from the **stable user-data dir**
   (`COWORK_USER_DATA_DIR`, i.e. `%APPDATA%/AI Dev Co-worker`) instead of the app folder.
   This is critical: the app folder is REPLACED on every update, so keys kept there would be
@@ -87,10 +88,11 @@ GitHub Release; if they match, it sees no update. No bump = no update detected.
 
 1. Install once from the Setup .exe (Windows SmartScreen will warn on first run because the
    app is unsigned — "More info → Run anyway"; this is expected without code signing).
-2. On each launch the app quietly checks GitHub Releases and downloads a newer version in
-   the background.
-3. The update applies automatically the next time you quit and reopen — no reinstall, no
-   overwriting by hand.
+2. Before the main window opens, the startup gate checks GitHub Releases. When it finds a
+   newer version, it downloads, installs, and relaunches the new build before entering the app.
+3. If a release is discovered after the main window is already open, it downloads in the
+   background and exposes the top-right **Update** button. Clicking it installs and relaunches;
+   a normal quit does not silently install this background update.
 
 ## First-run setup for the INSTALLED app (one time)
 

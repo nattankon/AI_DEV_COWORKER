@@ -127,6 +127,48 @@ describe("CoworkApp", () => {
     expect(screen.getAllByText("scilp").length).toBeGreaterThanOrEqual(2);
   });
 
+  it("does not inherit a Cowork project when starting a new Chat session", async () => {
+    const storage = createMemoryStorage();
+    const sessionStorageAdapter = createSessionStorageAdapter(storage);
+    sessionStorageAdapter.save({
+      activeSessionIdsByMode: { Chat: "chat-1", Cowork: "cowork-scilp", Code: "code-1" },
+      sessions: [
+        { id: "chat-1", mode: "Chat", title: "General chat" },
+        { id: "cowork-scilp", mode: "Cowork", title: "Roblox task", project: { path: "C:\\Work\\scilp", name: "scilp" } },
+        { id: "code-1", mode: "Code", title: "Code task" },
+      ],
+      eventsBySessionId: { "chat-1": [], "cowork-scilp": [], "code-1": [] },
+    });
+    const setWorkspace = vi.fn();
+    const sendPrompt = vi.fn();
+
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{ sendPrompt, setWorkspace, subscribe: () => () => {} }}
+        sessionStorageAdapter={sessionStorageAdapter}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^mode cowork$/i }));
+    await waitFor(() => expect(setWorkspace).toHaveBeenCalledWith("C:\\Work\\scilp"));
+    fireEvent.click(screen.getByRole("button", { name: /^mode chat$/i }));
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+
+    expect(screen.queryByRole("button", { name: "scilp1" })).not.toBeInTheDocument();
+    const textbox = screen.getByPlaceholderText("How can I help you today?");
+    fireEvent.change(textbox, { target: { value: "general question" } });
+    fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
+    expect(sendPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: "general question",
+      mode: "Chat",
+      workingDirectory: "",
+    }));
+  });
+
   it("does not restore an expired approval prompt after the app reopens", async () => {
     const sessionStorageAdapter = createSessionStorageAdapter(createMemoryStorage());
     sessionStorageAdapter.save({
