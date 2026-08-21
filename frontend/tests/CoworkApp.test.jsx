@@ -95,6 +95,104 @@ describe("CoworkApp", () => {
     expect(screen.getByText(/^v\d+\.\d+\.\d+$/)).toBeInTheDocument();
   });
 
+  it("opens Web Chat as an isolated browser surface without creating a native session", async () => {
+    const showWebChat = vi.fn().mockResolvedValue({ ok: true });
+    const hideWebChat = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = {
+      getWebChatState: vi.fn().mockResolvedValue({
+        loading: false,
+        title: "ChatGPT",
+        url: "https://chatgpt.com/",
+        canGoBack: false,
+        canGoForward: false,
+      }),
+      showWebChat,
+      hideWebChat,
+      controlWebChat: vi.fn().mockResolvedValue({ ok: true }),
+      subscribe: () => () => {},
+      subscribeWebChatState: () => () => {},
+    };
+
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={bridge}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Mode Web Chat" }));
+
+    expect(await screen.findByRole("region", { name: "Web Chat" })).toBeInTheDocument();
+    await waitFor(() => expect(showWebChat).toHaveBeenCalled());
+    expect(screen.queryByPlaceholderText("How can I help you today?")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mode Chat" }));
+    expect(await screen.findByPlaceholderText("How can I help you today?")).toBeInTheDocument();
+    await waitFor(() => expect(hideWebChat).toHaveBeenCalledOnce());
+  });
+
+  it("surfaces Web Chat tool approvals above the native browser and restores it after denial", async () => {
+    let eventListener;
+    const showWebChat = vi.fn().mockResolvedValue({ ok: true });
+    const hideWebChat = vi.fn().mockResolvedValue({ ok: true });
+    const answerApproval = vi.fn();
+    const bridge = {
+      getWebChatState: vi.fn().mockResolvedValue({ loading: false, title: "ChatGPT", url: "https://chatgpt.com/" }),
+      getWebChatGrantState: vi.fn().mockResolvedValue({ grant: null, toolsEnabled: false, tunnelConnected: false }),
+      showWebChat,
+      hideWebChat,
+      answerApproval,
+      subscribe: (_sessionId, listener) => { eventListener = listener; return () => {}; },
+      subscribeWebChatState: () => () => {},
+      subscribeWebChatGrantState: () => () => {},
+    };
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={bridge}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Mode Web Chat" }));
+    await waitFor(() => expect(showWebChat).toHaveBeenCalled());
+    showWebChat.mockClear();
+    hideWebChat.mockClear();
+
+    eventListener({
+      id: "web-approval-event",
+      sessionId: "session",
+      timestamp: "2026-08-22T00:00:00.000Z",
+      type: "approval.requested",
+      status: "pending",
+      payload: {
+        approvalId: "approval-web-1",
+        approvalKind: "write_file",
+        title: "Approve file write",
+        question: "Approve Web Chat writing notes.txt?",
+        proposal: {
+          origin: "web_chat",
+          subject: "notes.txt",
+          risk_level: "write",
+          default_decision: "deny",
+          diff: "--- a/notes.txt\n+++ b/notes.txt\n@@\n-old\n+new\n",
+          full_payload: { arguments: { path: "notes.txt", content: "new" }, tunnel_generation: 5 },
+        },
+      },
+    });
+
+    expect(await screen.findByText("Web Chat is waiting for your decision.")).toBeInTheDocument();
+    expect(screen.getByText(/tunnel_generation/)).toBeInTheDocument();
+    await waitFor(() => expect(hideWebChat).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "Deny" }));
+    expect(answerApproval).toHaveBeenCalledWith({ approvalId: "approval-web-1", answer: "deny" });
+    await waitFor(() => expect(showWebChat).toHaveBeenCalled());
+  });
+
   it("persists and sends the selected permission profile to the backend", async () => {
     localStorage.setItem("cowork.permissionMode", "trusted");
     const setPermissionMode = vi.fn();

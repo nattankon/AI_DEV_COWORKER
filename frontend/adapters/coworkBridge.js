@@ -337,6 +337,16 @@ export function createCoworkBridge(legacyBridge, overrides = {}) {
       if (typeof subscribe !== "function") return () => {};
       return subscribe("app-update", (event) => listener(event?.detail ?? event ?? {}));
     },
+    subscribeWebChatState(listener) {
+      const subscribe = legacyBridge?.subscribe;
+      if (typeof subscribe !== "function") return () => {};
+      return subscribe("web-chat-state", (event) => listener(event?.detail ?? event ?? {}));
+    },
+    subscribeWebChatGrantState(listener) {
+      const subscribe = legacyBridge?.subscribe;
+      if (typeof subscribe !== "function") return () => {};
+      return subscribe("web-chat-grant-state", (event) => listener(event?.detail ?? event ?? {}));
+    },
     async getAppUpdateState() {
       if (typeof legacyBridge?.getAppUpdateState === "function") {
         return legacyBridge.getAppUpdateState();
@@ -347,6 +357,50 @@ export function createCoworkBridge(legacyBridge, overrides = {}) {
       if (typeof legacyBridge?.installUpdateNow === "function") {
         await legacyBridge.installUpdateNow();
       }
+    },
+    async getWebChatState() {
+      if (typeof legacyBridge?.getWebChatState === "function") return legacyBridge.getWebChatState();
+      return { loading: false, title: "ChatGPT", url: "https://chatgpt.com/", canGoBack: false, canGoForward: false };
+    },
+    async showWebChat(bounds) {
+      if (typeof legacyBridge?.showWebChat === "function") return legacyBridge.showWebChat(bounds);
+      return { ok: false, reason: "electron-unavailable" };
+    },
+    async hideWebChat() {
+      if (typeof legacyBridge?.hideWebChat === "function") return legacyBridge.hideWebChat();
+      return { ok: true };
+    },
+    async controlWebChat(command) {
+      if (typeof legacyBridge?.controlWebChat === "function") return legacyBridge.controlWebChat(command);
+      return { ok: false, reason: "electron-unavailable" };
+    },
+    async getWebChatGrantState() {
+      if (typeof legacyBridge?.getWebChatGrantState === "function") return legacyBridge.getWebChatGrantState();
+      return { grant: null, toolsEnabled: false, tunnelConnected: false };
+    },
+    async setWebChatGrant(payload) {
+      if (typeof legacyBridge?.setWebChatGrant === "function") return legacyBridge.setWebChatGrant(payload);
+      return { ok: false, error: "Electron bridge is unavailable." };
+    },
+    async revokeWebChatGrant() {
+      if (typeof legacyBridge?.revokeWebChatGrant === "function") return legacyBridge.revokeWebChatGrant();
+      return { ok: false, error: "Electron bridge is unavailable." };
+    },
+    async startWebChatTunnel(payload) {
+      if (typeof legacyBridge?.startWebChatTunnel === "function") return legacyBridge.startWebChatTunnel(payload);
+      return { ok: false, error: "Electron bridge is unavailable." };
+    },
+    async stopWebChatTunnel() {
+      if (typeof legacyBridge?.stopWebChatTunnel === "function") return legacyBridge.stopWebChatTunnel();
+      return { ok: false, error: "Electron bridge is unavailable." };
+    },
+    async probeWebChatConnector() {
+      if (typeof legacyBridge?.probeWebChatConnector === "function") return legacyBridge.probeWebChatConnector();
+      return { ok: false, error: "Electron bridge is unavailable." };
+    },
+    async copyWebChatConnectorValue(kind) {
+      if (typeof legacyBridge?.copyWebChatConnectorValue === "function") return legacyBridge.copyWebChatConnectorValue(kind);
+      return { ok: false, error: "Electron bridge is unavailable." };
     },
     async setAutoApprove(enabled) {
       if (typeof legacyBridge?.setAutoApprove === "function") {

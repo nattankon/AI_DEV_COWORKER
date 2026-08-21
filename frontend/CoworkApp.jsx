@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { answerQuestion, cancelCowork, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, getAppUpdateState, importCustomAnthropicModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setChatMemoryEnabled, setCustomAnthropicProvider, setPermissionMode, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
+import { answerQuestion, cancelCowork, controlWebChat, copyWebChatConnectorValue, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, getAppUpdateState, getWebChatGrantState, getWebChatState, hideWebChat, importCustomAnthropicModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, probeWebChatConnector, revokeWebChatGrant, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setChatMemoryEnabled, setCustomAnthropicProvider, setPermissionMode, setWebChatGrant, setWorkspace, showWebChat, startWebChatTunnel, stopWebChatTunnel, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
 import { createCoworkBridge } from "./adapters/coworkBridge";
 import { createSessionStorageAdapter } from "./adapters/sessionStorage";
 import ApprovalPrompt from "./components/ApprovalPrompt";
@@ -17,6 +17,7 @@ import SessionRail from "./components/SessionRail";
 import SettingsModal from "./components/SettingsModal";
 import Timeline from "./components/Timeline";
 import WorkspacePanel from "./components/WorkspacePanel";
+import WebChatPanel from "./components/WebChatPanel";
 import { createCoworkEvent } from "./model/coworkEvents";
 import { buildContextUsage } from "./model/contextUsage";
 import { coworkReducer, createInitialCoworkState } from "./model/coworkReducer";
@@ -300,12 +301,25 @@ function createDefaultBridge() {
     workspaceAction,
     getAppUpdateState,
     installUpdateNow,
+    getWebChatState,
+    showWebChat,
+    hideWebChat,
+    controlWebChat,
+    getWebChatGrantState,
+    setWebChatGrant,
+    revokeWebChatGrant,
+    startWebChatTunnel,
+    stopWebChatTunnel,
+    probeWebChatConnector,
+    copyWebChatConnectorValue,
     setPermissionMode,
     subscribe: (eventName, handler) => {
       const mappedEventName = {
         available_models: eelEvents.availableModels,
         api_keys_loaded: eelEvents.apiKeysLoaded,
         "app-update": eelEvents.appUpdate,
+        "web-chat-state": eelEvents.webChatState,
+        "web-chat-grant-state": eelEvents.webChatGrantState,
         chat_memory_state: eelEvents.chatMemoryState,
         chat_artifacts_state: eelEvents.chatArtifactsState,
         chat_connectors_state: eelEvents.chatConnectorsState,
@@ -894,6 +908,10 @@ export default function CoworkApp({
   };
 
   const selectMode = (mode) => {
+    if (mode === "Web Chat") {
+      setActiveView("web-chat");
+      return;
+    }
     setActiveMode(mode);
     setActiveView("chat");
     restoreSessionProject(sessionStore.activeSessionIdsByMode[mode]);
@@ -1101,6 +1119,7 @@ export default function CoworkApp({
       />
       <SessionRail
         activeMode={activeMode}
+        webChatActive={activeView === "web-chat"}
         activeProjectName={workspaceLabel}
         activeSessionId={activeSessionId}
         sessions={modeSessions}
@@ -1139,6 +1158,8 @@ export default function CoworkApp({
         >
           {activeView === "projects" ? (
             <ProjectsView projects={projects} onChooseFolder={selectWorkspace} onOpenProject={openProject} />
+          ) : activeView === "web-chat" ? (
+            <WebChatPanel bridge={coworkBridge} projects={projects} approvalPending={Boolean(pendingApproval)} />
           ) : activeView === "workspace" ? (
             <WorkspacePanel bridge={coworkBridge} mode={activeMode} workspacePath={workingDirectory} />
           ) : activeView === "artifacts" ? (

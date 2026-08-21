@@ -24,6 +24,7 @@ export default function ApprovalPrompt({ event, onDecision }) {
   const detailText = Object.keys(details).length > 0 ? formatJson(details) : "";
   const fullPayloadText = Object.keys(fullPayload).length > 0 ? formatJson(fullPayload) : "";
   const diff = proposal.diff || details.diff;
+  const originLabel = proposal.origin === "web_chat" ? "Web Chat" : "Cowork";
 
   return (
     <section
@@ -35,7 +36,7 @@ export default function ApprovalPrompt({ event, onDecision }) {
           <ShieldCheck size={17} strokeWidth={2} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="mb-1 text-[12px] font-medium text-[#a34d2f]">Cowork is waiting for your decision.</div>
+          <div className="mb-1 text-[12px] font-medium text-[#a34d2f]">{originLabel} is waiting for your decision.</div>
           <div className="text-[14px] font-semibold text-[#2f2f2d]">{title}</div>
           <div className="mt-1 text-[13px] leading-5 text-[#6f6a61]">{event.payload?.question}</div>
           {(riskLevel || riskSummary || defaultDecision) && (

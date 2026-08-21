@@ -54,15 +54,15 @@ except ImportError:
             return None
 
         def load_custom_anthropic_profile(_app_root) -> dict[str, Any]:
-            return {"base_url": "", "models": []}
+            return {"preset_id": "custom", "base_url": "", "protocol": "anthropic_messages", "auth_scheme": "x_api_key", "models_auth_scheme": "bearer", "models": []}
 
         def custom_anthropic_provider_status(_app_root, *, configured: bool = False) -> dict[str, Any]:
-            return {"id": "anthropic_compatible", "label": "Custom Anthropic-compatible", "configured": False, "base_url": "", "models": []}
+            return {"id": "anthropic_compatible", "label": "Compatible API provider", "configured": False, "base_url": "", "models": [], "presets": []}
 
-        def save_custom_anthropic_profile(_app_root, _base_url, _models=None) -> dict[str, Any]:
+        def save_custom_anthropic_profile(_app_root, _base_url, _models=None, **_kwargs) -> dict[str, Any]:
             raise RuntimeError("Custom Anthropic-compatible provider support is unavailable.")
 
-        def import_custom_anthropic_models(_base_url, _api_key, *, timeout=15.0) -> list[str]:
+        def import_custom_anthropic_models(_base_url, _api_key, *, timeout=15.0, auth_scheme="bearer") -> list[str]:
             raise RuntimeError("Custom Anthropic-compatible provider support is unavailable.")
 
 DEFAULT_FALLBACK_MODELS = ("local:qwen2.5-7b-instruct",)
@@ -105,6 +105,8 @@ try:
     from .model_router import route_model
     from .session_store import record_cowork_event
     from .workspace_tools import WorkspaceTools
+    from .web_chat_mcp_gateway import WebChatLocalMcpGateway
+    from .web_chat_tunnel import WebChatTunnelController
 except ImportError:
     from approval_policy import build_approval_payload
     from permission_policy import normalize_permission_mode, should_auto_approve
@@ -140,6 +142,8 @@ except ImportError:
     from model_router import route_model
     from session_store import record_cowork_event
     from workspace_tools import WorkspaceTools
+    from web_chat_mcp_gateway import WebChatLocalMcpGateway
+    from web_chat_tunnel import WebChatTunnelController
 
 
 @dataclass
@@ -170,6 +174,9 @@ class IpcDependencies:
     web_searcher: Callable[..., WebSearchResponse] | None = None
     chat_quality_live_runner: Callable[..., dict[str, Any]] | None = None
     chat_quality_report_writer: Callable[..., dict[str, str]] | None = None
+    web_chat_gateway_audit_sink: Callable[[str, dict[str, Any]], None] | None = None
+    web_chat_tunnel_audit_sink: Callable[[str, dict[str, Any]], None] | None = None
+    web_chat_tunnel_controller_factory: Callable[..., Any] | None = None
 
 
 class _RequestCancelled(RuntimeError):
@@ -191,6 +198,7 @@ class IpcSidecar:
         self.dependencies = dependencies or IpcDependencies()
         self._approval_condition = threading.Condition()
         self._pending_approvals: dict[str, str | None] = {}
+        self._pending_approval_contexts: dict[str, dict[str, Any]] = {}
         self._workers: list[threading.Thread] = []
         self._emit_lock = threading.Lock()
         self._worker_context = threading.local()
@@ -204,10 +212,21 @@ class IpcSidecar:
         self._mcp_client_cache: dict[str, tuple[float, dict[str, Any], list[dict[str, Any]]]] = {}
         self._chat_memory_embedder: Callable[[str], list[float]] | None = None
         self._chat_memory_embedder_initialized = False
+        self._web_chat_gateway: WebChatLocalMcpGateway | None = None
+        self._web_chat_tunnel: Any | None = None
 
     def serve(self) -> None:
-        for line in self.dependencies.input_stream:
-            self.handle_line(line)
+        try:
+            for line in self.dependencies.input_stream:
+                self.handle_line(line)
+        finally:
+            self.close()
+
+    def close(self) -> None:
+        tunnel = self._web_chat_tunnel
+        if tunnel is not None:
+            tunnel.stop("sidecar-closed")
+
 
     def handle_line(self, line: str) -> None:
         raw_line = str(line or "").strip()
@@ -303,6 +322,20 @@ class IpcSidecar:
                 self._set_workspace(payload)
             elif command == "workspace_action":
                 self._workspace_action(payload)
+            elif command == "web_chat_gateway_bind":
+                self._bind_web_chat_gateway(payload)
+            elif command == "web_chat_gateway_unbind":
+                self._unbind_web_chat_gateway(str(payload.get("reason") or "revoked"))
+            elif command == "web_chat_gateway_state":
+                self._emit_web_chat_gateway_state()
+            elif command == "web_chat_gateway_call":
+                self._call_web_chat_gateway(payload)
+            elif command == "web_chat_tunnel_start":
+                self._start_web_chat_tunnel(payload)
+            elif command == "web_chat_tunnel_stop":
+                self._stop_web_chat_tunnel(str(payload.get("reason") or "manual"))
+            elif command == "web_chat_tunnel_state":
+                self._emit_web_chat_tunnel_state()
             else:
                 self._emit_backend_error(f"Unknown IPC command: {command or '(empty)'}")
         except Exception as exc:
@@ -2140,6 +2173,10 @@ class IpcSidecar:
             profile = save_custom_anthropic_profile(
                 self._runtime_root(),
                 str(payload.get("base_url") or payload.get("baseUrl") or ""),
+                preset_id=str(payload.get("preset_id") or payload.get("presetId") or "custom"),
+                protocol=str(payload.get("protocol") or "anthropic_messages"),
+                auth_scheme=str(payload.get("auth_scheme") or payload.get("authScheme") or "x_api_key"),
+                models_auth_scheme=str(payload.get("models_auth_scheme") or payload.get("modelsAuthScheme") or "bearer"),
             )
             key = str(payload.get("key") or "").strip()
             saved = True if not key else save_provider_key(self._runtime_root(), "anthropic_compatible", key)
@@ -2149,8 +2186,9 @@ class IpcSidecar:
                 custom_provider_result={
                     "ok": True,
                     "action": "saved",
-                    "message": "Custom Anthropic-compatible provider saved.",
+                    "message": "Compatible API provider saved.",
                     "base_url": profile["base_url"],
+                    "protocol": profile["protocol"],
                 }
             )
         except Exception as exc:
@@ -2168,8 +2206,20 @@ class IpcSidecar:
             base_url = str(payload.get("base_url") or payload.get("baseUrl") or "").strip()
             supplied_key = str(payload.get("key") or "").strip()
             api_key = supplied_key or read_provider_api_key(root, "anthropic_compatible")
-            models = import_custom_anthropic_models(base_url, api_key, timeout=15.0)
-            profile = save_custom_anthropic_profile(root, base_url, models)
+            preset_id = str(payload.get("preset_id") or payload.get("presetId") or "custom")
+            protocol = str(payload.get("protocol") or "anthropic_messages")
+            auth_scheme = str(payload.get("auth_scheme") or payload.get("authScheme") or "x_api_key")
+            models_auth_scheme = str(payload.get("models_auth_scheme") or payload.get("modelsAuthScheme") or "bearer")
+            models = import_custom_anthropic_models(base_url, api_key, timeout=15.0, auth_scheme=models_auth_scheme)
+            profile = save_custom_anthropic_profile(
+                root,
+                base_url,
+                models,
+                preset_id=preset_id,
+                protocol=protocol,
+                auth_scheme=auth_scheme,
+                models_auth_scheme=models_auth_scheme,
+            )
             if supplied_key and not save_provider_key(root, "anthropic_compatible", supplied_key):
                 raise ValueError("The custom provider API key could not be saved.")
             self._emit_api_keys_loaded(
@@ -2340,6 +2390,18 @@ class IpcSidecar:
                 raise RuntimeError("Custom Anthropic-compatible Base URL is not configured.")
             if not api_key:
                 raise RuntimeError("Custom Anthropic-compatible API key is not configured.")
+            protocol = str(profile.get("protocol") or "anthropic_messages")
+            auth_scheme = str(profile.get("auth_scheme") or "x_api_key")
+            if protocol == "openai_chat_completions":
+                return self._build_chat_model(
+                    base_url=base_url,
+                    api_key=api_key,
+                    model=model,
+                    extra_body=None,
+                    timeout=timeout,
+                )
+            if protocol != "anthropic_messages":
+                raise RuntimeError(f"Unsupported compatible API protocol: {protocol}")
             if self.dependencies.chat_model_factory:
                 return self.dependencies.chat_model_factory(
                     base_url=base_url,
@@ -2348,7 +2410,7 @@ class IpcSidecar:
                     extra_body=None,
                     timeout=timeout,
                 )
-            return AnthropicChatModel(api_key, model, timeout=timeout, base_url=base_url)
+            return AnthropicChatModel(api_key, model, timeout=timeout, base_url=base_url, auth_scheme=auth_scheme)
         if provider == "deepseek":
             api_key = read_provider_api_key(self._runtime_root(), "deepseek")
             if not api_key:
@@ -2395,6 +2457,155 @@ class IpcSidecar:
             approve_command=self._approve_command,
             audit_sink=record_cowork_event,
         )
+
+    def _bind_web_chat_gateway(self, payload: dict[str, Any]) -> None:
+        workspace_path = str(payload.get("workspace_path") or payload.get("workspacePath") or "").strip()
+        grant_id = str(payload.get("grant_id") or payload.get("grantId") or "").strip()
+        grant_revision = int(payload.get("grant_revision") or payload.get("grantRevision") or 0)
+        permission_mode = normalize_permission_mode(payload.get("permission_mode") or payload.get("permissionMode"))
+        candidate = WebChatLocalMcpGateway(
+            workspace=workspace_path,
+            grant_id=grant_id,
+            grant_revision=grant_revision,
+            permission_mode=permission_mode,
+            workspace_tools_factory=(
+                (lambda root: self.dependencies.workspace_tools_factory(root))
+                if self.dependencies.workspace_tools_factory
+                else None
+            ),
+            approval_callback=self._approve_web_chat_tool,
+            tunnel_invalidated_callback=self._cancel_web_chat_approvals,
+            audit_sink=self.dependencies.web_chat_gateway_audit_sink,
+        )
+        previous = self._web_chat_gateway
+        self._stop_web_chat_tunnel("grant-replaced")
+        self._web_chat_gateway = candidate
+        if previous is not None:
+            previous.close("replaced")
+        self._emit_web_chat_gateway_state()
+
+    def _unbind_web_chat_gateway(self, reason: str = "revoked") -> None:
+        self._stop_web_chat_tunnel(reason)
+        gateway = self._web_chat_gateway
+        self._web_chat_gateway = None
+        if gateway is not None:
+            gateway.close(reason)
+        self._emit_web_chat_gateway_state()
+
+    def _emit_web_chat_gateway_state(self) -> None:
+        if self._web_chat_gateway is None:
+            state = {
+                "status": "off",
+                "grant_id": "",
+                "grant_revision": 0,
+                "permission_mode": "manual",
+                "workspace_path": "",
+                "tools_enabled": False,
+                "tunnel_connected": False,
+                "tool_count": 0,
+                "tools": [],
+            }
+        else:
+            state = self._web_chat_gateway.public_state()
+        self._emit("web_chat_gateway_state", state)
+
+    def _call_web_chat_gateway(self, payload: dict[str, Any]) -> None:
+        request_id = str(payload.get("request_id") or payload.get("requestId") or "").strip()
+        if not request_id:
+            raise ValueError("Web Chat gateway call requires request_id.")
+        if self._web_chat_gateway is None:
+            result = {"status": "denied", "error": "Web Chat local gateway is not active."}
+        else:
+            raw = self._web_chat_gateway.dispatch(
+                str(payload.get("tool") or ""),
+                payload.get("arguments") if isinstance(payload.get("arguments"), dict) else {},
+                grant_id=str(payload.get("grant_id") or payload.get("grantId") or ""),
+                grant_revision=payload.get("grant_revision") or payload.get("grantRevision") or 0,
+            )
+            try:
+                result = json.loads(raw)
+            except json.JSONDecodeError:
+                result = {"status": "error", "error": "Gateway tool returned invalid JSON."}
+        self._emit(
+            "web_chat_gateway_tool_result",
+            {"request_id": request_id, "tool": str(payload.get("tool") or ""), "result": result},
+        )
+
+    def _web_chat_tunnel_controller(self):
+        if self._web_chat_tunnel is None:
+            factory = self.dependencies.web_chat_tunnel_controller_factory or WebChatTunnelController
+            self._web_chat_tunnel = factory(
+                on_state=self._emit_web_chat_tunnel_state,
+                audit_sink=self.dependencies.web_chat_tunnel_audit_sink or record_cowork_event,
+            )
+        return self._web_chat_tunnel
+
+    def _start_web_chat_tunnel(self, payload: dict[str, Any]) -> None:
+        worker = threading.Thread(target=self._start_web_chat_tunnel_worker, args=(dict(payload),), daemon=True)
+        self._workers.append(worker)
+        worker.start()
+
+    def _start_web_chat_tunnel_worker(self, payload: dict[str, Any]) -> None:
+        try:
+            gateway = self._web_chat_gateway
+            grant_id = str(payload.get("grant_id") or payload.get("grantId") or "").strip()
+            try:
+                grant_revision = int(payload.get("grant_revision") or payload.get("grantRevision") or 0)
+            except (TypeError, ValueError):
+                grant_revision = -1
+            if gateway is None:
+                raise RuntimeError("Web Chat local gateway is not active.")
+            if grant_id != gateway.grant_id or grant_revision != gateway.grant_revision:
+                raise RuntimeError("Web Chat tunnel request has a stale workspace grant generation.")
+            self._web_chat_tunnel_controller().start(
+                gateway=gateway,
+                provider=str(payload.get("provider") or "cloudflare"),
+                credential=str(payload.get("credential") or ""),
+                expires_at=float(payload.get("expires_at") or payload.get("expiresAt") or 0),
+                idle_timeout_seconds=float(payload.get("idle_timeout_seconds") or payload.get("idleTimeoutSeconds") or 900),
+            )
+        except Exception as exc:
+            gateway = self._web_chat_gateway
+            self._emit_web_chat_tunnel_state({
+                "status": "error",
+                "provider": str(payload.get("provider") or "cloudflare"),
+                "grant_id": str(getattr(gateway, "grant_id", "") or ""),
+                "grant_revision": int(getattr(gateway, "grant_revision", 0) or 0),
+                "workspace_path": str(getattr(gateway, "workspace", "") or ""),
+                "endpoint": "",
+                "auth_required": True,
+                "expires_at": "",
+                "tool_count": len(gateway.list_tools()) if gateway is not None else 0,
+                "error": str(exc).strip() or "Unable to start Web Chat tunnel.",
+            })
+
+    def _stop_web_chat_tunnel(self, reason: str = "manual") -> None:
+        tunnel = self._web_chat_tunnel
+        if tunnel is None:
+            self._emit_web_chat_tunnel_state()
+            return
+        tunnel.stop(reason)
+
+    def _emit_web_chat_tunnel_state(self, state: dict[str, Any] | None = None) -> None:
+        if state is None:
+            tunnel = self._web_chat_tunnel
+            state = tunnel.public_state() if tunnel is not None else {
+                "status": "off",
+                "provider": "",
+                "grant_id": "",
+                "grant_revision": 0,
+                "workspace_path": "",
+                "endpoint": "",
+                "auth_required": False,
+                "expires_at": "",
+                "tool_count": 0,
+                "error": "",
+            }
+        public = dict(state or {})
+        public.pop("credential", None)
+        public.pop("token", None)
+        public.pop("authorization", None)
+        self._emit("web_chat_tunnel_state", public)
 
     def _set_workspace(self, payload: dict[str, Any]) -> None:
         raw_path = str(payload.get("path") or "").strip()
@@ -2497,6 +2708,24 @@ class IpcSidecar:
             },
         )
 
+    def _approve_web_chat_tool(
+        self,
+        approval_kind: str,
+        question: str,
+        proposal: dict[str, Any],
+        context: dict[str, Any],
+    ) -> bool:
+        clean_context = dict(context or {})
+        if not self._is_current_web_chat_approval_context(clean_context):
+            return False
+        return self._request_approval(
+            approval_kind,
+            question,
+            {**dict(proposal or {}), **clean_context},
+            approval_context=clean_context,
+            permission_mode=clean_context.get("permission_mode"),
+        )
+
     def _create_chat_code_tool_provider(self) -> CodeExecutionToolProvider:
         sandbox = str(self.dependencies.chat_config.code_execution_sandbox or "pyodide").strip().casefold()
         if sandbox == "legacy_subprocess" and self._has_connected_mcp_clients():
@@ -2536,15 +2765,24 @@ class IpcSidecar:
         self._mcp_client_cache[cache_key] = (now, dict(clients), [dict(item) for item in statuses])
         return clients, statuses
 
-    def _request_approval(self, approval_kind: str, question: str, proposal: dict[str, Any]) -> bool:
+    def _request_approval(
+        self,
+        approval_kind: str,
+        question: str,
+        proposal: dict[str, Any],
+        *,
+        approval_context: dict[str, Any] | None = None,
+        permission_mode: Any | None = None,
+    ) -> bool:
         approval_payload = build_approval_payload(approval_kind, question, proposal)
-        if should_auto_approve(self._permission_mode, approval_kind, approval_payload):
+        effective_permission_mode = normalize_permission_mode(permission_mode or self._permission_mode)
+        if should_auto_approve(effective_permission_mode, approval_kind, approval_payload):
             # Permission profiles skip only the prompt. Tool-level boundaries still run.
             record_cowork_event(
                 "approval_auto_approved",
                 {
                     "approval_kind": approval_kind,
-                    "permission_mode": self._permission_mode,
+                    "permission_mode": effective_permission_mode,
                     "risk_level": approval_payload.get("risk_level"),
                     "question": question,
                 },
@@ -2553,7 +2791,7 @@ class IpcSidecar:
                 "cowork_log",
                 {
                     "role": "SYSTEM",
-                    "text": f"Auto-approved ({self._permission_mode}): {question}",
+                    "text": f"Auto-approved ({effective_permission_mode}): {question}",
                     "client_session_id": str(getattr(self._worker_context, "client_session_id", "") or ""),
                     "mode": str(getattr(self._worker_context, "mode", "") or "Cowork"),
                 },
@@ -2562,6 +2800,9 @@ class IpcSidecar:
         approval_id = f"approval-{uuid.uuid4().hex}"
         with self._approval_condition:
             self._pending_approvals[approval_id] = None
+            self._pending_approval_contexts[approval_id] = dict(approval_context or {})
+        is_web_chat = str((approval_context or {}).get("origin") or "") == "web_chat"
+        event_mode = "" if is_web_chat else str(getattr(self._worker_context, "mode", "") or "Cowork")
         self._emit(
             "cowork_interactive_question",
             {
@@ -2571,7 +2812,7 @@ class IpcSidecar:
                 "proposal": approval_payload,
                 "options": ["allow", "deny"],
                 "client_session_id": str(getattr(self._worker_context, "client_session_id", "") or ""),
-                "mode": str(getattr(self._worker_context, "mode", "") or "Cowork"),
+                **({"mode": event_mode} if event_mode else {}),
             },
         )
         with self._approval_condition:
@@ -2580,10 +2821,58 @@ class IpcSidecar:
                 timeout=self.dependencies.approval_timeout_seconds,
             )
             answer = self._pending_approvals.pop(approval_id, None)
+            self._pending_approval_contexts.pop(approval_id, None)
         if not resolved:
             self._emit_backend_error(f"Approval timed out: {approval_id}")
             return False
         return _is_approval_allow(answer)
+
+    def _is_current_web_chat_approval_context(self, context: dict[str, Any]) -> bool:
+        if str(context.get("origin") or "") != "web_chat":
+            return True
+        gateway = self._web_chat_gateway
+        if gateway is None:
+            return False
+        try:
+            revision = int(context.get("grant_revision") or 0)
+            generation = int(context.get("tunnel_generation") or 0)
+        except (TypeError, ValueError):
+            return False
+        return (
+            str(context.get("grant_id") or "") == gateway.grant_id
+            and revision == gateway.grant_revision
+            and generation > 0
+            and generation == gateway.active_tunnel_generation
+        )
+
+    def _cancel_web_chat_approvals(self, context: dict[str, Any]) -> None:
+        clean_context = dict(context or {})
+        cancelled: list[str] = []
+        with self._approval_condition:
+            for approval_id, pending_context in self._pending_approval_contexts.items():
+                if str(pending_context.get("origin") or "") != "web_chat":
+                    continue
+                if str(pending_context.get("grant_id") or "") != str(clean_context.get("grant_id") or ""):
+                    continue
+                if int(pending_context.get("grant_revision") or 0) != int(clean_context.get("grant_revision") or 0):
+                    continue
+                if int(pending_context.get("tunnel_generation") or 0) != int(clean_context.get("tunnel_generation") or 0):
+                    continue
+                self._pending_approvals[approval_id] = "deny"
+                cancelled.append(approval_id)
+            if cancelled:
+                self._approval_condition.notify_all()
+        if cancelled:
+            record_cowork_event(
+                "web_chat_approvals_cancelled",
+                {
+                    "approval_ids": cancelled,
+                    "grant_id": str(clean_context.get("grant_id") or ""),
+                    "grant_revision": int(clean_context.get("grant_revision") or 0),
+                    "tunnel_generation": int(clean_context.get("tunnel_generation") or 0),
+                    "reason": str(clean_context.get("reason") or "tunnel-invalidated"),
+                },
+            )
 
     def _set_permission_mode(self, value: Any) -> None:
         self._permission_mode = normalize_permission_mode(value)
@@ -2599,6 +2888,12 @@ class IpcSidecar:
         with self._approval_condition:
             if approval_id not in self._pending_approvals:
                 self._emit_backend_error(f"Unknown approval_id: {approval_id}")
+                return
+            approval_context = self._pending_approval_contexts.get(approval_id, {})
+            if approval_context and not self._is_current_web_chat_approval_context(approval_context):
+                self._pending_approvals[approval_id] = "deny"
+                self._approval_condition.notify_all()
+                self._emit_backend_error(f"Stale Web Chat approval_id: {approval_id}")
                 return
             self._pending_approvals[approval_id] = answer
             self._approval_condition.notify_all()

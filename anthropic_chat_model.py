@@ -4,8 +4,8 @@ import base64
 import json
 from collections.abc import Iterable
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+
+import httpx
 
 
 class AnthropicChatModel:
@@ -18,34 +18,43 @@ class AnthropicChatModel:
         *,
         timeout: float = 45.0,
         base_url: str = "https://api.anthropic.com/v1",
+        auth_scheme: str = "x_api_key",
     ):
         self.api_key = str(api_key or "")
         self.model = _provider_model_id(model)
         self.timeout = max(1.0, float(timeout))
         self.endpoint = f"{str(base_url or '').rstrip('/')}/messages"
+        self.auth_scheme = _normalize_auth_scheme(auth_scheme)
 
     def complete(self, messages: list[dict], tools: list[dict], generation: dict | None = None) -> dict:
         request_body = self._request_payload(messages, tools, generation)
-        request = Request(
-            self.endpoint,
-            data=json.dumps(request_body, ensure_ascii=False).encode("utf-8"),
-            headers={
+        headers = {
                 "Content-Type": "application/json",
-                "x-api-key": self.api_key,
                 "anthropic-version": "2023-06-01",
-            },
-            method="POST",
-        )
+                "Accept": "application/json",
+                "User-Agent": "AI-Dev-Coworker/0.1",
+        }
+        if self.auth_scheme == "bearer":
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        else:
+            headers["x-api-key"] = self.api_key
         try:
-            with urlopen(request, timeout=self.timeout) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")[:1_000]
-            raise RuntimeError(f"Anthropic API request failed ({exc.code}): {detail}") from exc
-        except URLError as exc:
-            raise RuntimeError(f"Anthropic API connection failed: {exc.reason}") from exc
-        except TimeoutError as exc:
+            response = httpx.post(
+                self.endpoint,
+                json=request_body,
+                headers=headers,
+                timeout=self.timeout,
+                follow_redirects=True,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.HTTPStatusError as exc:
+            detail = str(exc.response.text or "").strip()[:1_000]
+            raise RuntimeError(f"Anthropic API request failed ({exc.response.status_code}): {detail}") from exc
+        except httpx.TimeoutException as exc:
             raise RuntimeError("Anthropic API request timed out.") from exc
+        except (httpx.RequestError, ValueError) as exc:
+            raise RuntimeError(f"Anthropic API connection failed: {exc}") from exc
         return _normalize_response(payload)
 
     def _request_payload(self, messages: list[dict], tools: list[dict], generation: dict | None) -> dict[str, Any]:
@@ -72,6 +81,13 @@ def _provider_model_id(model: str) -> str:
         if raw.startswith(prefix):
             return raw[len(prefix) :]
     return raw
+
+
+def _normalize_auth_scheme(value: str) -> str:
+    clean = str(value or "").strip().casefold()
+    if clean not in {"bearer", "x_api_key"}:
+        raise ValueError(f"Unsupported Anthropic-compatible authentication: {value}")
+    return clean
 
 
 def _anthropic_system(messages: Iterable[dict[str, Any]]) -> str:

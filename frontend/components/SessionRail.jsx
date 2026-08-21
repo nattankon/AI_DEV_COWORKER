@@ -10,6 +10,7 @@ const modeTabs = [
   { label: "Chat", icon: MessageSquare },
   { label: "Cowork", icon: Bot },
   { label: "Code", icon: Code2 },
+  { label: "Web Chat", icon: Globe2 },
 ];
 
 function groupSessionsByProject(sessions, activeProjectName, projects = []) {
@@ -55,6 +56,7 @@ function groupSessionsByProject(sessions, activeProjectName, projects = []) {
 
 export default function SessionRail({
   activeMode = "Chat",
+  webChatActive = false,
   activeProjectName = "",
   sessions = [],
   projects = [],
@@ -104,9 +106,9 @@ export default function SessionRail({
         visible ? "fixed inset-y-0 left-0 z-10 grid shadow-[8px_0_24px_rgba(0,0,0,0.08)] lg:static lg:z-auto lg:shadow-none" : "hidden"
       }`}
     >
-      <div className="mx-3 mb-3 grid grid-cols-3 gap-1 rounded-xl border border-[#e1ded7] bg-[#ecebe7] p-1">
+      <div className="mx-3 mb-3 grid grid-cols-4 gap-1 rounded-xl border border-[#e1ded7] bg-[#ecebe7] p-1">
         {modeTabs.map(({ label, icon: Icon }) => {
-          const active = label === activeMode;
+          const active = label === "Web Chat" ? webChatActive : !webChatActive && label === activeMode;
           return (
           <button
             key={label}
@@ -119,21 +121,21 @@ export default function SessionRail({
             }`}
           >
             <Icon size={14} strokeWidth={1.9} />
-            {label}
+            <span>{label === "Web Chat" ? "Web" : label}</span>
           </button>
           );
         })}
       </div>
 
       <div className="px-3 pb-4">
-        <button
+        {!webChatActive ? <button
           type="button"
           onClick={onNewSession}
           className="flex h-[30px] w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-[#4c4b47] transition hover:bg-[#e6e5df]"
         >
           <Plus size={15} strokeWidth={2} />
           New chat
-        </button>
+        </button> : null}
         <button
           type="button"
           onClick={onOpenProjects}
@@ -184,7 +186,7 @@ export default function SessionRail({
         </button>
       </div>
 
-      <div className="min-h-0 overflow-y-auto px-3 pb-3">
+      {webChatActive ? <div className="min-h-0" /> : <div className="min-h-0 overflow-y-auto px-3 pb-3">
         <label className="mb-2 flex h-8 items-center gap-2 rounded-lg border border-[#e3e0d8] bg-white px-2 text-[12px] text-[#8a877f]">
           <Search size={14} />
           <input
@@ -321,7 +323,7 @@ export default function SessionRail({
             </div>
           );
         })}
-      </div>
+      </div>}
 
       <div className="grid gap-3 px-3 pb-3">
         <div className="flex h-[39px] items-center gap-2.5 rounded-xl border border-[#e6e4dd] bg-white px-3 text-[12px] text-[#827f78] shadow-[0_3px_12px_rgba(0,0,0,0.04)]">

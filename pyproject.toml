@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Standalone local-first AI coding coworker CLI"
 requires-python = ">=3.11"
 dependencies = [
+  "httpx>=0.28,<1",
   "openai>=2.0,<3",
 ]
 
@@ -27,3 +28,6 @@ packages = ["AI_DEV_COWORKER"]
 
 [tool.setuptools.package-dir]
 AI_DEV_COWORKER = "."
+
+[tool.setuptools.package-data]
+AI_DEV_COWORKER = ["compatible_provider_presets.json"]

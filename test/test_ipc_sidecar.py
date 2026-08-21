@@ -5,6 +5,7 @@ import threading
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 from chat_runtime import ChatEffortConfig, ChatRuntimeConfig
 from chat_web_connector import WebSearchResponse, WebSearchResult
@@ -3356,7 +3357,7 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertIn("deepseek:deepseek-v4-pro", event["models"])
         self.assertIn("gemini:gemini-3.1-flash-lite", event["models"])
         self.assertIn("providers", event)
-        self.assertNotIn("api_key", json.dumps(event).casefold())
+        self.assertNotIn('"api_key":', json.dumps(event).casefold())
         openai_models = next(provider["models"] for provider in event["providers"] if provider["id"] == "openai")
         gpt55 = next(model for model in openai_models if model["id"] == "openai:gpt-5.5")
         self.assertEqual(gpt55["badge"], "Top / Coding")
@@ -3544,6 +3545,37 @@ class IpcSidecarTests(unittest.TestCase):
         custom = next(provider for provider in event["providers"] if provider["id"] == "anthropic_compatible")
         self.assertTrue(custom["configured"])
         self.assertNotIn("custom-runtime-secret", json.dumps(event))
+
+    def test_custom_openai_compatible_profile_uses_openai_runtime(self):
+        from custom_anthropic_provider import save_profile
+
+        root = Path(self.workspace)
+        save_profile(
+            root,
+            "https://api.groq.com/openai/v1",
+            ["llama-test"],
+            preset_id="groq",
+            protocol="openai_chat_completions",
+            auth_scheme="bearer",
+            models_auth_scheme="bearer",
+        )
+        save_provider_key(root, "anthropic_compatible", "custom-openai-secret")
+        model = RecordingChatModel("anthropic-compatible:llama-test", "Custom answer", [])
+        sidecar = IpcSidecar(
+            IpcDependencies(workspace=root, app_root=root, output=StringIO(), model_lister=lambda: [])
+        )
+
+        with patch.object(sidecar, "_build_chat_model", return_value=model) as build_model:
+            created = sidecar._create_chat_model("anthropic-compatible:llama-test")
+
+        self.assertIs(created, model)
+        build_model.assert_called_once_with(
+            base_url="https://api.groq.com/openai/v1",
+            api_key="custom-openai-secret",
+            model="anthropic-compatible:llama-test",
+            extra_body=None,
+            timeout=300.0,
+        )
 
     def test_set_provider_key_rejects_unknown_provider(self):
         output = StringIO()

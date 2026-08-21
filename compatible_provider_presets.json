@@ -1,0 +1,58 @@
+[
+  {
+    "id": "mwapi",
+    "label": "MWAPI",
+    "base_url": "https://api.mwapi.dev/v1",
+    "protocol": "anthropic_messages",
+    "auth_scheme": "x_api_key",
+    "models_auth_scheme": "bearer"
+  },
+  {
+    "id": "openrouter",
+    "label": "OpenRouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "protocol": "anthropic_messages",
+    "auth_scheme": "bearer",
+    "models_auth_scheme": "bearer"
+  },
+  {
+    "id": "groq",
+    "label": "Groq",
+    "base_url": "https://api.groq.com/openai/v1",
+    "protocol": "openai_chat_completions",
+    "auth_scheme": "bearer",
+    "models_auth_scheme": "bearer"
+  },
+  {
+    "id": "together",
+    "label": "Together AI",
+    "base_url": "https://api.together.ai/v1",
+    "protocol": "openai_chat_completions",
+    "auth_scheme": "bearer",
+    "models_auth_scheme": "bearer"
+  },
+  {
+    "id": "deepinfra",
+    "label": "DeepInfra",
+    "base_url": "https://api.deepinfra.com/v1/openai",
+    "protocol": "openai_chat_completions",
+    "auth_scheme": "bearer",
+    "models_auth_scheme": "bearer"
+  },
+  {
+    "id": "litellm",
+    "label": "LiteLLM proxy",
+    "base_url": "http://127.0.0.1:4000/v1",
+    "protocol": "openai_chat_completions",
+    "auth_scheme": "bearer",
+    "models_auth_scheme": "bearer"
+  },
+  {
+    "id": "custom",
+    "label": "Custom endpoint",
+    "base_url": "",
+    "protocol": "anthropic_messages",
+    "auth_scheme": "x_api_key",
+    "models_auth_scheme": "bearer"
+  }
+]

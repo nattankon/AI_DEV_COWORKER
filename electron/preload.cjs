@@ -31,6 +31,8 @@ const inboundChannels = new Set([
   "viewport_snap",
   "workspace_changed",
   "workspace_response",
+  "web-chat-state",
+  "web-chat-grant-state",
 ]);
 
 function subscribeToChannel(channel, callback) {
@@ -75,6 +77,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
   importCustomAnthropicModels: (payload) => ipcRenderer.invoke("import-custom-anthropic-models", payload),
   getAppUpdateState: () => ipcRenderer.invoke("get-app-update-state"),
   installUpdateNow: () => ipcRenderer.invoke("install-update-now"),
+  getWebChatState: () => ipcRenderer.invoke("web-chat-state"),
+  showWebChat: (bounds) => ipcRenderer.invoke("web-chat-show", bounds),
+  hideWebChat: () => ipcRenderer.invoke("web-chat-hide"),
+  controlWebChat: (command) => ipcRenderer.invoke("web-chat-control", command),
+  getWebChatGrantState: () => ipcRenderer.invoke("web-chat-grant-state"),
+  setWebChatGrant: (payload) => ipcRenderer.invoke("web-chat-grant-set", payload),
+  revokeWebChatGrant: () => ipcRenderer.invoke("web-chat-grant-revoke"),
+  startWebChatTunnel: (payload) => ipcRenderer.invoke("web-chat-tunnel-start", payload),
+  stopWebChatTunnel: () => ipcRenderer.invoke("web-chat-tunnel-stop"),
+  probeWebChatConnector: () => ipcRenderer.invoke("web-chat-connector-probe"),
+  copyWebChatConnectorValue: (kind) => ipcRenderer.invoke("web-chat-connector-copy", kind),
   setAutoApprove: (enabled) => ipcRenderer.invoke("set-auto-approve", enabled),
   setPermissionMode: (mode) => ipcRenderer.invoke("set-permission-mode", mode),
   listChatMemory: () => ipcRenderer.invoke("chat-memory-list"),

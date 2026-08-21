@@ -1,6 +1,6 @@
 import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 class _FakeResponse:
@@ -18,36 +18,42 @@ class _FakeResponse:
 
 
 class AnthropicChatModelTests(unittest.TestCase):
-    @patch("anthropic_chat_model.urlopen")
-    def test_custom_base_url_and_prefix_use_anthropic_messages_contract(self, urlopen):
+    @patch("anthropic_chat_model.httpx.post")
+    def test_custom_base_url_and_prefix_use_anthropic_messages_contract(self, post):
         from anthropic_chat_model import AnthropicChatModel
 
-        urlopen.return_value = _FakeResponse({"content": [{"type": "text", "text": "OK"}]})
+        response = Mock()
+        response.json.return_value = {"content": [{"type": "text", "text": "OK"}]}
+        response.raise_for_status.return_value = None
+        post.return_value = response
         model = AnthropicChatModel(
             "custom-secret",
             "anthropic-compatible:claude-sonnet-5",
             base_url="https://proxy.example.com/v1",
+            auth_scheme="bearer",
         )
 
         result = model.complete([{"role": "user", "content": "hello"}], [])
 
-        request = urlopen.call_args.args[0]
-        self.assertEqual(request.full_url, "https://proxy.example.com/v1/messages")
-        self.assertEqual(json.loads(request.data)["model"], "claude-sonnet-5")
+        self.assertEqual(post.call_args.args[0], "https://proxy.example.com/v1/messages")
+        self.assertEqual(post.call_args.kwargs["json"]["model"], "claude-sonnet-5")
+        self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "Bearer custom-secret")
+        self.assertNotIn("x-api-key", post.call_args.kwargs["headers"])
         self.assertEqual(result["content"], "OK")
 
-    @patch("anthropic_chat_model.urlopen")
-    def test_translates_openai_style_messages_tools_and_data_url_images(self, urlopen):
+    @patch("anthropic_chat_model.httpx.post")
+    def test_translates_openai_style_messages_tools_and_data_url_images(self, post):
         from anthropic_chat_model import AnthropicChatModel
 
-        urlopen.return_value = _FakeResponse(
-            {
+        response = Mock()
+        response.json.return_value = {
                 "content": [
                     {"type": "text", "text": "I found it."},
                     {"type": "tool_use", "id": "toolu_1", "name": "lookup", "input": {"id": 7}},
                 ]
             }
-        )
+        response.raise_for_status.return_value = None
+        post.return_value = response
         model = AnthropicChatModel("sk-ant-test", "anthropic:claude-sonnet-4-20250514", timeout=12)
 
         result = model.complete(
@@ -82,9 +88,8 @@ class AnthropicChatModelTests(unittest.TestCase):
             {"max_tokens": 321, "temperature": 0.2},
         )
 
-        request = urlopen.call_args.args[0]
-        payload = json.loads(request.data.decode("utf-8"))
-        self.assertEqual(request.get_header("X-api-key"), "sk-ant-test")
+        payload = post.call_args.kwargs["json"]
+        self.assertEqual(post.call_args.kwargs["headers"]["x-api-key"], "sk-ant-test")
         self.assertEqual(payload["model"], "claude-sonnet-4-20250514")
         self.assertEqual(payload["max_tokens"], 321)
         self.assertEqual(payload["system"], "Follow the user.")

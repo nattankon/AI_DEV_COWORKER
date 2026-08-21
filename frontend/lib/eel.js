@@ -26,6 +26,8 @@ const eelEvents = {
   showHitl: "eel:show_hitl",
   workspaceChanged: "eel:workspace_changed",
   workspaceResponse: "eel:workspace_response",
+  webChatState: "eel:web_chat_state",
+  webChatGrantState: "eel:web_chat_grant_state",
 };
 
 const ipcEventMap = {
@@ -58,6 +60,8 @@ const ipcEventMap = {
   viewport_snap: eelEvents.viewportSnap,
   workspace_changed: eelEvents.workspaceChanged,
   workspace_response: eelEvents.workspaceResponse,
+  "web-chat-state": eelEvents.webChatState,
+  "web-chat-grant-state": eelEvents.webChatGrantState,
 };
 
 const readyCallbacks = new Set();
@@ -239,6 +243,17 @@ function invokeBridgeMethod(method, args = []) {
     trigger_save_skill: bridge.triggerSaveSkill,
     trigger_visual_qc: bridge.triggerVisualQc,
     workspace_action: bridge.workspaceAction,
+    web_chat_state: bridge.getWebChatState,
+    web_chat_show: bridge.showWebChat,
+    web_chat_hide: bridge.hideWebChat,
+    web_chat_control: bridge.controlWebChat,
+    web_chat_grant_state: bridge.getWebChatGrantState,
+    web_chat_grant_set: bridge.setWebChatGrant,
+    web_chat_grant_revoke: bridge.revokeWebChatGrant,
+    web_chat_tunnel_start: bridge.startWebChatTunnel,
+    web_chat_tunnel_stop: bridge.stopWebChatTunnel,
+    web_chat_connector_probe: bridge.probeWebChatConnector,
+    web_chat_connector_copy: bridge.copyWebChatConnectorValue,
   };
 
   const bridgeMethod = methodMap[method];
@@ -387,6 +402,50 @@ export function setWorkspace(path) {
 
 export function workspaceAction(payload) {
   return invokeBridgeMethod("workspace_action", [payload]);
+}
+
+export function getWebChatState() {
+  return invokeBridgeMethod("web_chat_state");
+}
+
+export function showWebChat(bounds) {
+  return invokeBridgeMethod("web_chat_show", [bounds]);
+}
+
+export function hideWebChat() {
+  return invokeBridgeMethod("web_chat_hide");
+}
+
+export function controlWebChat(command) {
+  return invokeBridgeMethod("web_chat_control", [command]);
+}
+
+export function getWebChatGrantState() {
+  return invokeBridgeMethod("web_chat_grant_state");
+}
+
+export function setWebChatGrant(payload) {
+  return invokeBridgeMethod("web_chat_grant_set", [payload]);
+}
+
+export function revokeWebChatGrant() {
+  return invokeBridgeMethod("web_chat_grant_revoke");
+}
+
+export function startWebChatTunnel(payload) {
+  return invokeBridgeMethod("web_chat_tunnel_start", [payload]);
+}
+
+export function stopWebChatTunnel() {
+  return invokeBridgeMethod("web_chat_tunnel_stop");
+}
+
+export function probeWebChatConnector() {
+  return invokeBridgeMethod("web_chat_connector_probe");
+}
+
+export function copyWebChatConnectorValue(kind) {
+  return invokeBridgeMethod("web_chat_connector_copy", [kind]);
 }
 
 export function triggerVisualQc() {

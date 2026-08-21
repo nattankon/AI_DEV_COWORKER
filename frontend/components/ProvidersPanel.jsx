@@ -89,24 +89,49 @@ function ProviderRow({ provider, onSaveProviderKey }) {
 }
 
 function CustomAnthropicProvider({ provider, result, onSave, onImport }) {
+  const presets = Array.isArray(provider?.presets) ? provider.presets : [];
+  const [presetId, setPresetId] = useState(String(provider?.preset_id || "custom"));
   const [baseUrl, setBaseUrl] = useState(String(provider?.base_url || ""));
+  const [protocol, setProtocol] = useState(String(provider?.protocol || "anthropic_messages"));
+  const [authScheme, setAuthScheme] = useState(String(provider?.auth_scheme || "x_api_key"));
+  const [modelsAuthScheme, setModelsAuthScheme] = useState(String(provider?.models_auth_scheme || "bearer"));
   const [keyValue, setKeyValue] = useState("");
   const [showKey, setShowKey] = useState(false);
   const models = Array.isArray(provider?.models) ? provider.models : [];
 
   useEffect(() => {
+    setPresetId(String(provider?.preset_id || "custom"));
     setBaseUrl(String(provider?.base_url || ""));
-  }, [provider?.base_url]);
+    setProtocol(String(provider?.protocol || "anthropic_messages"));
+    setAuthScheme(String(provider?.auth_scheme || "x_api_key"));
+    setModelsAuthScheme(String(provider?.models_auth_scheme || "bearer"));
+  }, [provider?.preset_id, provider?.base_url, provider?.protocol, provider?.auth_scheme, provider?.models_auth_scheme]);
 
-  const payload = () => ({ baseUrl: baseUrl.trim(), key: keyValue.trim() });
+  const payload = () => ({
+    presetId,
+    baseUrl: baseUrl.trim(),
+    protocol,
+    authScheme,
+    modelsAuthScheme,
+    key: keyValue.trim(),
+  });
+  const applyPreset = (id) => {
+    const preset = presets.find((item) => String(item?.id || "") === id);
+    setPresetId(id);
+    if (!preset) return;
+    setBaseUrl(String(preset.base_url || ""));
+    setProtocol(String(preset.protocol || "anthropic_messages"));
+    setAuthScheme(String(preset.auth_scheme || "x_api_key"));
+    setModelsAuthScheme(String(preset.models_auth_scheme || "bearer"));
+  };
   const canSubmit = Boolean(baseUrl.trim() && (keyValue.trim() || provider?.configured));
   return (
     <div className="mt-6 border-t border-[#dedbd2] pt-5">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-[15px] font-medium text-[#2f2f2d]">Custom Anthropic-compatible</h3>
+          <h3 className="text-[15px] font-medium text-[#2f2f2d]">Compatible API provider</h3>
           <p className="mt-1 text-[12px] leading-5 text-[#77736b]">
-            Connect an endpoint that implements Anthropic Messages API. This third-party endpoint receives your API key and requests.
+            Choose a known endpoint or enter your own. The selected endpoint receives your API key and requests.
           </p>
         </div>
         <span className={provider?.configured ? "text-[12px] text-[#3f8f62]" : "text-[12px] text-[#b44b3d]"}>
@@ -115,17 +140,78 @@ function CustomAnthropicProvider({ provider, result, onSave, onImport }) {
       </div>
       <div className="grid gap-3">
         <label className="grid gap-1 text-[12px] text-[#6f6b63]">
+          Provider preset
+          <select
+            aria-label="Compatible provider preset"
+            value={presetId}
+            onChange={(event) => applyPreset(event.target.value)}
+            className="h-9 rounded-lg border border-[#dedbd2] bg-white px-3 text-[13px] text-[#2f2f2d] outline-none focus:ring-2 focus:ring-[#d8d5cc]"
+          >
+            {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-[12px] text-[#6f6b63]">
           Base URL
           <input
             aria-label="Custom Anthropic-compatible Base URL"
             value={baseUrl}
-            onChange={(event) => setBaseUrl(event.target.value)}
+            onChange={(event) => {
+              setBaseUrl(event.target.value);
+              if (presetId !== "custom") setPresetId("custom");
+            }}
             placeholder="https://provider.example.com/v1"
             autoCapitalize="none"
             spellCheck={false}
             className="h-9 rounded-lg border border-[#dedbd2] px-3 text-[13px] text-[#2f2f2d] outline-none focus:ring-2 focus:ring-[#d8d5cc]"
           />
         </label>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="grid gap-1 text-[12px] text-[#6f6b63]">
+            API protocol
+            <select
+              aria-label="Compatible API protocol"
+              value={protocol}
+              onChange={(event) => {
+                const value = event.target.value;
+                setProtocol(value);
+                if (value === "openai_chat_completions") {
+                  setAuthScheme("bearer");
+                  setModelsAuthScheme("bearer");
+                }
+                if (presetId !== "custom") setPresetId("custom");
+              }}
+              className="h-9 rounded-lg border border-[#dedbd2] bg-white px-2 text-[12px] text-[#2f2f2d]"
+            >
+              <option value="anthropic_messages">Anthropic Messages</option>
+              <option value="openai_chat_completions">OpenAI Chat</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-[12px] text-[#6f6b63]">
+            Request auth
+            <select
+              aria-label="Request authentication"
+              value={authScheme}
+              disabled={protocol === "openai_chat_completions"}
+              onChange={(event) => { setAuthScheme(event.target.value); if (presetId !== "custom") setPresetId("custom"); }}
+              className="h-9 rounded-lg border border-[#dedbd2] bg-white px-2 text-[12px] text-[#2f2f2d] disabled:bg-[#efede7]"
+            >
+              <option value="bearer">Bearer token</option>
+              <option value="x_api_key">x-api-key</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-[12px] text-[#6f6b63]">
+            Model-list auth
+            <select
+              aria-label="Model-list authentication"
+              value={modelsAuthScheme}
+              onChange={(event) => { setModelsAuthScheme(event.target.value); if (presetId !== "custom") setPresetId("custom"); }}
+              className="h-9 rounded-lg border border-[#dedbd2] bg-white px-2 text-[12px] text-[#2f2f2d]"
+            >
+              <option value="bearer">Bearer token</option>
+              <option value="x_api_key">x-api-key</option>
+            </select>
+          </label>
+        </div>
         <label className="grid gap-1 text-[12px] text-[#6f6b63]">
           API key
           <span className="relative block">

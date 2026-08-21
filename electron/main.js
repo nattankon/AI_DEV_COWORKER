@@ -1,10 +1,32 @@
 import { spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, WebContentsView } from "electron";
 import electronUpdater from "electron-updater";
 import { getPythonEntryCandidates, getSidecarPythonPathCandidates } from "./pathResolution.js";
+import {
+  CHATGPT_WEB_URL,
+  WEB_CHAT_PARTITION,
+  isSafeExternalWebUrl,
+  normalizeWebChatBounds,
+  sanitizeWebChatCommand,
+} from "./webChatSurface.js";
+import { WebChatGrantStore } from "./webChatGrantStore.js";
+import {
+  emptyWebChatGatewayState,
+  emptyWebChatTunnelState,
+  mergeWebChatGatewayState,
+  normalizeWebChatGatewayState,
+  normalizeWebChatTunnelState,
+} from "./webChatGatewayState.js";
+import {
+  emptyWebChatConnectorSetupState,
+  normalizeWebChatConnectorSetupState,
+  probeRemoteMcp,
+  writeConnectorClipboard,
+} from "./webChatConnectorSetup.js";
 
 const { autoUpdater } = electronUpdater;
 
@@ -18,7 +40,31 @@ const isDev = process.env.NODE_ENV === "development";
 
 let mainWindow;
 let pythonProcess;
+let webChatView;
+let webChatVisible = false;
+let webChatGrantStore;
+let webChatGatewayState = emptyWebChatGatewayState();
+let webChatTunnelState = emptyWebChatTunnelState();
+let webChatTunnelCredential = "";
+let webChatConnectorSetupState = emptyWebChatConnectorSetupState();
+let webChatState = {
+  loading: false,
+  title: "ChatGPT",
+  url: CHATGPT_WEB_URL,
+  canGoBack: false,
+  canGoForward: false,
+  error: "",
+};
 const approvedWorkspacePaths = new Set();
+
+function getWebChatGrantStore() {
+  if (!webChatGrantStore) {
+    webChatGrantStore = new WebChatGrantStore({
+      filePath: path.join(app.getPath("userData"), "web-chat-workspace-grant.json"),
+    });
+  }
+  return webChatGrantStore;
+}
 
 function normalizeWorkspacePath(value) {
   const resolved = path.resolve(String(value || ""));
@@ -74,6 +120,21 @@ function handlePythonStdoutLine(message) {
   try {
     const parsed = JSON.parse(message);
     if (parsed && typeof parsed === "object" && typeof parsed.__ipc_type === "string") {
+      if (parsed.__ipc_type === "web_chat_gateway_state") {
+        webChatGatewayState = normalizeWebChatGatewayState(parsed);
+        emitWebChatGrantState();
+      }
+      if (parsed.__ipc_type === "web_chat_tunnel_state") {
+        const previousEndpoint = webChatTunnelState.endpoint;
+        webChatTunnelState = normalizeWebChatTunnelState(parsed);
+        if (webChatTunnelState.status !== "connected" && webChatTunnelState.status !== "starting") {
+          webChatTunnelCredential = "";
+          webChatConnectorSetupState = emptyWebChatConnectorSetupState();
+        } else if (previousEndpoint && previousEndpoint !== webChatTunnelState.endpoint) {
+          webChatConnectorSetupState = emptyWebChatConnectorSetupState();
+        }
+        emitWebChatGrantState();
+      }
       dispatchRendererEvent(parsed.__ipc_type, parsed);
       return;
     }
@@ -128,6 +189,7 @@ function spawnPythonSidecar() {
     },
     stdio: ["pipe", "pipe", "pipe"],
     windowsHide: true,
+    detached: process.platform !== "win32",
   });
 
   pythonProcess.stdin.setDefaultEncoding("utf8");
@@ -141,7 +203,15 @@ function spawnPythonSidecar() {
   pythonProcess.on("close", (code, signal) => {
     emitBackendLog("stderr", `Cowork sidecar exited with code=${code ?? "null"} signal=${signal ?? "null"}`);
     pythonProcess = undefined;
+    const grant = getWebChatGrantStore().getState().grant;
+    webChatGatewayState = emptyWebChatGatewayState(grant ? "starting" : "off");
+    webChatTunnelState = emptyWebChatTunnelState();
+    webChatTunnelCredential = "";
+    webChatConnectorSetupState = emptyWebChatConnectorSetupState();
+    emitWebChatGrantState();
   });
+
+  setTimeout(() => void syncWebChatGatewayGrant(), 0);
 
   return pythonProcess;
 }
@@ -152,17 +222,26 @@ function stopPythonSidecar() {
   pythonProcess = undefined;
 
   if (sidecar.stdin && !sidecar.stdin.destroyed) {
+    sidecar.stdin.write(`${JSON.stringify({ command: "web_chat_tunnel_stop", reason: "application-quit" })}\n`, "utf8");
     sidecar.stdin.end();
   }
 
   if (process.platform === "win32" && sidecar.pid) {
-    spawnSync("taskkill", ["/PID", String(sidecar.pid), "/T"], {
+    spawnSync("taskkill", ["/PID", String(sidecar.pid), "/T", "/F"], {
       encoding: "utf8",
       windowsHide: true,
     });
     return;
   }
 
+  if (sidecar.pid) {
+    try {
+      process.kill(-sidecar.pid, "SIGTERM");
+      return;
+    } catch {
+      // Fall back when the child process group is already gone.
+    }
+  }
   sidecar.kill("SIGTERM");
 }
 
@@ -291,6 +370,154 @@ function sanitizeChatWebSettings(settings) {
     code_execution: ["on", "off"].includes(codeExecution) ? codeExecution : "off",
     mcp: ["on", "off"].includes(mcp) ? mcp : "off",
   };
+}
+
+function currentWebChatState(patch = {}) {
+  const contents = webChatView?.webContents;
+  const navigationHistory = contents?.navigationHistory;
+  webChatState = {
+    ...webChatState,
+    ...(contents && !contents.isDestroyed()
+      ? {
+          url: contents.getURL() || webChatState.url,
+          canGoBack: Boolean(navigationHistory?.canGoBack()),
+          canGoForward: Boolean(navigationHistory?.canGoForward()),
+        }
+      : {}),
+    ...patch,
+    visible: webChatVisible,
+  };
+  return { ...webChatState };
+}
+
+function emitWebChatState(patch = {}) {
+  const state = currentWebChatState(patch);
+  dispatchRendererEvent("web-chat-state", state);
+  return state;
+}
+
+function currentWebChatGrantState(state = getWebChatGrantStore().getState()) {
+  const merged = mergeWebChatGatewayState(state, webChatGatewayState, webChatTunnelState);
+  const connectorSetup = merged.tunnelConnected
+    && webChatConnectorSetupState.endpoint === merged.tunnel.endpoint
+    ? normalizeWebChatConnectorSetupState(webChatConnectorSetupState)
+    : emptyWebChatConnectorSetupState();
+  return { ...merged, connectorSetup };
+}
+
+function emitWebChatGrantState(state = getWebChatGrantStore().getState()) {
+  const publicState = currentWebChatGrantState(state);
+  dispatchRendererEvent("web-chat-grant-state", publicState);
+  return publicState;
+}
+
+async function stopWebChatTunnel(reason = "manual") {
+  webChatTunnelCredential = "";
+  webChatTunnelState = emptyWebChatTunnelState();
+  webChatConnectorSetupState = emptyWebChatConnectorSetupState();
+  emitWebChatGrantState();
+  try {
+    await sendCommandToPython("web_chat_tunnel_stop", { reason });
+    return { ok: true, ...emitWebChatGrantState() };
+  } catch (error) {
+    emitBackendLog("stderr", `Unable to stop Web Chat tunnel: ${error.message}`);
+    return { ok: false, error: error instanceof Error ? error.message : String(error), ...emitWebChatGrantState() };
+  }
+}
+
+async function syncWebChatGatewayGrant(state = getWebChatGrantStore().getState()) {
+  const grant = state?.grant;
+  if (!grant) {
+    await stopWebChatTunnel("grant-revoked");
+    webChatGatewayState = emptyWebChatGatewayState();
+    emitWebChatGrantState(state);
+    try {
+      await sendCommandToPython("web_chat_gateway_unbind", { reason: "revoked" });
+    } catch (error) {
+      emitBackendLog("stderr", `Unable to stop Web Chat local gateway: ${error.message}`);
+    }
+    return;
+  }
+  webChatGatewayState = {
+    ...emptyWebChatGatewayState("starting"),
+    grantId: String(grant.id || ""),
+    grantRevision: Number(state.revision || 0),
+    permissionMode: String(grant.permissionMode || "manual"),
+    workspacePath: String(grant.workspacePath || ""),
+  };
+  emitWebChatGrantState(state);
+  try {
+    await sendCommandToPython("web_chat_gateway_bind", {
+      workspace_path: grant.workspacePath,
+      grant_id: grant.id,
+      grant_revision: state.revision,
+      permission_mode: grant.permissionMode,
+    });
+  } catch (error) {
+    webChatGatewayState = { ...webChatGatewayState, status: "error", error: error.message, toolsEnabled: false };
+    emitWebChatGrantState(state);
+  }
+}
+
+function createWebChatView() {
+  if (webChatView && !webChatView.webContents.isDestroyed()) return webChatView;
+  if (!mainWindow || mainWindow.isDestroyed()) return undefined;
+
+  webChatView = new WebContentsView({
+    webPreferences: {
+      partition: WEB_CHAT_PARTITION,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+    },
+  });
+  webChatView.setBackgroundColor("#ffffff");
+  webChatView.setVisible(false);
+  mainWindow.contentView.addChildView(webChatView);
+
+  const contents = webChatView.webContents;
+  contents.setWindowOpenHandler(({ url }) => {
+    if (!isSafeExternalWebUrl(url)) return { action: "deny" };
+    return {
+      action: "allow",
+      overrideBrowserWindowOptions: {
+        icon: appIconPath,
+        autoHideMenuBar: true,
+        webPreferences: {
+          partition: WEB_CHAT_PARTITION,
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true,
+          webSecurity: true,
+        },
+      },
+    };
+  });
+  contents.on("did-start-loading", () => emitWebChatState({ loading: true, error: "" }));
+  contents.on("did-stop-loading", () => emitWebChatState({ loading: false }));
+  contents.on("did-navigate", () => emitWebChatState());
+  contents.on("did-navigate-in-page", () => emitWebChatState());
+  contents.on("page-title-updated", (_event, title) => emitWebChatState({ title: String(title || "ChatGPT") }));
+  contents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    if (!isMainFrame || errorCode === -3) return;
+    emitWebChatState({
+      loading: false,
+      error: `ChatGPT Web failed to load (${errorCode}): ${errorDescription}`,
+      url: validatedURL || webChatState.url,
+    });
+  });
+  return webChatView;
+}
+
+function destroyWebChatView() {
+  if (!webChatView) return;
+  const view = webChatView;
+  webChatView = undefined;
+  webChatVisible = false;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.contentView.removeChildView(view);
+  if (!view.webContents.isDestroyed()) view.webContents.close();
 }
 
 function sanitizeVisionSettings(settings) {
@@ -577,6 +804,156 @@ ipcMain.handle("install-update-now", async () => {
   return { ok: true };
 });
 
+ipcMain.handle("web-chat-state", async () => currentWebChatState());
+
+ipcMain.handle("web-chat-grant-state", async () => currentWebChatGrantState());
+
+ipcMain.handle("web-chat-grant-set", async (_event, payload) => {
+  try {
+    if (getWebChatGrantStore().getState().grant) {
+      await stopWebChatTunnel("grant-replaced");
+      webChatGatewayState = emptyWebChatGatewayState();
+      emitWebChatGrantState();
+      await sendCommandToPython("web_chat_gateway_unbind", { reason: "grant-replaced" });
+    }
+    const state = getWebChatGrantStore().setGrant(payload);
+    void syncWebChatGatewayGrant(state);
+    return { ok: true, ...emitWebChatGrantState(state) };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+});
+
+ipcMain.handle("web-chat-grant-revoke", async () => {
+  await stopWebChatTunnel("grant-revoked");
+  const state = getWebChatGrantStore().revoke();
+  void syncWebChatGatewayGrant(state);
+  return { ok: true, ...emitWebChatGrantState(state) };
+});
+
+ipcMain.handle("web-chat-tunnel-start", async (_event, payload) => {
+  const provider = String(payload?.provider || "cloudflare").trim().toLocaleLowerCase("en-US");
+  if (provider !== "cloudflare") return { ok: false, error: "Unsupported Web Chat tunnel provider." };
+  if (webChatTunnelState.status === "starting" || webChatTunnelState.status === "connected") {
+    return { ok: false, error: "The Web Chat tunnel is already active. Disconnect it before starting another." };
+  }
+  const grantState = getWebChatGrantStore().getState();
+  const merged = mergeWebChatGatewayState(grantState, webChatGatewayState, webChatTunnelState);
+  if (!grantState.grant || !merged.toolsEnabled || merged.localGateway?.status !== "ready") {
+    return { ok: false, error: "Local workspace tools must be ready before connecting a tunnel." };
+  }
+  const credential = randomBytes(32).toString("base64url");
+  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
+  webChatTunnelCredential = credential;
+  webChatConnectorSetupState = emptyWebChatConnectorSetupState();
+  webChatTunnelState = normalizeWebChatTunnelState({
+    status: "starting",
+    provider,
+    grant_id: grantState.grant.id,
+    grant_revision: grantState.revision,
+    workspace_path: grantState.grant.workspacePath,
+    auth_required: true,
+    expires_at: new Date(expiresAt * 1000).toISOString(),
+    tool_count: merged.localGateway.toolCount,
+  });
+  emitWebChatGrantState(grantState);
+  try {
+    await sendCommandToPython("web_chat_tunnel_start", {
+      provider,
+      credential,
+      expires_at: expiresAt,
+      idle_timeout_seconds: 15 * 60,
+      grant_id: grantState.grant.id,
+      grant_revision: grantState.revision,
+    });
+    return { ok: true, ...emitWebChatGrantState(grantState) };
+  } catch (error) {
+    webChatTunnelCredential = "";
+    webChatTunnelState = normalizeWebChatTunnelState({ status: "error", error: error.message });
+    return { ok: false, error: error instanceof Error ? error.message : String(error), ...emitWebChatGrantState(grantState) };
+  }
+});
+
+ipcMain.handle("web-chat-tunnel-stop", async () => stopWebChatTunnel("manual"));
+
+ipcMain.handle("web-chat-connector-probe", async () => {
+  const grantState = getWebChatGrantStore().getState();
+  const merged = mergeWebChatGatewayState(grantState, webChatGatewayState, webChatTunnelState);
+  const endpoint = String(merged.tunnel?.endpoint || "");
+  const credential = webChatTunnelCredential;
+  if (!merged.tunnelConnected || !endpoint || !credential) {
+    return { ok: false, error: "Connect an authenticated tunnel before verifying the ChatGPT connector.", ...emitWebChatGrantState(grantState) };
+  }
+  webChatConnectorSetupState = normalizeWebChatConnectorSetupState({
+    status: "verifying",
+    endpoint,
+    authentication: "bearer",
+  });
+  emitWebChatGrantState(grantState);
+  const result = await probeRemoteMcp({ endpoint, credential });
+  const current = mergeWebChatGatewayState(getWebChatGrantStore().getState(), webChatGatewayState, webChatTunnelState);
+  if (!current.tunnelConnected || current.tunnel?.endpoint !== endpoint || webChatTunnelCredential !== credential) {
+    webChatConnectorSetupState = emptyWebChatConnectorSetupState();
+    return { ok: false, error: "The tunnel changed while connector verification was running.", ...emitWebChatGrantState() };
+  }
+  webChatConnectorSetupState = result;
+  return { ok: result.status === "verified", error: result.error, ...emitWebChatGrantState() };
+});
+
+ipcMain.handle("web-chat-connector-copy", async (_event, kind) => {
+  const requested = String(kind || "");
+  const grantState = getWebChatGrantStore().getState();
+  const merged = mergeWebChatGatewayState(grantState, webChatGatewayState, webChatTunnelState);
+  const verified = webChatConnectorSetupState.status === "verified"
+    && webChatConnectorSetupState.endpoint === merged.tunnel?.endpoint;
+  if (!merged.tunnelConnected || !verified) {
+    return { ok: false, error: "Verify the active connector before copying setup values." };
+  }
+  if (requested === "endpoint") {
+    return writeConnectorClipboard({ clipboard, kind: requested, endpoint: merged.tunnel.endpoint, credential: webChatTunnelCredential });
+  }
+  if (requested === "credential" && webChatTunnelCredential) {
+    return writeConnectorClipboard({ clipboard, kind: requested, endpoint: merged.tunnel.endpoint, credential: webChatTunnelCredential });
+  }
+  return { ok: false, error: "Unsupported connector setup value." };
+});
+
+ipcMain.handle("web-chat-show", async (_event, bounds) => {
+  const view = createWebChatView();
+  if (!view) return { ok: false, reason: "main-window-unavailable" };
+  view.setBounds(normalizeWebChatBounds(bounds));
+  view.setVisible(true);
+  webChatVisible = true;
+  if (!view.webContents.getURL()) {
+    void view.webContents.loadURL(CHATGPT_WEB_URL);
+  }
+  return { ok: true, state: emitWebChatState({ visible: true }) };
+});
+
+ipcMain.handle("web-chat-hide", async () => {
+  webChatVisible = false;
+  webChatView?.setVisible(false);
+  return { ok: true, state: emitWebChatState({ visible: false }) };
+});
+
+ipcMain.handle("web-chat-control", async (_event, requestedCommand) => {
+  const command = sanitizeWebChatCommand(requestedCommand);
+  const contents = webChatView?.webContents;
+  if (!command) return { ok: false, reason: "invalid-command" };
+  if (!contents || contents.isDestroyed()) return { ok: false, reason: "web-chat-unavailable" };
+  const history = contents.navigationHistory;
+  if (command === "back" && history.canGoBack()) history.goBack();
+  else if (command === "forward" && history.canGoForward()) history.goForward();
+  else if (command === "reload") contents.reload();
+  else if (command === "home") void contents.loadURL(CHATGPT_WEB_URL);
+  else if (command === "open-external") {
+    const url = contents.getURL() || CHATGPT_WEB_URL;
+    if (!isSafeExternalWebUrl(url)) return { ok: false, reason: "unsafe-url" };
+    await shell.openExternal(url);
+  }
+  return { ok: true, state: currentWebChatState() };
+});
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -598,6 +975,10 @@ function createMainWindow() {
 
   installRendererDiagnostics(mainWindow);
   mainWindow.once("ready-to-show", () => mainWindow.show());
+  mainWindow.on("closed", () => {
+    destroyWebChatView();
+    mainWindow = undefined;
+  });
 
   if (isDev) {
     void mainWindow.loadURL("http://127.0.0.1:5273");
@@ -621,5 +1002,6 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  destroyWebChatView();
   stopPythonSidecar();
 });

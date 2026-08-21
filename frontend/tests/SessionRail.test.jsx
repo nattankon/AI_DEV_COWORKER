@@ -117,4 +117,20 @@ describe("SessionRail", () => {
 
     expect(screen.queryByRole("button", { name: /New chat in/ })).not.toBeInTheDocument();
   });
+
+  it("keeps native chat history out of the Web Chat surface", () => {
+    render(
+      <SessionRail
+        activeMode="Chat"
+        webChatActive
+        activeSessionId="s1"
+        sessions={[{ id: "s1", title: "Native conversation", eventCount: 2 }]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Mode Web Chat" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "New chat" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Search chat history")).not.toBeInTheDocument();
+    expect(screen.queryByText("Native conversation")).not.toBeInTheDocument();
+  });
 });
