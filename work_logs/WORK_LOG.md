@@ -2409,3 +2409,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - A credential-pattern scan found only intentional Anthropic dummy keys in tests. `git diff --check` reported no whitespace errors beyond Windows line-ending notices.
 - Release candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification.
 - Skills used: `requesting-code-review` (in-session release review), `webapp-testing`, and `verification-before-completion`.
+
+## 2026-08-22 - Published desktop update v0.1.30
+
+- Published source commit `7e59347` and annotated tag `v0.1.30` to `origin/main` and GitHub Releases.
+- The public release is neither a draft nor a prerelease and contains `AI-Dev-Co-worker-Setup-0.1.30.exe` (`111048513` bytes), its `117177` byte blockmap, and `latest.yml` (`364` bytes).
+- GitHub reports the same SHA-256 values verified locally for all three assets. The public latest-release manifest returned HTTP 200, SHA-256 `85048066400204F84C718F9C5BC2AE966C625F8C6AC422B41DDEB9CF8AEDDDBF`, version `0.1.30`, the exact installer filename/size, and the same SHA-512 generated locally.
+- Both intentional delivery paths remain unchanged: the pre-window startup update gate and the in-app top-right Update button can discover and install `v0.1.30`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.30`.
+- Skills used: `verification-before-completion`.
