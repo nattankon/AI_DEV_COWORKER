@@ -87,6 +87,44 @@ MODEL_PROVIDER_CATALOG: list[dict[str, Any]] = [
         ],
     },
     {
+        "id": "anthropic",
+        "label": "Anthropic / Claude",
+        "source": "https://docs.anthropic.com/en/docs/about-claude/models/overview",
+        "models": [
+            {
+                "id": "anthropic:claude-opus-4-1-20250805",
+                "label": "Claude Opus 4.1",
+                "tier": "main",
+                "billing": "paid",
+                "badge": "Top / Reasoning",
+                "strengths": ["reasoning", "coding", "planning", "agent", "long-context"],
+                "context_window_tokens": 200_000,
+                "vision": True,
+            },
+            {
+                "id": "anthropic:claude-sonnet-4-20250514",
+                "label": "Claude Sonnet 4",
+                "tier": "main",
+                "billing": "paid",
+                "badge": "Top / Coding",
+                "strengths": ["coding", "reasoning", "agent", "writing", "vision"],
+                "context_window_tokens": 200_000,
+                "recommended": True,
+                "vision": True,
+            },
+            {
+                "id": "anthropic:claude-3-5-haiku-20241022",
+                "label": "Claude Haiku 3.5",
+                "tier": "fast",
+                "billing": "paid",
+                "badge": "Fast / Chat",
+                "strengths": ["chat", "writing", "translation", "fast-response", "vision"],
+                "context_window_tokens": 200_000,
+                "vision": True,
+            },
+        ],
+    },
+    {
         "id": "deepseek",
         "label": "DeepSeek",
         "source": "https://api-docs.deepseek.com/",
@@ -308,7 +346,7 @@ MODEL_PROVIDER_CATALOG: list[dict[str, Any]] = [
     },
 ]
 
-KNOWN_MODEL_PREFIXES = ("local:", "openai:", "deepseek:", "zai:", "gemini:")
+KNOWN_MODEL_PREFIXES = ("local:", "openai:", "anthropic:", "anthropic-compatible:", "deepseek:", "zai:", "gemini:")
 
 
 @dataclass(frozen=True)
@@ -389,7 +427,7 @@ def read_provider_api_key(app_root: str | Path, provider_id: str) -> str:
     return ""
 
 
-_SAVEABLE_PROVIDERS = {"openai", "deepseek", "zai", "gemini"}
+_SAVEABLE_PROVIDERS = {"openai", "anthropic", "anthropic_compatible", "deepseek", "zai", "gemini"}
 
 
 def save_provider_key(app_root: str | Path, provider_id: str, key: str) -> bool:
@@ -463,16 +501,20 @@ def _credential_parts(line: str) -> tuple[str, str]:
 
 def _classify_key(key: str, *, hint: str = "") -> str:
     lowered_hint = str(hint or "").casefold()
+    if "anthropic_compatible" in lowered_hint or "anthropic-compatible" in lowered_hint or "custom anthropic" in lowered_hint:
+        return "anthropic_compatible"
     if "deepseek" in lowered_hint:
         return "deepseek"
     if "openai" in lowered_hint:
         return "openai"
+    if "anthropic" in lowered_hint or "claude" in lowered_hint:
+        return "anthropic"
     if "gemini" in lowered_hint or "google" in lowered_hint:
         return "gemini"
     if "z.ai" in lowered_hint or "zai" in lowered_hint:
         return "zai"
     if key.startswith("sk-ant-"):
-        return "unknown"
+        return "anthropic"
     if key.startswith("sk-proj-"):
         return "openai"
     if key.startswith("sk-") and len(key) == 51:

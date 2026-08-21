@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { answerQuestion, cancelCowork, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, getAppUpdateState, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setAutoApprove, setChatMemoryEnabled, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
+import { answerQuestion, cancelCowork, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, getAppUpdateState, importCustomAnthropicModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setChatMemoryEnabled, setCustomAnthropicProvider, setPermissionMode, setWorkspace, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
 import { createCoworkBridge } from "./adapters/coworkBridge";
 import { createSessionStorageAdapter } from "./adapters/sessionStorage";
 import ApprovalPrompt from "./components/ApprovalPrompt";
@@ -10,6 +10,7 @@ import ConnectorsPanel from "./components/ConnectorsPanel";
 import MemoryManager from "./components/MemoryManager";
 import ProjectsView from "./components/ProjectsView";
 import ProcessingIndicator from "./components/ProcessingIndicator";
+import PermissionModeMenu from "./components/PermissionModeMenu";
 import VerificationPanel from "./components/VerificationPanel";
 import QualityEvalPanel from "./components/QualityEvalPanel";
 import SessionRail from "./components/SessionRail";
@@ -34,6 +35,17 @@ const DEFAULT_MODEL_LABEL = "qwen/qwen3.5-9b";
 // Keep a bounded number of events per session so long-running use doesn't grow the
 // in-memory store and persisted state without limit.
 const MAX_EVENTS_PER_SESSION = 1200;
+const PERMISSION_MODES = new Set(["manual", "trusted", "full"]);
+
+function loadPermissionMode() {
+  try {
+    const saved = localStorage.getItem("cowork.permissionMode");
+    if (PERMISSION_MODES.has(saved)) return saved;
+    return localStorage.getItem("cowork.autoApprove") === "1" ? "full" : "manual";
+  } catch {
+    return "manual";
+  }
+}
 
 function capEvents(events) {
   return events.length > MAX_EVENTS_PER_SESSION ? events.slice(-MAX_EVENTS_PER_SESSION) : events;
@@ -265,6 +277,8 @@ function createDefaultBridge() {
     answerApproval: answerQuestion,
     fetchModels,
     loadApiKeys,
+    setCustomAnthropicProvider,
+    importCustomAnthropicModels,
     listChatMemory,
     updateChatMemory,
     setChatMemoryEnabled,
@@ -286,7 +300,7 @@ function createDefaultBridge() {
     workspaceAction,
     getAppUpdateState,
     installUpdateNow,
-    setAutoApprove,
+    setPermissionMode,
     subscribe: (eventName, handler) => {
       const mappedEventName = {
         available_models: eelEvents.availableModels,
@@ -344,17 +358,12 @@ export default function CoworkApp({
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [availableModels, setAvailableModels] = useState([]);
   const [modelProviders, setModelProviders] = useState([]);
+  const [customProviderResult, setCustomProviderResult] = useState(null);
   const [searchCapabilities, setSearchCapabilities] = useState(null);
   const [memoryManagerOpen, setMemoryManagerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [appUpdate, setAppUpdate] = useState({ state: "idle", version: "", percent: 0 });
-  const [autoApprove, setAutoApproveState] = useState(() => {
-    try {
-      return localStorage.getItem("cowork.autoApprove") === "1";
-    } catch {
-      return false;
-    }
-  });
+  const [permissionMode, setPermissionModeState] = useState(loadPermissionMode);
   const [settingsSection, setSettingsSection] = useState("developer");
   const [chatMemoryEntries, setChatMemoryEntries] = useState([]);
   const [chatMemoryLoaded, setChatMemoryLoaded] = useState(false);
@@ -520,6 +529,7 @@ export default function CoworkApp({
       ? coworkBridge.subscribeApiKeys((payload = {}) => {
         if (payload.search) setSearchCapabilities(payload.search);
         if (Array.isArray(payload.providers)) setModelProviders(payload.providers);
+        if (payload.custom_provider_result) setCustomProviderResult(payload.custom_provider_result);
       })
       : undefined;
     void coworkBridge.loadApiKeys?.();
@@ -812,19 +822,18 @@ export default function CoworkApp({
   }, [coworkBridge]);
 
   useEffect(() => {
-    void coworkBridge.setAutoApprove?.(autoApprove);
-  }, [coworkBridge, autoApprove, bridgeState]);
+    void coworkBridge.setPermissionMode?.(permissionMode);
+  }, [coworkBridge, permissionMode, bridgeState]);
 
-  const toggleAutoApprove = () => {
-    setAutoApproveState((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("cowork.autoApprove", next ? "1" : "0");
-      } catch {
-        /* ignore persistence errors */
-      }
-      return next;
-    });
+  const changePermissionMode = (nextMode) => {
+    const normalized = PERMISSION_MODES.has(nextMode) ? nextMode : "manual";
+    setPermissionModeState(normalized);
+    try {
+      localStorage.setItem("cowork.permissionMode", normalized);
+      localStorage.removeItem("cowork.autoApprove");
+    } catch {
+      /* ignore persistence errors */
+    }
   };
 
   const openSettings = (section = "developer") => {
@@ -1319,6 +1328,7 @@ export default function CoworkApp({
           connectorTestResult={chatConnectorTestResult}
           connectorDiscoveryResult={chatConnectorDiscoveryResult}
           modelProviders={modelProviders}
+          customProviderResult={customProviderResult}
           roles={chatMemoryEntries.filter((entry) => String(entry?.kind || "") === "role")}
           rolesLoading={!chatMemoryLoaded}
           onCreateRole={(text) => coworkBridge.createChatMemory?.({ text, kind: "role", mode: activeMode, clientSessionId: activeSessionId })}
@@ -1331,6 +1341,8 @@ export default function CoworkApp({
           onTestConnector={(connector) => coworkBridge.testChatConnector?.(connector)}
           onDiscoverConnector={(target) => coworkBridge.discoverChatConnector?.(target)}
           onSaveProviderKey={(provider, key) => coworkBridge.setProviderKey?.(provider, key)}
+          onSaveCustomProvider={(payload) => coworkBridge.setCustomAnthropicProvider?.(payload)}
+          onImportCustomModels={(payload) => coworkBridge.importCustomAnthropicModels?.(payload)}
           onRefreshProviders={() => coworkBridge.loadApiKeys?.()}
         />
 
@@ -1361,16 +1373,7 @@ export default function CoworkApp({
             <span className={`h-[7px] w-[7px] rounded-full ${modelStatusLabel === "Model unavailable" ? "bg-[#c84f3d]" : modelStatusLabel === "Model loaded" ? "bg-[#3f8f62]" : "bg-[#d9a441]"}`} />
             {modelStatusLabel}
           </span>
-          <button
-            type="button"
-            onClick={toggleAutoApprove}
-            aria-pressed={autoApprove}
-            title={autoApprove ? "Auto-approving writes and commands. Click to require approval." : "Asking before writes and commands. Click to auto-approve."}
-            className={`pointer-events-auto inline-flex h-[29px] items-center gap-2 rounded-full border px-3 shadow-[0_4px_15px_rgba(0,0,0,0.04)] transition ${autoApprove ? "border-[#e0b7a8] bg-[#fbeee7] text-[#a2503a]" : "border-[#e6e4dd] bg-white/90 text-[#8c887f] hover:bg-white"}`}
-          >
-            <span className={`h-[7px] w-[7px] rounded-full ${autoApprove ? "bg-[#d96b4a]" : "bg-[#3f8f62]"}`} />
-            {autoApprove ? "Auto-approve" : "Ask before write"}
-          </button>
+          <PermissionModeMenu mode={permissionMode} workspaceLabel={workspaceLabel} onChange={changePermissionMode} />
         </div>
       </section>
     </div>

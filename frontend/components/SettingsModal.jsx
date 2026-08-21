@@ -49,6 +49,7 @@ export default function SettingsModal({
   connectorTestResult,
   connectorDiscoveryResult,
   modelProviders,
+  customProviderResult,
   roles = [],
   rolesLoading = false,
   onCreateRole,
@@ -61,6 +62,8 @@ export default function SettingsModal({
   onTestConnector,
   onDiscoverConnector,
   onSaveProviderKey,
+  onSaveCustomProvider,
+  onImportCustomModels,
   onRefreshProviders,
 }) {
   const [activeSection, setActiveSection] = useState(initialSection || "developer");
@@ -136,7 +139,10 @@ export default function SettingsModal({
           ) : showProviders ? (
             <ProvidersPanel
               modelProviders={modelProviders}
+              customProviderResult={customProviderResult}
               onSaveProviderKey={onSaveProviderKey}
+              onSaveCustomProvider={onSaveCustomProvider}
+              onImportCustomModels={onImportCustomModels}
               onRefreshProviders={onRefreshProviders}
             />
           ) : showDeveloperConnectors ? (

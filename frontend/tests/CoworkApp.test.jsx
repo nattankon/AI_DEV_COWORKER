@@ -68,6 +68,8 @@ describe("CoworkApp", () => {
 
   afterEach(() => {
     delete window.electronAPI;
+    localStorage.removeItem("cowork.permissionMode");
+    localStorage.removeItem("cowork.autoApprove");
   });
 
   it("renders the Claude-like chat-first workspace shell", () => {
@@ -87,10 +89,32 @@ describe("CoworkApp", () => {
     expect(screen.getByText("Recents")).toBeInTheDocument();
     expect(screen.getByText(/Good afternoon/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText("How can I help you today?")).toBeInTheDocument();
-    expect(screen.getByText(/Ask before write/i)).toBeInTheDocument();
+    expect(screen.getByText(/Manual control/i)).toBeInTheDocument();
     expect(screen.getByText(/Server:/i)).toBeInTheDocument();
     // Don't pin the exact release number — it changes every version bump.
     expect(screen.getByText(/^v\d+\.\d+\.\d+$/)).toBeInTheDocument();
+  });
+
+  it("persists and sends the selected permission profile to the backend", async () => {
+    localStorage.setItem("cowork.permissionMode", "trusted");
+    const setPermissionMode = vi.fn();
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{ setPermissionMode, subscribe: () => () => {} }}
+      />,
+    );
+
+    await waitFor(() => expect(setPermissionMode).toHaveBeenCalledWith("trusted"));
+    fireEvent.click(screen.getByRole("button", { name: "Permission mode: Approvals only" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Full access/ }));
+
+    await waitFor(() => expect(setPermissionMode).toHaveBeenLastCalledWith("full"));
+    expect(localStorage.getItem("cowork.permissionMode")).toBe("full");
+    localStorage.removeItem("cowork.permissionMode");
   });
 
   it("restores the selected session project when switching modes or sessions", async () => {

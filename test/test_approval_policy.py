@@ -38,9 +38,11 @@ class ApprovalPolicyTests(unittest.TestCase):
     def test_verification_payload_is_write_like_and_diff_payload_is_write(self):
         verification = build_approval_payload("run_verification", "Approve tests?", {"name": "frontend-tests"})
         file_write = build_approval_payload("write_file", "Approve write?", {"relative_path": "README.md", "diff": "+x"})
+        restore = build_approval_payload("restore_backup", "Approve restore?", {"relative_path": "README.md"})
 
         self.assertEqual(verification["risk_level"], "write")
         self.assertEqual(file_write["risk_level"], "write")
+        self.assertEqual(restore["risk_level"], "destructive")
 
 
 if __name__ == "__main__":

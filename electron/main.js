@@ -347,6 +347,11 @@ ipcMain.handle("fetch-models", async () => sendCommandToPython("fetch_available_
 ipcMain.handle("fetch-registered-skills", async () => sendCommandToPython("fetch_registered_skills"));
 ipcMain.handle("load-api-keys", async () => sendCommandToPython("load_api_keys"));
 ipcMain.handle("set-auto-approve", async (_event, enabled) => sendCommandToPython("set_auto_approve", { enabled: Boolean(enabled) }));
+ipcMain.handle("set-permission-mode", async (_event, mode) => {
+  const supportedModes = new Set(["manual", "trusted", "full"]);
+  const normalizedMode = supportedModes.has(mode) ? mode : "manual";
+  return sendCommandToPython("set_permission_mode", { mode: normalizedMode });
+});
 ipcMain.handle("chat-memory-list", async () => sendCommandToPython("chat_memory_list"));
 ipcMain.handle("chat-memory-create", async (_event, payload) =>
   sendCommandToPython("chat_memory_create", {
@@ -400,6 +405,12 @@ ipcMain.handle("set-provider-key", async (_event, provider, key) =>
     provider: typeof provider === "string" ? provider : "",
     key: typeof key === "string" ? key : "",
   }),
+);
+ipcMain.handle("set-custom-anthropic-provider", async (_event, payload) =>
+  sendCommandToPython("set_custom_anthropic_provider", payload && typeof payload === "object" ? payload : {}),
+);
+ipcMain.handle("import-custom-anthropic-models", async (_event, payload) =>
+  sendCommandToPython("import_custom_anthropic_models", payload && typeof payload === "object" ? payload : {}),
 );
 ipcMain.handle("set-api-keys", async (_event, geminiKey, openaiKey, localAiBaseUrl, localAiApiKey) =>
   sendCommandToPython("set_api_keys", {

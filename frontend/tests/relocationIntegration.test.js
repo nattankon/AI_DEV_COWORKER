@@ -70,8 +70,10 @@ describe("standalone project independence", () => {
 
     expect(preloadSource).toMatch(/setWorkspace:\s*\(path\)/);
     expect(preloadSource).toMatch(/workspaceAction:\s*\(payload\)/);
+    expect(preloadSource).toMatch(/setPermissionMode:\s*\(mode\)/);
     expect(mainSource).toMatch(/ipcMain\.handle\("set-workspace"/);
     expect(mainSource).toMatch(/ipcMain\.handle\("workspace-action"/);
+    expect(mainSource).toMatch(/ipcMain\.handle\("set-permission-mode"/);
     expect(mainSource).toMatch(/approvedWorkspacePaths\s*=\s*new Set/);
     expect(mainSource).toMatch(/Workspace path was not selected by the user/);
     expect(preloadSource).not.toMatch(/runShell|execCommand|arbitraryCommand/);

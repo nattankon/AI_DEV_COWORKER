@@ -12,6 +12,7 @@ from chat_web_tools import WebResearchTools
 import ipc_sidecar as ipc_sidecar_module
 from ipc_sidecar import IpcDependencies, IpcSidecar, MAX_CHAT_IMAGE_BYTES
 from developer_tools import CommandProposal
+from model_catalog import save_provider_key
 from workspace_tools import WriteProposal
 
 
@@ -363,6 +364,7 @@ class IpcSidecarTests(unittest.TestCase):
         approved = sidecar._approve_write(WriteProposal("app.py", "", "print('x')\n", "+print('x')"))
 
         self.assertTrue(approved)
+        self.assertEqual(sidecar._permission_mode, "full")
         events = [json.loads(line) for line in output.getvalue().splitlines()]
         self.assertTrue(any(event["__ipc_type"] == "auto_approve_state" and event["enabled"] for event in events))
         self.assertFalse(any(event["__ipc_type"] == "cowork_interactive_question" for event in events))
@@ -370,6 +372,23 @@ class IpcSidecarTests(unittest.TestCase):
         # Turning it back off restores the interactive gate contract (no auto-approve state true).
         sidecar.handle_line(json.dumps({"command": "set_auto_approve", "enabled": False}))
         self.assertFalse(sidecar._auto_approve)
+        self.assertEqual(sidecar._permission_mode, "manual")
+
+    def test_permission_mode_is_enforced_by_the_sidecar(self):
+        output = StringIO()
+        sidecar = self._sidecar(output)
+
+        sidecar.handle_line(json.dumps({"command": "set_permission_mode", "mode": "trusted"}))
+        approved = sidecar._approve_write(WriteProposal("app.py", "", "print('x')\n", "+print('x')"))
+
+        self.assertTrue(approved)
+        self.assertEqual(sidecar._permission_mode, "trusted")
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertTrue(any(
+            event["__ipc_type"] == "permission_mode_state" and event["mode"] == "trusted"
+            for event in events
+        ))
+        self.assertFalse(any(event["__ipc_type"] == "cowork_interactive_question" for event in events))
 
     def test_send_cowork_streams_status_and_deltas(self):
         output = StringIO()
@@ -1026,7 +1045,7 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertIn({"role": "assistant", "content": "answer-1"}, second_messages)
         self.assertEqual(second_messages[-1], {"role": "user", "content": "second question"})
 
-    def test_chat_effort_controls_generation_settings_and_history_budget(self):
+    def test_chat_effort_controls_generation_without_discarding_short_history(self):
         output = StringIO()
         calls: list[tuple[str, str]] = []
         chat_models: list[RecordingChatModel] = []
@@ -1073,7 +1092,7 @@ class IpcSidecarTests(unittest.TestCase):
         third_request = chat_models[2].requests[0]
         self.assertEqual(third_request["generation"], {"temperature": 0.2, "max_tokens": 512})
         self.assertEqual(third_request["messages"][0], {"role": "system", "content": "Chat foundation prompt"})
-        self.assertNotIn({"role": "user", "content": "first question"}, third_request["messages"])
+        self.assertIn({"role": "user", "content": "first question"}, third_request["messages"])
         self.assertIn({"role": "user", "content": "second question"}, third_request["messages"])
         self.assertIn({"role": "assistant", "content": "answer-2"}, third_request["messages"])
         self.assertEqual(third_request["messages"][-1], {"role": "user", "content": "third question"})
@@ -3330,6 +3349,7 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertIn("openai:gpt-4.1", event["models"])
         self.assertIn("openai:gpt-4.1-mini", event["models"])
         self.assertIn("openai:gpt-4o", event["models"])
+        self.assertIn("anthropic:claude-sonnet-4-20250514", event["models"])
         self.assertIn("zai:glm-5.2", event["models"])
         self.assertIn("zai:glm-4.7-flash", event["models"])
         self.assertIn("deepseek:deepseek-v4-flash", event["models"])
@@ -3344,6 +3364,10 @@ class IpcSidecarTests(unittest.TestCase):
         gpt41 = next(model for model in openai_models if model["id"] == "openai:gpt-4.1")
         self.assertEqual(gpt41["badge"], "Legacy / Coding")
         self.assertEqual(gpt41["context_window_tokens"], 1_000_000)
+        anthropic_models = next(provider["models"] for provider in event["providers"] if provider["id"] == "anthropic")
+        sonnet4 = next(model for model in anthropic_models if model["id"] == "anthropic:claude-sonnet-4-20250514")
+        self.assertEqual(sonnet4["badge"], "Top / Coding")
+        self.assertEqual(sonnet4["context_window_tokens"], 200_000)
         zai_models = next(provider["models"] for provider in event["providers"] if provider["id"] == "zai")
         glm52 = next(model for model in zai_models if model["id"] == "zai:glm-5.2")
         self.assertEqual(glm52["badge"], "Top / Coding")
@@ -3382,6 +3406,7 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertEqual(event["__ipc_type"], "available_models")
         self.assertEqual(event["local_models_error"], "Connection error.")
         self.assertIn("openai:gpt-5.5", event["models"])
+        self.assertIn("anthropic:claude-sonnet-4-20250514", event["models"])
         self.assertIn("zai:glm-4.7-flash", event["models"])
         self.assertIn("deepseek:deepseek-v4-flash", event["models"])
         self.assertIn("gemini:gemini-2.5-flash-lite", event["models"])
@@ -3464,6 +3489,61 @@ class IpcSidecarTests(unittest.TestCase):
         self.assertTrue(providers["zai"]["configured"])
         # the raw key must NEVER be echoed back to the UI
         self.assertNotIn("zaikeyABC123", json.dumps(event))
+
+    def test_anthropic_model_uses_saved_key_and_provider_factory_path(self):
+        output = StringIO()
+        temp_dir = Path(self.workspace)
+        save_provider_key(temp_dir, "anthropic", "sk-ant-api03-runtime-test")
+        captured: list[dict] = []
+        model = RecordingChatModel("anthropic:claude-sonnet-4-20250514", "Claude answer", [])
+
+        sidecar = IpcSidecar(
+            IpcDependencies(
+                workspace=self.workspace,
+                app_root=temp_dir,
+                output=output,
+                model_lister=lambda: [],
+                chat_model_factory=lambda **kwargs: captured.append(kwargs) or model,
+            )
+        )
+
+        created = sidecar._create_chat_model("anthropic:claude-sonnet-4-20250514")
+
+        self.assertIs(created, model)
+        self.assertEqual(captured[0]["base_url"], "https://api.anthropic.com/v1")
+        self.assertEqual(captured[0]["api_key"], "sk-ant-api03-runtime-test")
+        self.assertEqual(captured[0]["model"], "anthropic:claude-sonnet-4-20250514")
+
+    def test_custom_anthropic_model_uses_imported_profile_and_separate_key(self):
+        from custom_anthropic_provider import save_profile
+
+        output = StringIO()
+        root = Path(self.workspace)
+        save_profile(root, "https://proxy.example.com", ["claude-sonnet-5"])
+        save_provider_key(root, "anthropic_compatible", "custom-runtime-secret")
+        captured: list[dict] = []
+        model = RecordingChatModel("anthropic-compatible:claude-sonnet-5", "Custom answer", [])
+        sidecar = IpcSidecar(
+            IpcDependencies(
+                workspace=root,
+                app_root=root,
+                output=output,
+                model_lister=lambda: [],
+                chat_model_factory=lambda **kwargs: captured.append(kwargs) or model,
+            )
+        )
+
+        created = sidecar._create_chat_model("anthropic-compatible:claude-sonnet-5")
+        sidecar.handle_line(json.dumps({"command": "fetch_available_models"}))
+
+        self.assertIs(created, model)
+        self.assertEqual(captured[0]["base_url"], "https://proxy.example.com/v1")
+        self.assertEqual(captured[0]["api_key"], "custom-runtime-secret")
+        event = json.loads(output.getvalue().splitlines()[-1])
+        self.assertIn("anthropic-compatible:claude-sonnet-5", event["models"])
+        custom = next(provider for provider in event["providers"] if provider["id"] == "anthropic_compatible")
+        self.assertTrue(custom["configured"])
+        self.assertNotIn("custom-runtime-secret", json.dumps(event))
 
     def test_set_provider_key_rejects_unknown_provider(self):
         output = StringIO()

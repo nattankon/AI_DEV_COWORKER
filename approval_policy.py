@@ -34,7 +34,9 @@ def _risk_level(approval_kind: str, proposal: dict[str, Any]) -> str:
         if any(marker in tool for marker in ("delete", "remove", "destroy", "drop", "wipe")):
             return "destructive"
         return "write"
-    if approval_kind in {"write_file", "run_verification", "restore_backup"}:
+    if approval_kind == "restore_backup":
+        return "destructive"
+    if approval_kind in {"write_file", "run_verification"}:
         return "write"
     return "write"
 

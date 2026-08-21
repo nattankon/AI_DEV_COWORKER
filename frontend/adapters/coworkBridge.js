@@ -353,6 +353,21 @@ export function createCoworkBridge(legacyBridge, overrides = {}) {
         await legacyBridge.setAutoApprove(Boolean(enabled));
       }
     },
+    async setCustomAnthropicProvider(payload) {
+      if (typeof legacyBridge?.setCustomAnthropicProvider === "function") {
+        await legacyBridge.setCustomAnthropicProvider(payload);
+      }
+    },
+    async importCustomAnthropicModels(payload) {
+      if (typeof legacyBridge?.importCustomAnthropicModels === "function") {
+        await legacyBridge.importCustomAnthropicModels(payload);
+      }
+    },
+    async setPermissionMode(mode) {
+      if (typeof legacyBridge?.setPermissionMode === "function") {
+        await legacyBridge.setPermissionMode(String(mode || "manual"));
+      }
+    },
     subscribeChatMemory(listener) {
       const subscribe = legacyBridge?.subscribe;
       if (typeof subscribe !== "function") return () => {};

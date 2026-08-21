@@ -222,9 +222,12 @@ function invokeBridgeMethod(method, args = []) {
     cancel_cowork: bridge.cancelCowork,
     load_api_keys: bridge.loadApiKeys,
     set_provider_key: bridge.setProviderKey,
+    set_custom_anthropic_provider: bridge.setCustomAnthropicProvider,
+    import_custom_anthropic_models: bridge.importCustomAnthropicModels,
     get_app_update_state: bridge.getAppUpdateState,
     install_update_now: bridge.installUpdateNow,
     set_auto_approve: bridge.setAutoApprove,
+    set_permission_mode: bridge.setPermissionMode,
     resolve_hitl: bridge.resolveHitl,
     select_folder: bridge.selectFolder,
     send_brainstorm: bridge.sendBrainstorm,
@@ -290,6 +293,14 @@ export function setProviderKey(provider, key) {
   return invokeBridgeMethod("set_provider_key", provider, key);
 }
 
+export function setCustomAnthropicProvider(payload) {
+  return invokeBridgeMethod("set_custom_anthropic_provider", [payload]);
+}
+
+export function importCustomAnthropicModels(payload) {
+  return invokeBridgeMethod("import_custom_anthropic_models", [payload]);
+}
+
 export function installUpdateNow() {
   return invokeBridgeMethod("install_update_now");
 }
@@ -308,6 +319,10 @@ export function createChatMemory(payload) {
 
 export function setAutoApprove(enabled) {
   return invokeBridgeMethod("set_auto_approve", [enabled]);
+}
+
+export function setPermissionMode(mode) {
+  return invokeBridgeMethod("set_permission_mode", [mode]);
 }
 
 export function updateChatMemory(id, text) {

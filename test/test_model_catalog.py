@@ -59,6 +59,33 @@ class SaveProviderKeyTests(unittest.TestCase):
             self.assertFalse(save_provider_key(root, "zai", "line1\nline2"))
             self.assertEqual(detect_provider_keys(root), [])
 
+    def test_anthropic_key_is_detected_saved_and_read_back(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            key = "sk-ant-api03-example-key"
+
+            self.assertTrue(save_provider_key(root, "anthropic", key))
+            self.assertEqual(read_provider_api_key(root, "anthropic"), key)
+            self.assertEqual([item.provider_id for item in detect_provider_keys(root)], ["anthropic"])
+
+    def test_custom_anthropic_key_uses_its_own_provider_slot(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            key = "custom-provider-secret"
+
+            self.assertTrue(save_provider_key(root, "anthropic_compatible", key))
+            self.assertEqual(read_provider_api_key(root, "anthropic_compatible"), key)
+            self.assertEqual([item.provider_id for item in detect_provider_keys(root)], ["anthropic_compatible"])
+
+    def test_anthropic_catalog_exposes_chat_coding_and_fast_models(self):
+        opus = catalog_model_metadata("anthropic:claude-opus-4-1-20250805")
+        sonnet = catalog_model_metadata("anthropic:claude-sonnet-4-20250514")
+        haiku = catalog_model_metadata("anthropic:claude-3-5-haiku-20241022")
+
+        self.assertEqual(opus["label"], "Claude Opus 4.1")
+        self.assertIn("coding", sonnet["strengths"])
+        self.assertEqual(haiku["tier"], "fast")
+
 
 if __name__ == "__main__":
     unittest.main()

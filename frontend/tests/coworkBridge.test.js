@@ -450,6 +450,15 @@ describe("cowork bridge adapter", () => {
     expect(listener).toHaveBeenCalledWith({ request_id: "read-1", action: "read_file", result: { content: "hello" } });
   });
 
+  it("forwards permission profiles without reducing them to a boolean", async () => {
+    const setPermissionMode = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = createCoworkBridge({ setPermissionMode });
+
+    await bridge.setPermissionMode("trusted");
+
+    expect(setPermissionMode).toHaveBeenCalledWith("trusted");
+  });
+
   it("forwards model health fetches and normalizes available model events", async () => {
     const fetchModels = vi.fn().mockResolvedValue({ ok: true });
     let modelsHandler;
