@@ -2306,3 +2306,11 @@ This file is append-only. Runtime conversation details are stored separately in 
 - `npm run dist` produced `AI-Dev-Co-worker-Setup-0.1.29.exe` (`111025073` bytes), its `116829` byte blockmap, and `latest.yml`. The manifest reports version `0.1.29`, the exact installer filename and size, and a SHA-512 digest.
 - `git diff --check` reported no whitespace errors beyond Windows line-ending notices. The release remains ready for source commit, tag, GitHub publication, and remote updater-manifest verification.
 - Skills used: `requesting-code-review` (in-session release review) and `verification-before-completion`.
+
+## 2026-08-21 - Published desktop update v0.1.29
+
+- Published source commit `b68f9d7` and annotated tag `v0.1.29` to `origin/main` and GitHub Releases.
+- The public release is neither a draft nor a prerelease and contains `AI-Dev-Co-worker-Setup-0.1.29.exe` (`111025073` bytes), its `116829` byte blockmap, and `latest.yml`.
+- Verified the GitHub latest-release endpoint resolves to `v0.1.29`. The public updater manifest returned HTTP 200 and reports version `0.1.29`, the exact installer filename and size, and the same SHA-512 generated locally.
+- Both intentional delivery paths remain unchanged: the pre-window startup update gate and the in-app top-right Update button can discover and install this release.
+- Skills used: `verification-before-completion`.
