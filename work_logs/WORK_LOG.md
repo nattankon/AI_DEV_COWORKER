@@ -2428,3 +2428,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Fresh verification: backend `471/471`; frontend `32/32` files and `220/220` tests; `npm run dist` completed for `0.1.31`; packaged smoke opened `app.asar/dist/index.html` and the packaged sidecar reported 31 models across six providers with all required cloud models present.
 - Release artifacts: installer `111049225` bytes, SHA-256 `060C37E325C451DD188DCFA88DFD3FE734E9F58D879EB09B63A6A27E7D811292`; blockmap `117161` bytes, SHA-256 `13179FD81406E0A10DAF02FD36615FD8B97625E28FFA12BE481F192F8CBB8F1F`; `latest.yml` `364` bytes, SHA-256 `BC9E626720730853927A0F3A8433380C617AAF269F5A45AD0E4922F3E8195DA4`.
 - Skills used: `systematic-debugging`, `test-driven-development`, `requesting-code-review` (manual diff review because no subagent tool is available), and `verification-before-completion`.
+
+## 2026-08-22 - Published provider-catalog hotfix v0.1.31
+
+- Published source commit `93c8c43` and annotated tag `v0.1.31` to `origin/main` and GitHub Releases.
+- The release is neither a draft nor a prerelease. GitHub reports the same local sizes and SHA-256 digests for the installer, blockmap, and updater manifest.
+- The public latest-release manifest returned version `0.1.31`, installer `AI-Dev-Co-worker-Setup-0.1.31.exe`, size `111049225`, expected SHA-512, and SHA-256 `BC9E626720730853927A0F3A8433380C617AAF269F5A45AD0E4922F3E8195DA4`.
+- Both existing update paths can discover this hotfix: the startup update gate and the in-app top-right Update control.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.31`.
+- Skills used: `verification-before-completion`.
