@@ -2459,3 +2459,13 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Packaged smoke launched the isolated `0.1.32` renderer from `app.asar`, validated the packaged sidecar provider catalogs, and confirmed `electron/sessionStateStore.js` is included in the archive.
 - Release candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification.
 - Skills used: `requesting-code-review` (manual final diff review) and `verification-before-completion`.
+
+## 2026-08-22 - Published durable-session update v0.1.32
+
+- Published source commit `98800cc` and annotated tag `v0.1.32` to `origin/main` and GitHub Releases.
+- `electron-builder --publish always` rebuilt the release artifacts but could not upload because `GH_TOKEN` was not exported. The authenticated GitHub CLI was used to create the release and upload those exact rebuilt artifacts without changing either updater path.
+- The public release is neither a draft nor a prerelease. Public asset SHA-256 values match the current local rebuilt artifacts: installer `9ED2884EDA9AE6A5F3146F0CE6741D0991748AB3CC095F913346EEE1DC644619` (`111049642` bytes); blockmap `6E928F6AFE50BC2B19690F1CEBB6CD8AD6BF66F0E139F558E66B07F0EE369871` (`117241` bytes); updater manifest `409D5A50C41CA7F7F52436CCC77B596209B2BEBCDAB375ACCE2228F8C7685632` (`364` bytes).
+- The public latest-release manifest returned HTTP success, version `0.1.32`, installer `AI-Dev-Co-worker-Setup-0.1.32.exe`, expected size/SHA-512, and the exact local manifest SHA-256.
+- Both established delivery paths remain active: the pre-window startup update gate and the in-app top-right Update control can discover and install `v0.1.32`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.32`.
+- Skills used: `verification-before-completion`.
