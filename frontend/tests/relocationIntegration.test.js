@@ -88,6 +88,8 @@ describe("standalone project independence", () => {
     expect(preloadSource).toMatch(/copyWebChatConnectorValue:\s*\(kind\)/);
     expect(preloadSource).not.toMatch(/getWebChatTunnelCredential/);
     expect(preloadSource).toMatch(/stopWebChatTunnel:\s*\(\)/);
+    expect(preloadSource).toMatch(/loadSessionState:\s*\(\)/);
+    expect(preloadSource).toMatch(/saveSessionState:\s*\(envelope\)/);
     expect(preloadSource).not.toMatch(/getWebChatTunnelCredential/);
     expect(mainSource).toMatch(/ipcMain\.handle\("set-workspace"/);
     expect(mainSource).toMatch(/ipcMain\.handle\("workspace-action"/);
@@ -99,6 +101,8 @@ describe("standalone project independence", () => {
     expect(mainSource).toMatch(/ipcMain\.handle\("web-chat-tunnel-stop"/);
     expect(mainSource).toMatch(/ipcMain\.handle\("web-chat-connector-probe"/);
     expect(mainSource).toMatch(/ipcMain\.handle\("web-chat-connector-copy"/);
+    expect(mainSource).toMatch(/ipcMain\.handle\("session-state-load"/);
+    expect(mainSource).toMatch(/ipcMain\.handle\("session-state-save"/);
     expect(mainSource).toMatch(/ipcMain\.handle\("web-chat-grant-state",\s*async \(\) => currentWebChatGrantState\(\)\)/);
     expect(mainSource).toMatch(/randomBytes\(32\)\.toString\("base64url"\)/);
     expect(mainSource).toMatch(/web_chat_tunnel_stop[\s\S]*application-quit/);

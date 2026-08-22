@@ -73,6 +73,7 @@ Effort controls reasoning, generation, retrieval, source, and tool-loop budgets.
 
 ## Current Capability
 
+- Native Chat, Cowork, and Code session history is dual-persisted. Chromium localStorage remains the fast cache, while Electron atomically writes the same versioned envelope to `session-history.json` under the stable app `userData` directory and keeps `session-history.json.bak` as a recovery copy. Startup reconciles valid copies by `savedAt` and blocks all persistence until durable hydration completes, preventing a missing, corrupt, or temporarily unavailable renderer cache from silently replacing newer history with an empty state. This protection begins with the first run of the updated build; historical sessions that were already lost are intentionally not reconstructed.
 - Standalone `cowork` CLI installs from `pyproject.toml` and runs from directories outside the source checkout.
 - Local-first Cowork agent connected to LM Studio through an OpenAI-compatible API.
 - Primary local model: `qwen/qwen3.5-9b`, Q4_K_M.

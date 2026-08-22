@@ -19,6 +19,89 @@ function createMemoryStorage(initialValue) {
 }
 
 describe("CoworkApp", () => {
+  it("waits for durable session hydration before saving and restores the newer timeline", async () => {
+    let finishLoading;
+    const durableEnvelope = {
+      schemaVersion: 4,
+      savedAt: "2026-08-22T10:00:00.000Z",
+      state: {
+        activeSessionIdsByMode: { Chat: "durable-chat", Cowork: null, Code: null },
+        sessions: [{ id: "durable-chat", mode: "Chat", title: "Durable chat" }],
+        projects: [],
+        eventsBySessionId: {
+          "durable-chat": [{
+            id: "durable-message",
+            sessionId: "durable-chat",
+            timestamp: "2026-08-22T09:59:00.000Z",
+            type: "message.user",
+            status: "complete",
+            payload: { text: "restored from disk", mode: "Chat" },
+          }],
+        },
+      },
+    };
+    const loadSessionState = vi.fn(() => new Promise((resolve) => { finishLoading = resolve; }));
+    const saveSessionState = vi.fn();
+
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{ loadSessionState, saveSessionState, subscribe: () => () => {} }}
+        sessionStorageAdapter={createSessionStorageAdapter(createMemoryStorage())}
+      />,
+    );
+
+    expect(saveSessionState).not.toHaveBeenCalled();
+    finishLoading({ ok: true, envelope: durableEnvelope, source: "primary" });
+
+    expect(await screen.findByText("restored from disk", { selector: ".whitespace-pre-wrap" })).toBeInTheDocument();
+    await waitFor(() => expect(saveSessionState).toHaveBeenCalled());
+    expect(saveSessionState.mock.calls.at(-1)[0].state.sessions[0].title).toBe("Durable chat");
+  });
+
+  it("falls back to local session state when durable hydration fails", async () => {
+    const backingStore = createMemoryStorage();
+    const sessionStorage = createSessionStorageAdapter(backingStore);
+    sessionStorage.save({
+      activeSessionIdsByMode: { Chat: "local-chat", Cowork: null, Code: null },
+      sessions: [{ id: "local-chat", mode: "Chat", title: "Local fallback" }],
+      projects: [],
+      eventsBySessionId: {
+        "local-chat": [{
+          id: "local-message",
+          sessionId: "local-chat",
+          timestamp: "2026-08-22T09:59:00.000Z",
+          type: "message.user",
+          status: "complete",
+          payload: { text: "kept from local storage", mode: "Chat" },
+        }],
+      },
+    });
+    const saveSessionState = vi.fn();
+
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={{
+          loadSessionState: vi.fn().mockRejectedValue(new Error("disk unavailable")),
+          saveSessionState,
+          subscribe: () => () => {},
+        }}
+        sessionStorageAdapter={sessionStorage}
+      />,
+    );
+
+    expect(await screen.findByText("kept from local storage", { selector: ".whitespace-pre-wrap" })).toBeInTheDocument();
+    await waitFor(() => expect(saveSessionState).toHaveBeenCalled());
+    expect(saveSessionState.mock.calls.at(-1)[0].state.sessions[0].title).toBe("Local fallback");
+  });
+
   it("hydrates a ready update discovered during startup and installs only after the user clicks", async () => {
     const installUpdateNow = vi.fn();
     const getAppUpdateState = vi.fn().mockResolvedValue({

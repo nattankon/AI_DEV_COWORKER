@@ -11,6 +11,17 @@ const EMPTY_SESSION_STATE = Object.freeze({
   chatSettings: Object.freeze({ webMode: "auto", searchProvider: "auto", artifacts: "on", codeExecution: "off", mcp: "off" }),
 });
 
+function envelopeTime(envelope) {
+  const timestamp = Date.parse(envelope?.savedAt ?? "");
+  return Number.isFinite(timestamp) ? timestamp : -1;
+}
+
+export function selectPreferredSessionEnvelope(localEnvelope, durableEnvelope) {
+  if (!localEnvelope) return durableEnvelope ?? null;
+  if (!durableEnvelope) return localEnvelope;
+  return envelopeTime(durableEnvelope) > envelopeTime(localEnvelope) ? durableEnvelope : localEnvelope;
+}
+
 function normalizeMode(value, fallback = "Cowork") {
   return MODES.includes(value) ? value : fallback;
 }
@@ -135,6 +146,10 @@ function normalizeSessionState(value, fallbackMode = "Cowork") {
   };
 }
 
+export function createSessionEnvelope(state, savedAt = new Date().toISOString()) {
+  return { schemaVersion: 4, savedAt, state: normalizeSessionState(state, "Cowork") };
+}
+
 function migrateLegacySessionState(parsed) {
   const state = parsed?.state ?? {};
   const legacyEvents = Array.isArray(state.events) ? state.events.filter((event) => event && typeof event === "object") : [];
@@ -149,29 +164,34 @@ function migrateLegacySessionState(parsed) {
 }
 
 export function createSessionStorageAdapter(storage = globalThis.localStorage) {
+  const loadEnvelope = () => {
+    try {
+      const current = storage?.getItem(COWORK_SESSION_STORAGE_KEY);
+      const legacy = LEGACY_SESSION_STORAGE_KEYS.map((key) => storage?.getItem(key)).find(Boolean);
+      const rawValue = current ?? legacy;
+      if (!rawValue) return null;
+      const parsed = JSON.parse(rawValue);
+      if (parsed?.schemaVersion === 4) return { ...parsed, state: normalizeSessionState(parsed.state, "Cowork") };
+      if (parsed?.schemaVersion === 3) return { schemaVersion: 4, savedAt: parsed.savedAt, state: normalizeSessionState(parsed.state, "Chat") };
+      if (parsed?.schemaVersion === 2) return { schemaVersion: 4, savedAt: parsed.savedAt, state: migrateLegacySessionState(parsed) };
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   return {
+    loadEnvelope,
     load() {
-      try {
-        const current = storage?.getItem(COWORK_SESSION_STORAGE_KEY);
-        const legacy = LEGACY_SESSION_STORAGE_KEYS.map((key) => storage?.getItem(key)).find(Boolean);
-        const rawValue = current ?? legacy;
-        if (!rawValue) return normalizeSessionState(null);
-        const parsed = JSON.parse(rawValue);
-        if (parsed?.schemaVersion === 4) return normalizeSessionState(parsed.state, "Cowork");
-        if (parsed?.schemaVersion === 3) return normalizeSessionState(parsed.state, "Chat");
-        if (parsed?.schemaVersion === 2) return migrateLegacySessionState(parsed);
-        return normalizeSessionState(null);
-      } catch {
-        return normalizeSessionState(null);
-      }
+      return loadEnvelope()?.state ?? normalizeSessionState(null);
     },
     save(state) {
       if (!storage) return;
-      const normalized = normalizeSessionState(state, "Cowork");
-      const envelope = { schemaVersion: 4, savedAt: new Date().toISOString(), state: normalized };
+      const envelope = createSessionEnvelope(state);
+      const normalized = envelope.state;
       try {
         storage.setItem(COWORK_SESSION_STORAGE_KEY, JSON.stringify(envelope));
-        return;
+        return envelope;
       } catch {
         // Likely a quota error on a long-running session — persistence must never
         // break the app. Retry with progressively fewer events per session.
@@ -182,11 +202,12 @@ export function createSessionStorageAdapter(storage = globalThis.localStorage) {
           eventsBySessionId[sessionId] = Array.isArray(events) ? events.slice(-cap) : [];
         }
         try {
+          const trimmedEnvelope = { ...envelope, state: { ...normalized, eventsBySessionId } };
           storage.setItem(
             COWORK_SESSION_STORAGE_KEY,
-            JSON.stringify({ ...envelope, state: { ...normalized, eventsBySessionId } }),
+            JSON.stringify(trimmedEnvelope),
           );
-          return;
+          return trimmedEnvelope;
         } catch {
           // Try an even smaller cap; if all fail, give up silently.
         }

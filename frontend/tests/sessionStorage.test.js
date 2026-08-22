@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSessionStorageAdapter } from "../adapters/sessionStorage";
+import { createSessionStorageAdapter, selectPreferredSessionEnvelope } from "../adapters/sessionStorage";
 
 function createMemoryStorage() {
   const store = new Map();
@@ -17,6 +17,43 @@ function createMemoryStorage() {
 }
 
 describe("session storage adapter", () => {
+  it("exposes the versioned envelope timestamp for durable-store reconciliation", () => {
+    const backingStore = createMemoryStorage();
+    const storage = createSessionStorageAdapter(backingStore);
+    storage.save({
+      activeSessionIdsByMode: { Chat: "chat-1", Cowork: null, Code: null },
+      sessions: [{ id: "chat-1", mode: "Chat", title: "Timestamped" }],
+      eventsBySessionId: { "chat-1": [] },
+    });
+
+    const snapshot = storage.loadEnvelope();
+
+    expect(snapshot.schemaVersion).toBe(4);
+    expect(Date.parse(snapshot.savedAt)).not.toBeNaN();
+    expect(snapshot.state.sessions[0].title).toBe("Timestamped");
+  });
+
+  it("prefers the newer valid envelope instead of the envelope with more sessions", () => {
+    const olderLocal = {
+      schemaVersion: 4,
+      savedAt: "2026-08-21T00:00:00.000Z",
+      state: { sessions: [{ id: "old-1" }, { id: "old-2" }] },
+    };
+    const newerDurable = {
+      schemaVersion: 4,
+      savedAt: "2026-08-22T00:00:00.000Z",
+      state: { sessions: [{ id: "new-1" }] },
+    };
+
+    expect(selectPreferredSessionEnvelope(olderLocal, newerDurable)).toBe(newerDurable);
+    expect(selectPreferredSessionEnvelope(newerDurable, olderLocal)).toBe(newerDurable);
+  });
+
+  it("keeps a valid local envelope when no durable copy exists", () => {
+    const local = { schemaVersion: 4, savedAt: "2026-08-22T00:00:00.000Z", state: { sessions: [] } };
+    expect(selectPreferredSessionEnvelope(local, null)).toBe(local);
+  });
+
   it("saves separate active sessions for Chat, Cowork, and Code", () => {
     const backingStore = createMemoryStorage();
     const storage = createSessionStorageAdapter(backingStore);

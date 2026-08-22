@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { answerQuestion, cancelCowork, controlWebChat, copyWebChatConnectorValue, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, getAppUpdateState, getWebChatGrantState, getWebChatState, hideWebChat, importCustomAnthropicModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, probeWebChatConnector, revokeWebChatGrant, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, selectFolder, sendCowork, setChatMemoryEnabled, setCustomAnthropicProvider, setPermissionMode, setWebChatGrant, setWorkspace, showWebChat, startWebChatTunnel, stopWebChatTunnel, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
+import { answerQuestion, cancelCowork, controlWebChat, copyWebChatConnectorValue, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, getAppUpdateState, getWebChatGrantState, getWebChatState, hideWebChat, importCustomAnthropicModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, loadSessionState, probeWebChatConnector, revokeWebChatGrant, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, saveSessionState, selectFolder, sendCowork, setChatMemoryEnabled, setCustomAnthropicProvider, setPermissionMode, setWebChatGrant, setWorkspace, showWebChat, startWebChatTunnel, stopWebChatTunnel, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
 import { createCoworkBridge } from "./adapters/coworkBridge";
-import { createSessionStorageAdapter } from "./adapters/sessionStorage";
+import { createSessionStorageAdapter, selectPreferredSessionEnvelope } from "./adapters/sessionStorage";
 import ApprovalPrompt from "./components/ApprovalPrompt";
 import AppHeader from "./components/AppHeader";
 import ArtifactsPanel from "./components/ArtifactsPanel";
@@ -301,6 +301,8 @@ function createDefaultBridge() {
     workspaceAction,
     getAppUpdateState,
     installUpdateNow,
+    loadSessionState,
+    saveSessionState,
     getWebChatState,
     showWebChat,
     hideWebChat,
@@ -351,7 +353,15 @@ export default function CoworkApp({
     () => sessionStorageAdapter ?? createSessionStorageAdapter(),
     [sessionStorageAdapter],
   );
-  const [sessionStore, setSessionStore] = useState(() => normalizeSessionStore(resolvedSessionStorageAdapter.load()));
+  const coworkBridge = useMemo(() => bridge ?? createDefaultBridge(), [bridge]);
+  const initialSessionEnvelope = useMemo(
+    () => resolvedSessionStorageAdapter.loadEnvelope?.() ?? null,
+    [resolvedSessionStorageAdapter],
+  );
+  const [sessionStore, setSessionStore] = useState(() => normalizeSessionStore(initialSessionEnvelope?.state ?? resolvedSessionStorageAdapter.load()));
+  const [sessionPersistenceReady, setSessionPersistenceReady] = useState(
+    () => typeof coworkBridge.loadSessionState !== "function",
+  );
   const [state, dispatch] = useReducer(coworkReducer, undefined, createInitialCoworkState);
   const [workingDirectory, setWorkingDirectory] = useState("");
   const [activeMode, setActiveMode] = useState("Chat");
@@ -397,7 +407,6 @@ export default function CoworkApp({
   }));
   const conversationScrollRef = useRef(null);
   const conversationNearBottomRef = useRef(true);
-  const coworkBridge = useMemo(() => bridge ?? createDefaultBridge(), [bridge]);
   const refreshChatMemory = useCallback(() => {
     setChatMemoryLoaded(false);
     return coworkBridge.listChatMemory?.();
@@ -457,8 +466,35 @@ export default function CoworkApp({
   ];
 
   useEffect(() => {
-    resolvedSessionStorageAdapter.save(sessionStore);
-  }, [resolvedSessionStorageAdapter, sessionStore]);
+    if (typeof coworkBridge.loadSessionState !== "function") return undefined;
+    let cancelled = false;
+    Promise.resolve(coworkBridge.loadSessionState())
+      .then((result) => {
+        if (cancelled) return;
+        const durableEnvelope = result?.ok ? result.envelope : null;
+        const preferred = selectPreferredSessionEnvelope(initialSessionEnvelope, durableEnvelope);
+        if (preferred?.state) {
+          const hydrated = normalizeSessionStore(preferred.state);
+          setSessionStore(hydrated);
+          setProjects(hydrated.projects ?? []);
+          setModelRoutes((current) => ({ ...current, ...normalizeModelRoutes(hydrated.modelRoutes) }));
+          setChatSettings((current) => ({ ...current, ...(hydrated.chatSettings ?? {}) }));
+        }
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) setSessionPersistenceReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [coworkBridge, initialSessionEnvelope]);
+
+  useEffect(() => {
+    if (!sessionPersistenceReady) return;
+    const envelope = resolvedSessionStorageAdapter.save(sessionStore);
+    if (envelope) void coworkBridge.saveSessionState?.(envelope);
+  }, [coworkBridge, resolvedSessionStorageAdapter, sessionPersistenceReady, sessionStore]);
 
   useEffect(() => {
     setSessionStore((current) => {

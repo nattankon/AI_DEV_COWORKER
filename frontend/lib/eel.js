@@ -230,6 +230,8 @@ function invokeBridgeMethod(method, args = []) {
     import_custom_anthropic_models: bridge.importCustomAnthropicModels,
     get_app_update_state: bridge.getAppUpdateState,
     install_update_now: bridge.installUpdateNow,
+    load_session_state: bridge.loadSessionState,
+    save_session_state: bridge.saveSessionState,
     set_auto_approve: bridge.setAutoApprove,
     set_permission_mode: bridge.setPermissionMode,
     resolve_hitl: bridge.resolveHitl,
@@ -322,6 +324,14 @@ export function installUpdateNow() {
 
 export function getAppUpdateState() {
   return invokeBridgeMethod("get_app_update_state");
+}
+
+export function loadSessionState() {
+  return invokeBridgeMethod("load_session_state");
+}
+
+export function saveSessionState(envelope) {
+  return invokeBridgeMethod("save_session_state", [envelope]);
 }
 
 export function listChatMemory() {

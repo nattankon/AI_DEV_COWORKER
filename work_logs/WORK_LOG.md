@@ -2437,3 +2437,25 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both existing update paths can discover this hotfix: the startup update gate and the in-app top-right Update control.
 - Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.31`.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-22 - Add durable native session-history protection
+
+- Scope followed the user's decision not to reconstruct previously lost chats. The change protects new Chat, Cowork, and Code sessions across renderer-cache loss, restart, and desktop updates.
+- Root cause: native sessions and timelines were stored only in Chromium localStorage. Missing, corrupt, migrated, or temporarily unavailable renderer state normalized silently to an empty store, and the startup persistence effect could then save that empty store before any durable recovery source existed.
+- Added `electron/sessionStateStore.js`, an Electron-main-owned store under the stable application `userData` directory. It accepts only validated schema-v4 envelopes, writes through a temporary file, keeps `session-history.json.bak`, creates a backup on the first successful save, and falls back to that backup when the primary file is malformed or unreadable. Invalid renderer payloads cannot replace the last valid state.
+- Added narrow `session-state-load` and `session-state-save` IPC methods. The preload exposes no filesystem path or general file primitive.
+- The frontend now loads the local envelope immediately for responsive rendering, awaits the durable envelope before enabling persistence, chooses the newer valid copy by `savedAt`, hydrates the complete mode-scoped session/project/timeline state, and writes the successfully persisted envelope back to both stores. A rejected durable load falls back to local state and resumes persistence without an unhandled rejection.
+- Added regression coverage for primary/backup round trips, first-save backup creation, malformed-write rejection, timestamp-based reconciliation, missing durable state, delayed durable hydration, rejected durable hydration, and Electron/preload IPC packaging seams.
+- Focused verification passed `65/65` frontend tests. Full-suite and packaged-release verification are recorded separately when the desktop update is prepared.
+- Review: manual diff review found and resolved the rejected-IPC fallback and first-save backup gap. No external Claude review was requested.
+- Skills used: `systematic-debugging`, `test-driven-development`, `requesting-code-review` (manual review because no subagent tool is available), and `verification-before-completion`.
+
+## 2026-08-22 - Prepare desktop update v0.1.32
+
+- Bumped the desktop package to `0.1.32` so the durable native session-history protection reaches the installed app through both existing update paths. No updater behavior was removed or replaced.
+- Fresh verification passed: frontend `33/33` files and `228/228` tests; backend `471/471`; production Vite build; and `git diff --check` with only Windows line-ending notices.
+- `npm run dist` produced `AI-Dev-Co-worker-Setup-0.1.32.exe` (`111049641` bytes), blockmap (`117239` bytes), and `latest.yml` (`364` bytes). The manifest reports installer SHA-512 `6XSftM2eV1oEpHKRbugjTODuwXI/n8J+pdeFFENv56GeqA4JEgOpqkQAiY5mL21qw4zpSg7mmnvoyjDcopuTuA==`.
+- SHA-256: installer `6AC258F1D3F69AF58AD76BC559AE47946041DEC14C40526C24549F3C12835DE0`; blockmap `CA402A6DC1B0924E090478BF9457F28B60C60C5F96C96D23F54F18716B3BCE5C`; updater manifest `409D5A50C41CA7F7F52436CCC77B596209B2BEBCDAB375ACCE2228F8C7685632`.
+- Packaged smoke launched the isolated `0.1.32` renderer from `app.asar`, validated the packaged sidecar provider catalogs, and confirmed `electron/sessionStateStore.js` is included in the archive.
+- Release candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification.
+- Skills used: `requesting-code-review` (manual final diff review) and `verification-before-completion`.

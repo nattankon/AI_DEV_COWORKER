@@ -77,6 +77,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   importCustomAnthropicModels: (payload) => ipcRenderer.invoke("import-custom-anthropic-models", payload),
   getAppUpdateState: () => ipcRenderer.invoke("get-app-update-state"),
   installUpdateNow: () => ipcRenderer.invoke("install-update-now"),
+  loadSessionState: () => ipcRenderer.invoke("session-state-load"),
+  saveSessionState: (envelope) => ipcRenderer.invoke("session-state-save", envelope),
   getWebChatState: () => ipcRenderer.invoke("web-chat-state"),
   showWebChat: (bounds) => ipcRenderer.invoke("web-chat-show", bounds),
   hideWebChat: () => ipcRenderer.invoke("web-chat-hide"),

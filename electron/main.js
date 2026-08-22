@@ -14,6 +14,7 @@ import {
   sanitizeWebChatCommand,
 } from "./webChatSurface.js";
 import { WebChatGrantStore } from "./webChatGrantStore.js";
+import { createSessionStateStore } from "./sessionStateStore.js";
 import {
   emptyWebChatGatewayState,
   emptyWebChatTunnelState,
@@ -43,6 +44,7 @@ let pythonProcess;
 let webChatView;
 let webChatVisible = false;
 let webChatGrantStore;
+let sessionStateStore;
 let webChatGatewayState = emptyWebChatGatewayState();
 let webChatTunnelState = emptyWebChatTunnelState();
 let webChatTunnelCredential = "";
@@ -64,6 +66,13 @@ function getWebChatGrantStore() {
     });
   }
   return webChatGrantStore;
+}
+
+function getSessionStateStore() {
+  if (!sessionStateStore) {
+    sessionStateStore = createSessionStateStore({ directory: app.getPath("userData") });
+  }
+  return sessionStateStore;
 }
 
 function normalizeWorkspacePath(value) {
@@ -571,6 +580,8 @@ ipcMain.handle("workspace-action", async (_event, payload) => {
 });
 
 ipcMain.handle("fetch-models", async () => sendCommandToPython("fetch_available_models"));
+ipcMain.handle("session-state-load", async () => getSessionStateStore().load());
+ipcMain.handle("session-state-save", async (_event, envelope) => getSessionStateStore().save(envelope));
 ipcMain.handle("fetch-registered-skills", async () => sendCommandToPython("fetch_registered_skills"));
 ipcMain.handle("load-api-keys", async () => sendCommandToPython("load_api_keys"));
 ipcMain.handle("set-auto-approve", async (_event, enabled) => sendCommandToPython("set_auto_approve", { enabled: Boolean(enabled) }));
