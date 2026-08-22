@@ -1,7 +1,7 @@
 {
   "name": "ai-dev-coworker",
   "private": true,
-  "version": "0.1.30",
+  "version": "0.1.31",
   "type": "module",
   "description": "Local-first AI coworker — chat, cowork, and code assistant.",
   "author": "nattankon",
@@ -54,6 +54,7 @@
         "to": "cowork-sidecar/AI_DEV_COWORKER",
         "filter": [
           "*.py",
+          "compatible_provider_presets.json",
           "tools/pyodide_runner.mjs",
           "node_modules/pyodide/**",
           "!__pycache__/**",

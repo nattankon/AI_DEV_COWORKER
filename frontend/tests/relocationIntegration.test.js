@@ -42,6 +42,15 @@ describe("standalone project independence", () => {
     expect(fs.existsSync(path.join(sourcePath, "cowork_agent.py"))).toBe(true);
   });
 
+  it("packages the compatible-provider preset registry with the sidecar", () => {
+    const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf8"));
+    const coworkResource = packageJson.build.extraResources.find(
+      (resource) => resource.to === "cowork-sidecar/AI_DEV_COWORKER",
+    );
+
+    expect(coworkResource?.filter).toContain("compatible_provider_presets.json");
+  });
+
   it("allows every renderer IPC event channel registered by the eel bridge", () => {
     const eelSource = fs.readFileSync(path.join(projectRoot, "frontend", "lib", "eel.js"), "utf8");
     const preloadSource = fs.readFileSync(path.join(projectRoot, "electron", "preload.cjs"), "utf8");

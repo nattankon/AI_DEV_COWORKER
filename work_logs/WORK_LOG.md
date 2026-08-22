@@ -2418,3 +2418,13 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both intentional delivery paths remain unchanged: the pre-window startup update gate and the in-app top-right Update button can discover and install `v0.1.30`.
 - Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.30`.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-22 - Prepare provider-catalog hotfix v0.1.31
+
+- Root cause: desktop `v0.1.30` introduced `compatible_provider_presets.json`, but the Electron `extraResources` filter copied only Python files and omitted the JSON registry. The installed sidecar therefore raised while assembling custom-provider status, aborting the complete `available_models` event and leaving the renderer with only previously discovered Local AI models. No model catalog entry was deleted.
+- Added a packaging contract that requires the registry in the sidecar resource filter and updated the filter accordingly. Added a backend regression proving a missing preset registry is isolated to the compatible-provider status: imported custom models remain available, the preset list becomes empty, and the status carries `preset_registry_error` instead of breaking all provider catalogs.
+- Strengthened `tools/release_smoke.mjs` so a release fails when the packaged registry is missing or invalid. It also starts the packaged Python sidecar, requests `available_models`, and requires representative OpenAI, Anthropic, Z.ai, DeepSeek, and Gemini model IDs before opening the packaged Electron renderer.
+- TDD evidence: the backend regression first errored at `_profile_payload -> provider_presets`, and the frontend packaging contract first failed because the filter lacked `compatible_provider_presets.json`; both passed after the fix.
+- Fresh verification: backend `471/471`; frontend `32/32` files and `220/220` tests; `npm run dist` completed for `0.1.31`; packaged smoke opened `app.asar/dist/index.html` and the packaged sidecar reported 31 models across six providers with all required cloud models present.
+- Release artifacts: installer `111049225` bytes, SHA-256 `060C37E325C451DD188DCFA88DFD3FE734E9F58D879EB09B63A6A27E7D811292`; blockmap `117161` bytes, SHA-256 `13179FD81406E0A10DAF02FD36615FD8B97625E28FFA12BE481F192F8CBB8F1F`; `latest.yml` `364` bytes, SHA-256 `BC9E626720730853927A0F3A8433380C617AAF269F5A45AD0E4922F3E8195DA4`.
+- Skills used: `systematic-debugging`, `test-driven-development`, `requesting-code-review` (manual diff review because no subagent tool is available), and `verification-before-completion`.

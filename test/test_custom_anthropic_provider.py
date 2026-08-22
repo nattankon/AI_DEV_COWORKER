@@ -118,6 +118,34 @@ class CustomAnthropicProviderTests(unittest.TestCase):
             self.assertTrue(any(item["id"] == "openrouter" for item in status["presets"]))
             self.assertNotIn("secret-key", json.dumps(status).casefold())
 
+    def test_provider_status_isolated_from_missing_preset_registry(self):
+        from custom_anthropic_provider import PROFILE_FILENAME, provider_status
+
+        with tempfile.TemporaryDirectory() as root:
+            (Path(root) / PROFILE_FILENAME).write_text(
+                json.dumps(
+                    {
+                        "preset_id": "custom",
+                        "base_url": "https://proxy.example.com/v1",
+                        "protocol": "anthropic_messages",
+                        "auth_scheme": "x_api_key",
+                        "models_auth_scheme": "bearer",
+                        "models": ["claude-sonnet-custom"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with patch(
+                "custom_anthropic_provider._load_provider_presets",
+                side_effect=RuntimeError("preset registry missing"),
+            ):
+                status = provider_status(root, configured=True)
+
+            self.assertTrue(status["configured"])
+            self.assertEqual(status["models"][0]["id"], "anthropic-compatible:claude-sonnet-custom")
+            self.assertEqual(status["presets"], [])
+            self.assertEqual(status["preset_registry_error"], "preset registry missing")
+
 
 if __name__ == "__main__":
     unittest.main()

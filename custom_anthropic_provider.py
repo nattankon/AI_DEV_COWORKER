@@ -141,16 +141,20 @@ def model_metadata(raw_model_id: str) -> dict[str, Any]:
 
 def provider_status(app_root: str | Path, *, configured: bool = False) -> dict[str, Any]:
     profile = load_profile(app_root)
-    return {
+    presets, preset_registry_error = _provider_presets_or_error()
+    status = {
         "id": PROVIDER_ID,
         "label": "Compatible API provider",
         "configured": bool(configured and profile["base_url"]),
         **{key: profile[key] for key in ("preset_id", "base_url", "protocol", "auth_scheme", "models_auth_scheme")},
         "models": [model_metadata(model) for model in profile["models"]],
-        "presets": provider_presets(),
+        "presets": presets,
         "custom": True,
         "source": "user-configured",
     }
+    if preset_registry_error:
+        status["preset_registry_error"] = preset_registry_error
+    return status
 
 
 def custom_model_ids(app_root: str | Path) -> list[str]:
@@ -176,7 +180,8 @@ def _profile_payload(
     models_auth_scheme: str = AUTH_BEARER,
     models: Any = None,
 ) -> dict[str, Any]:
-    known_presets = {item["id"] for item in provider_presets()}
+    presets, _preset_registry_error = _provider_presets_or_error()
+    known_presets = {item["id"] for item in presets}
     clean_preset = str(preset_id or "custom").strip().casefold()
     clean_protocol = _choice(protocol, _PROTOCOLS, "protocol")
     clean_auth_scheme = _choice(auth_scheme, _AUTH_SCHEMES, "request authentication")
@@ -190,6 +195,13 @@ def _profile_payload(
         "models_auth_scheme": _choice(models_auth_scheme, _AUTH_SCHEMES, "model-list authentication"),
         "models": _clean_models(models),
     }
+
+
+def _provider_presets_or_error() -> tuple[list[dict[str, str]], str]:
+    try:
+        return provider_presets(), ""
+    except RuntimeError as exc:
+        return [], str(exc).strip() or "Compatible provider preset registry is unavailable."
 
 
 def _choice(value: str, allowed: set[str], label: str) -> str:
