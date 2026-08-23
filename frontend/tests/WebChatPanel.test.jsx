@@ -117,6 +117,40 @@ describe("WebChatPanel", () => {
     await waitFor(() => expect(revokeWebChatGrant).toHaveBeenCalledOnce());
   });
 
+  it("lets the user choose an unregistered folder and grants that exact workspace", async () => {
+    global.ResizeObserver = ResizeObserverStub;
+    const selectWorkspace = vi.fn().mockResolvedValue("C:\\Work\\Loose Folder");
+    const setWebChatGrant = vi.fn().mockResolvedValue({
+      grant: { id: "grant-folder", workspacePath: "C:\\Work\\Loose Folder", workspaceName: "Loose Folder", permissionMode: "full" },
+      toolsEnabled: true,
+      tunnelConnected: false,
+      localGateway: { status: "ready", toolCount: 1, tools: [{ name: "read_file" }] },
+    });
+    const bridge = {
+      showWebChat: vi.fn().mockResolvedValue({ ok: true }),
+      hideWebChat: vi.fn().mockResolvedValue({ ok: true }),
+      getWebChatState: vi.fn().mockResolvedValue({ loading: false, url: "https://chatgpt.com/" }),
+      subscribeWebChatState: () => () => {},
+      getWebChatGrantState: vi.fn().mockResolvedValue({ grant: null, toolsEnabled: false, tunnelConnected: false }),
+      subscribeWebChatGrantState: () => () => {},
+      selectWorkspace,
+      setWebChatGrant,
+    };
+
+    render(<WebChatPanel bridge={bridge} projects={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Web Chat workspace access" }));
+    fireEvent.change(screen.getByLabelText("Web Chat permission profile"), { target: { value: "full" } });
+    fireEvent.click(screen.getByRole("button", { name: "Choose folder for Web Chat" }));
+
+    await waitFor(() => expect(selectWorkspace).toHaveBeenCalledOnce());
+    await waitFor(() => expect(setWebChatGrant).toHaveBeenCalledWith({
+      workspacePath: "C:\\Work\\Loose Folder",
+      workspaceName: "Loose Folder",
+      permissionMode: "full",
+    }));
+    expect(await screen.findByRole("button", { name: "Revoke Web Chat workspace access" })).toBeInTheDocument();
+  });
+
   it("connects and automatically verifies an authenticated tunnel after local tools are ready", async () => {
     global.ResizeObserver = ResizeObserverStub;
     const startWebChatTunnel = vi.fn().mockResolvedValue({ ok: true });

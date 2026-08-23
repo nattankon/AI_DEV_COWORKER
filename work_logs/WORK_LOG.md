@@ -2527,3 +2527,11 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both established delivery paths remain active: the pre-window startup update gate and the in-app top-right Update control can discover and install `v0.1.34`.
 - Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.34`.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-23 - Add native folder selection to Web Chat workspace access
+
+- Root cause: the Web Chat workspace-access panel rendered only registered project buttons even though the Electron bridge already exposed a bounded native directory picker. Users could therefore grant a project but could not choose an independent folder from this flow.
+- Added a `Choose folder` action beside Registered projects. It opens the existing native directory picker, derives a display name from the selected path, and creates the same single canonical Web Chat grant with the currently selected permission profile. Cancellation makes no change.
+- The grant, local gateway, tunnel, and connector verification boundaries are unchanged; choosing a folder does not automatically connect or expose it publicly.
+- TDD evidence: the new WebChatPanel test first failed because no accessible folder action existed, then passed after wiring the existing bridge method into the grant flow.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.

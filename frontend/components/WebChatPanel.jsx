@@ -38,6 +38,11 @@ function displayExpiry(value) {
   return Number.isFinite(timestamp) ? new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
 }
 
+function workspaceNameFromPath(workspacePath) {
+  const parts = String(workspacePath || "").replace(/[\\/]+$/, "").split(/[\\/]/).filter(Boolean);
+  return parts.at(-1) || workspacePath;
+}
+
 export default function WebChatPanel({ bridge, projects = [], approvalPending = false, overlayOpen = false }) {
   const viewportRef = useRef(null);
   const [state, setState] = useState(initialState);
@@ -105,6 +110,26 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
       const result = await bridge?.setWebChatGrant?.({
         workspacePath: project.path,
         workspaceName: project.name || project.path,
+        permissionMode,
+      });
+      if (!result?.ok && result?.error) throw new Error(result.error);
+      if (result && typeof result === "object") setGrantState((current) => ({ ...current, ...result }));
+    } catch (error) {
+      setGrantError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setGrantBusy(false);
+    }
+  };
+  const chooseWorkspace = async () => {
+    if (grantBusy || typeof bridge?.selectWorkspace !== "function") return;
+    setGrantBusy(true);
+    setGrantError("");
+    try {
+      const workspacePath = await bridge.selectWorkspace();
+      if (!workspacePath) return;
+      const result = await bridge?.setWebChatGrant?.({
+        workspacePath,
+        workspaceName: workspaceNameFromPath(workspacePath),
         permissionMode,
       });
       if (!result?.ok && result?.error) throw new Error(result.error);
@@ -288,6 +313,15 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
                     {project.name || project.path}
                   </button>
                 )) : <span className="text-[#9a958a]">No registered projects</span>}
+                <button
+                  type="button"
+                  aria-label="Choose folder for Web Chat"
+                  disabled={grantBusy || typeof bridge?.selectWorkspace !== "function"}
+                  onClick={chooseWorkspace}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[#dcd8cf] bg-white px-3 text-[#4e4b45] transition hover:bg-[#f3f2ee] disabled:opacity-40"
+                >
+                  <FolderOpen size={13} /> Choose folder
+                </button>
               </div>
             </div>
           </div>
