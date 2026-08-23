@@ -2535,3 +2535,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - The grant, local gateway, tunnel, and connector verification boundaries are unchanged; choosing a folder does not automatically connect or expose it publicly.
 - TDD evidence: the new WebChatPanel test first failed because no accessible folder action existed, then passed after wiring the existing bridge method into the grant flow.
 - Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-23 - Prepare Web Chat folder-selection update v0.1.35
+
+- Bumped the desktop package to `0.1.35` so native folder selection in Web Chat workspace access reaches installed copies through both existing updater paths.
+- Fresh verification passed: backend `471/471`; frontend `33/33` files and `231/231` tests; helper tests `2/2`; production Vite build; `npm run dist`; and packaged smoke loading `app.asar/dist/index.html` at `v0.1.35`.
+- Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.35.exe` (`111050036` bytes), SHA-256 `11A6F592C35F9B80BB796999CBF2CB4130579972C3EAD843047CA7E1F461876D`; blockmap `117206` bytes, SHA-256 `8C6A39231CFE9296532EB8E7F1113A0187C7E7ED622AEE36BE767EEF1009C540`; updater manifest `364` bytes, SHA-256 `355D057EA50E252F52C5292BF4B8333638D2D62919A8009CA06B425BBAD766D1`.
+- Both the startup updater gate and in-app top-right Update control remain unchanged.
+- Release candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification.
+- Skills used: `verification-before-completion`.
