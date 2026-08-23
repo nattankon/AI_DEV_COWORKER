@@ -2490,3 +2490,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - `npm run dist` produced installer `AI-Dev-Co-worker-Setup-0.1.33.exe` (`111050046` bytes), blockmap (`117313` bytes), and `latest.yml` (`364` bytes). SHA-256 values are installer `2CFA716E09A6CC0B29B44F6EBBC0B1EFE10FF858BC5DEC497E5C73C27FD9F31D`, blockmap `B85A48A7A0C4662842A7AFCE7E9A61F0173526249A4EBCE83F45358D0F991FF3`, and updater manifest `2D391C45E60787F83186BFA9767AE91A414EE46AF9E9381D9961569AB4DCA084`.
 - Release candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification.
 - Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, `requesting-code-review` (manual security-focused review), and `verification-before-completion`.
+
+## 2026-08-23 - Published Web Chat usability update v0.1.33
+
+- Published source commit `d6fcc34` and annotated tag `v0.1.33` to `origin/main` and GitHub Releases.
+- The release is neither a draft nor a prerelease. GitHub asset sizes and SHA-256 digests match the local installer, blockmap, and updater manifest exactly.
+- The public latest-release manifest returned version `0.1.33`, installer `AI-Dev-Co-worker-Setup-0.1.33.exe`, size `111050046`, the expected SHA-512, and SHA-256 `2D391C45E60787F83186BFA9767AE91A414EE46AF9E9381D9961569AB4DCA084`.
+- Both established delivery paths remain active: the pre-window startup update gate and the in-app top-right Update control can discover and install `v0.1.33`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.33`.
+- Skills used: `verification-before-completion`.
