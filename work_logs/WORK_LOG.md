@@ -2508,3 +2508,13 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Fresh verification passed: focused Web/CoworkApp tests `48/48`; full frontend `33/33` files and `230/230` tests; production build passed with only the existing non-blocking chunk-size advisory.
 - Release decision: source-only post-`v0.1.33` fix, queued for the next batch release rather than publishing another desktop update immediately.
 - Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-23 - Prepare native-overlay update v0.1.34
+
+- Bumped the desktop package to `0.1.34` to deliver the Web Chat native-overlay fix through both established updater paths.
+- The first packaged smoke failed even though the packaged renderer loaded successfully. Diagnostic logging showed Windows rejected the fixed DevTools port used only by the smoke harness (`bind() ... 0x271D`), so the harness could not observe the healthy renderer.
+- Replaced the fixed debugging port with Chromium's dynamic port selection and read the selected port from the isolated profile's `DevToolsActivePort` file. Added direct tests for valid, missing, and malformed port data. The product startup updater remains unchanged, and the smoke allowance is 35 seconds so it covers the intentional 20-second startup update gate plus renderer initialization.
+- Fresh verification passed: backend `471/471`; frontend `33/33` files and `230/230` tests; helper tests `2/2`; production Vite build; `npm run dist`; and packaged smoke loading `app.asar/dist/index.html` at `v0.1.34`.
+- Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.34.exe` (`111050008` bytes), SHA-256 `0DE4E551219F5224838C5487EA562B68711067CB5E1EE4A9081D2AED500EE5D1`; blockmap `117125` bytes, SHA-256 `18F7EF91439D52D7B587B29BA4FCF2C98C4F025FDFE9C67C497571AC580049EE`; updater manifest `364` bytes, SHA-256 `1C21BFABD045BA1F5F88D1119BC1BBAA08E5DA47E300D3870FF24BD9D7095A80`.
+- Release candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.

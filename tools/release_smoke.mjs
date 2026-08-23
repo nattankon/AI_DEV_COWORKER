@@ -3,6 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { readDevToolsPort } from "./release_smoke_helpers.mjs";
+
 const root = path.resolve(process.cwd());
 const executable = path.join(root, "release", "win-unpacked", "AI Dev Co-worker.exe");
 const providerPresetRegistry = path.join(
@@ -17,8 +19,7 @@ const providerPresetRegistry = path.join(
 const packagedSidecar = path.join(path.dirname(providerPresetRegistry), "ipc_sidecar.py");
 const prefix = "cowork-release-smoke-";
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-const port = 9440;
-const app = spawn(executable, [`--user-data-dir=${profile}`, `--remote-debugging-port=${port}`], {
+const app = spawn(executable, [`--user-data-dir=${profile}`, "--remote-debugging-port=0"], {
   cwd: root,
   env: { ...process.env, COWORK_APP_ROOT: root },
   stdio: ["ignore", "pipe", "pipe"],
@@ -28,8 +29,13 @@ const app = spawn(executable, [`--user-data-dir=${profile}`, `--remote-debugging
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 async function waitForRenderer() {
-  const deadline = Date.now() + 25_000;
+  const deadline = Date.now() + 35_000;
   while (Date.now() < deadline) {
+    const port = readDevToolsPort(profile);
+    if (!port) {
+      await sleep(300);
+      continue;
+    }
     try {
       const response = await fetch(`http://127.0.0.1:${port}/json`);
       const pages = await response.json();
