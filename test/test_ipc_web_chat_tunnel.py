@@ -117,6 +117,27 @@ class IpcWebChatTunnelTests(unittest.TestCase):
         self.assertNotIn("super-secret", self.output.getvalue())
         self.assertEqual(len(self.controllers[0].starts), 1)
 
+    def test_openai_options_reach_controller_but_never_public_events(self):
+        self.bind()
+        self.send(
+            "web_chat_tunnel_start",
+            provider="openai",
+            credential="local-secret",
+            expires_at=2_000_000_000,
+            grant_id="grant-1",
+            grant_revision=3,
+            provider_options={
+                "tunnel_id": "tunnel_0123456789abcdef0123456789abcdef",
+                "runtime_api_key": "sk-runtime-secret",
+            },
+        )
+        self.sidecar.wait_for_idle()
+        start = self.controllers[0].starts[0]
+        self.assertEqual(start["provider_options"]["tunnel_id"], "tunnel_0123456789abcdef0123456789abcdef")
+        self.assertEqual(start["provider_options"]["runtime_api_key"], "sk-runtime-secret")
+        self.assertNotIn("sk-runtime-secret", self.output.getvalue())
+        self.assertNotIn("local-secret", self.output.getvalue())
+
     def test_stale_or_missing_gateway_start_fails_closed(self):
         self.send("web_chat_tunnel_start", provider="test", credential="secret", expires_at=2_000_000_000, grant_id="missing", grant_revision=1)
         self.sidecar.wait_for_idle()

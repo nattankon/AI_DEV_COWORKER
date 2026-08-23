@@ -23,6 +23,7 @@ import {
   normalizeWebChatTunnelState,
 } from "./webChatGatewayState.js";
 import {
+  canCopyConnectorSetupValue,
   emptyWebChatConnectorSetupState,
   normalizeWebChatConnectorSetupState,
   probeRemoteMcp,
@@ -141,6 +142,17 @@ function handlePythonStdoutLine(message) {
           webChatConnectorSetupState = emptyWebChatConnectorSetupState();
         } else if (previousEndpoint && previousEndpoint !== webChatTunnelState.endpoint) {
           webChatConnectorSetupState = emptyWebChatConnectorSetupState();
+        }
+        if (webChatTunnelState.status === "connected" && webChatTunnelState.connectorMode === "tunnel") {
+          webChatConnectorSetupState = normalizeWebChatConnectorSetupState({
+            status: "runtime_ready",
+            endpoint: webChatTunnelState.endpoint,
+            authentication: "openai-tunnel",
+            serverName: "OpenAI Secure MCP Tunnel",
+            protocolVersion: "2025-06-18",
+            toolCount: webChatTunnelState.toolCount,
+            checkedAt: new Date().toISOString(),
+          });
         }
         emitWebChatGrantState();
       }
@@ -844,7 +856,7 @@ ipcMain.handle("web-chat-grant-revoke", async () => {
 
 ipcMain.handle("web-chat-tunnel-start", async (_event, payload) => {
   const provider = String(payload?.provider || "cloudflare").trim().toLocaleLowerCase("en-US");
-  if (provider !== "cloudflare") return { ok: false, error: "Unsupported Web Chat tunnel provider." };
+  if (!new Set(["cloudflare", "openai"]).has(provider)) return { ok: false, error: "Unsupported Web Chat tunnel provider." };
   if (webChatTunnelState.status === "starting" || webChatTunnelState.status === "connected") {
     return { ok: false, error: "The Web Chat tunnel is already active. Disconnect it before starting another." };
   }
@@ -854,6 +866,18 @@ ipcMain.handle("web-chat-tunnel-start", async (_event, payload) => {
     return { ok: false, error: "Local workspace tools must be ready before connecting a tunnel." };
   }
   const credential = randomBytes(32).toString("base64url");
+  const providerOptions = provider === "openai"
+    ? {
+        tunnel_id: String(payload?.tunnelId || payload?.tunnel_id || "").trim(),
+        runtime_api_key: String(payload?.runtimeApiKey || payload?.runtime_api_key || "").trim(),
+      }
+    : {};
+  if (provider === "openai" && !/^tunnel_[0-9a-f]{32}$/.test(providerOptions.tunnel_id)) {
+    return { ok: false, error: "Enter a valid OpenAI tunnel ID: tunnel_ followed by 32 lowercase hexadecimal characters." };
+  }
+  if (provider === "openai" && !providerOptions.runtime_api_key) {
+    return { ok: false, error: "Enter an OpenAI tunnel runtime API key with Tunnels Read + Use permission." };
+  }
   const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
   webChatTunnelCredential = credential;
   webChatConnectorSetupState = emptyWebChatConnectorSetupState();
@@ -876,6 +900,7 @@ ipcMain.handle("web-chat-tunnel-start", async (_event, payload) => {
       idle_timeout_seconds: 15 * 60,
       grant_id: grantState.grant.id,
       grant_revision: grantState.revision,
+      provider_options: providerOptions,
     });
     return { ok: true, ...emitWebChatGrantState(grantState) };
   } catch (error) {
@@ -892,6 +917,11 @@ ipcMain.handle("web-chat-connector-probe", async () => {
   const merged = mergeWebChatGatewayState(grantState, webChatGatewayState, webChatTunnelState);
   const endpoint = String(merged.tunnel?.endpoint || "");
   const credential = webChatTunnelCredential;
+  if (merged.tunnelConnected && merged.tunnel?.connectorMode === "tunnel") {
+    const ready = webChatConnectorSetupState.status === "runtime_ready"
+      && webChatConnectorSetupState.endpoint === endpoint;
+    return { ok: ready, error: ready ? "" : "OpenAI tunnel runtime is not ready.", ...emitWebChatGrantState(grantState) };
+  }
   if (!merged.tunnelConnected || !endpoint || !credential) {
     return { ok: false, error: "Connect an authenticated tunnel before verifying the ChatGPT connector.", ...emitWebChatGrantState(grantState) };
   }
@@ -915,13 +945,21 @@ ipcMain.handle("web-chat-connector-copy", async (_event, kind) => {
   const requested = String(kind || "");
   const grantState = getWebChatGrantStore().getState();
   const merged = mergeWebChatGatewayState(grantState, webChatGatewayState, webChatTunnelState);
-  const verified = webChatConnectorSetupState.status === "verified"
-    && webChatConnectorSetupState.endpoint === merged.tunnel?.endpoint;
-  if (!merged.tunnelConnected || !verified) {
+  const setupMatches = webChatConnectorSetupState.endpoint === merged.tunnel?.endpoint;
+  const copyAllowed = canCopyConnectorSetupValue({
+    kind: requested,
+    connectorMode: merged.tunnel?.connectorMode,
+    status: webChatConnectorSetupState.status,
+  });
+  if (!merged.tunnelConnected || !setupMatches || !copyAllowed) {
     return { ok: false, error: "Verify the active connector before copying setup values." };
   }
   if (requested === "endpoint") {
     return writeConnectorClipboard({ clipboard, kind: requested, endpoint: merged.tunnel.endpoint, credential: webChatTunnelCredential });
+  }
+  if (requested === "tunnel_id" && merged.tunnel?.tunnelId) {
+    clipboard.writeText(merged.tunnel.tunnelId);
+    return { ok: true, copied: "tunnel_id" };
   }
   if (requested === "credential" && webChatTunnelCredential) {
     return writeConnectorClipboard({ clipboard, kind: requested, endpoint: merged.tunnel.endpoint, credential: webChatTunnelCredential });

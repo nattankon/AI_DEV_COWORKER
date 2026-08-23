@@ -53,6 +53,9 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
   const [grantError, setGrantError] = useState("");
   const [tunnelBusy, setTunnelBusy] = useState(false);
   const [tunnelError, setTunnelError] = useState("");
+  const [tunnelProvider, setTunnelProvider] = useState("cloudflare");
+  const [openAiTunnelId, setOpenAiTunnelId] = useState("");
+  const [openAiRuntimeKey, setOpenAiRuntimeKey] = useState("");
   const [setupBusy, setSetupBusy] = useState(false);
   const [setupNotice, setSetupNotice] = useState("");
   const autoVerifyTunnelRef = useRef(false);
@@ -160,8 +163,12 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
     setTunnelError("");
     autoVerifyTunnelRef.current = true;
     try {
-      const result = await bridge?.startWebChatTunnel?.({ provider: "cloudflare" });
+      const request = tunnelProvider === "openai"
+        ? { provider: "openai", tunnelId: openAiTunnelId.trim(), runtimeApiKey: openAiRuntimeKey.trim() }
+        : { provider: "cloudflare" };
+      const result = await bridge?.startWebChatTunnel?.(request);
       if (!result?.ok) throw new Error(result?.error || "Unable to connect the Web Chat tunnel.");
+      if (tunnelProvider === "openai") setOpenAiRuntimeKey("");
       setGrantState((current) => ({ ...current, ...result }));
     } catch (error) {
       autoVerifyTunnelRef.current = false;
@@ -200,7 +207,7 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
     }
   }, [bridge, grantState.tunnelConnected, setupBusy]);
   useEffect(() => {
-    if (!autoVerifyTunnelRef.current || !grantState.tunnelConnected || grantState.connectorSetup?.status === "verified") return;
+    if (!autoVerifyTunnelRef.current || !grantState.tunnelConnected || ["verified", "runtime_ready"].includes(grantState.connectorSetup?.status)) return;
     autoVerifyTunnelRef.current = false;
     void verifyConnector();
   }, [grantState.connectorSetup?.status, grantState.tunnelConnected, verifyConnector]);
@@ -209,7 +216,13 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
     try {
       const result = await bridge?.copyWebChatConnectorValue?.(kind);
       if (!result?.ok) throw new Error(result?.error || "Unable to copy connector setup value.");
-      setSetupNotice(kind === "credential" ? "Bearer credential copied; clipboard clears in 60 seconds." : "Connector URL copied.");
+      setSetupNotice(
+        kind === "credential"
+          ? "Bearer credential copied; clipboard clears in 60 seconds."
+          : kind === "tunnel_id"
+            ? "Tunnel ID copied."
+            : "Connector URL copied.",
+      );
     } catch (error) {
       setSetupNotice(error instanceof Error ? error.message : String(error));
     }
@@ -241,6 +254,13 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
   const connectorVerified = grantState.tunnelConnected
     && connectorSetup.status === "verified"
     && connectorSetup.endpoint === tunnel.endpoint;
+  const tunnelRuntimeReady = grantState.tunnelConnected
+    && tunnel.connectorMode === "tunnel"
+    && connectorSetup.status === "runtime_ready"
+    && connectorSetup.endpoint === tunnel.endpoint;
+  const connectorSetupReady = connectorVerified || tunnelRuntimeReady;
+  const openAiTunnelSelected = tunnelProvider === "openai";
+  const openAiTunnelReadyToStart = !openAiTunnelSelected || (/^tunnel_[0-9a-f]{32}$/.test(openAiTunnelId.trim()) && Boolean(openAiRuntimeKey.trim()));
 
   return (
     <section aria-label="Web Chat" className="flex h-full min-h-0 flex-col bg-white">
@@ -344,46 +364,80 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <label className="grid gap-1 text-[10px] text-[#817d74]">
                       Tunnel provider
-                      <select aria-label="Web Chat tunnel provider" value="cloudflare" disabled className="h-8 rounded-md border border-[#dcd8cf] bg-white px-2 text-[11px] text-[#34322d]">
+                      <select aria-label="Web Chat tunnel provider" value={tunnelProvider} disabled={grantState.tunnelConnected || tunnel.status === "starting"} onChange={(event) => setTunnelProvider(event.target.value)} className="h-8 rounded-md border border-[#dcd8cf] bg-white px-2 text-[11px] text-[#34322d]">
+                        <option value="openai">OpenAI Secure Tunnel</option>
                         <option value="cloudflare">Cloudflare Quick Tunnel</option>
                       </select>
                     </label>
+                    {openAiTunnelSelected && !grantState.tunnelConnected ? (
+                      <>
+                        <label className="grid min-w-[250px] flex-1 gap-1 text-[10px] text-[#817d74]">
+                          Tunnel ID
+                          <input aria-label="OpenAI tunnel ID" value={openAiTunnelId} onChange={(event) => setOpenAiTunnelId(event.target.value)} placeholder="tunnel_..." className="h-8 rounded-md border border-[#dcd8cf] bg-white px-2 font-mono text-[11px] text-[#34322d] outline-none" />
+                        </label>
+                        <label className="grid min-w-[230px] flex-1 gap-1 text-[10px] text-[#817d74]">
+                          Runtime API key
+                          <input aria-label="OpenAI tunnel runtime API key" type="password" autoComplete="off" value={openAiRuntimeKey} onChange={(event) => setOpenAiRuntimeKey(event.target.value)} placeholder="Used only by tunnel-client" className="h-8 rounded-md border border-[#dcd8cf] bg-white px-2 text-[11px] text-[#34322d] outline-none" />
+                        </label>
+                        <p className="basis-full text-[10px] text-[#817d74]">
+                          Create the tunnel ID and runtime key in OpenAI Platform. The runtime key is passed only to the local tunnel process and is not saved.
+                        </p>
+                      </>
+                    ) : null}
                     {grantState.tunnelConnected ? (
                       <button type="button" aria-label="Disconnect Web Chat tunnel" disabled={tunnelBusy} onClick={disconnectTunnel} className="mt-auto h-8 rounded-md border border-[#e7c7c1] bg-white px-3 text-[#a6483e] hover:bg-[#fff2ef] disabled:opacity-50">
                         Disconnect
                       </button>
                     ) : (
-                      <button type="button" aria-label="Connect Web Chat tunnel" disabled={tunnelBusy || tunnel.status === "starting" || !grantState.toolsEnabled} onClick={connectTunnel} className="mt-auto h-8 rounded-md bg-[#2f2e2a] px-3 text-white hover:bg-black disabled:opacity-40">
-                        {tunnel.status === "starting" || tunnelBusy ? "Connecting..." : "Connect & verify"}
+                      <button type="button" aria-label="Connect Web Chat tunnel" disabled={tunnelBusy || tunnel.status === "starting" || !grantState.toolsEnabled || !openAiTunnelReadyToStart} onClick={connectTunnel} className="mt-auto h-8 rounded-md bg-[#2f2e2a] px-3 text-white hover:bg-black disabled:opacity-40">
+                        {tunnel.status === "starting" || tunnelBusy ? "Connecting..." : openAiTunnelSelected ? "Start secure tunnel" : "Connect & verify"}
                       </button>
                     )}
-                    {grantState.tunnelConnected && tunnel.endpoint ? <span className="mt-auto rounded bg-[#eceae4] px-2 py-1 font-mono text-[10px]">{displayHost(tunnel.endpoint)}</span> : null}
+                    {grantState.tunnelConnected && tunnel.endpoint ? <span className="mt-auto rounded bg-[#eceae4] px-2 py-1 font-mono text-[10px]">{tunnel.connectorMode === "tunnel" ? tunnel.tunnelId : displayHost(tunnel.endpoint)}</span> : null}
                     {grantState.tunnelConnected && displayExpiry(tunnel.expiresAt) ? <span className="mt-auto text-[10px] text-[#817d74]">Expires {displayExpiry(tunnel.expiresAt)}</span> : null}
                   </div>
                   {grantState.tunnelConnected ? (
                     <div className="mt-3 border-t border-[#e6e2da] pt-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <strong className="text-[12px] text-[#34322d]">Register in ChatGPT</strong>
-                        <span className={`rounded px-2 py-0.5 text-[10px] ${connectorVerified ? "bg-[#e4f3e8] text-[#32714a]" : connectorSetup.status === "error" ? "bg-[#fff0ed] text-[#a6483e]" : "bg-[#eceae4] text-[#68665f]"}`}>
-                          {connectorVerified ? `Verified: ${connectorSetup.toolCount} tools` : connectorSetup.status === "verifying" || setupBusy ? "Verifying..." : "Not verified"}
+                        <span className={`rounded px-2 py-0.5 text-[10px] ${connectorSetupReady ? "bg-[#e4f3e8] text-[#32714a]" : connectorSetup.status === "error" ? "bg-[#fff0ed] text-[#a6483e]" : "bg-[#eceae4] text-[#68665f]"}`}>
+                          {tunnelRuntimeReady ? "Runtime ready" : connectorVerified ? `Verified: ${connectorSetup.toolCount} tools` : connectorSetup.status === "verifying" || setupBusy ? "Verifying..." : "Not verified"}
                         </span>
-                        <button type="button" aria-label="Verify Web Chat connector" disabled={setupBusy} onClick={verifyConnector} className="ml-auto h-8 rounded-md border border-[#dcd8cf] bg-white px-3 text-[11px] hover:bg-[#f3f2ee] disabled:opacity-50">
-                          {setupBusy ? "Verifying..." : "Verify"}
-                        </button>
+                        {tunnel.connectorMode !== "tunnel" ? (
+                          <button type="button" aria-label="Verify Web Chat connector" disabled={setupBusy} onClick={verifyConnector} className="ml-auto h-8 rounded-md border border-[#dcd8cf] bg-white px-3 text-[11px] hover:bg-[#f3f2ee] disabled:opacity-50">
+                            {setupBusy ? "Verifying..." : "Verify"}
+                          </button>
+                        ) : null}
                       </div>
-                      <div className="mt-2 grid gap-1.5 text-[11px] text-[#6f6b63]">
-                        <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">1</span><span>Enable developer mode in ChatGPT Settings &gt; Apps.</span></div>
-                        <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">2</span><span>Create a custom app and use the verified MCP endpoint.</span></div>
-                        <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">3</span><span>Select bearer authentication, paste the credential, then scan tools.</span></div>
-                      </div>
+                      {tunnel.connectorMode === "tunnel" ? (
+                        <div className="mt-2 grid gap-1.5 text-[11px] text-[#6f6b63]">
+                          <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">1</span><span>In ChatGPT, create a plugin and choose the Tunnel connection tab.</span></div>
+                          <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">2</span><span>Select Tunnel, then choose or paste this tunnel ID.</span></div>
+                          <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">3</span><span>Save the plugin and scan tools while this runtime remains connected.</span></div>
+                        </div>
+                      ) : (
+                        <div className="mt-2 grid gap-1.5 text-[11px] text-[#6f6b63]">
+                          <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">1</span><span>In ChatGPT, create a plugin and choose the Server URL connection tab.</span></div>
+                          <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">2</span><span>Use the verified MCP URL.</span></div>
+                          <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">3</span><span>Select bearer authentication, paste the credential, then scan tools.</span></div>
+                        </div>
+                      )}
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <button type="button" aria-label="Copy Web Chat connector URL" disabled={!connectorVerified} onClick={() => copySetupValue("endpoint")} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#dcd8cf] bg-white px-3 text-[11px] hover:bg-[#f3f2ee] disabled:opacity-40">
-                          <Copy size={12} /> URL
-                        </button>
-                        <button type="button" aria-label="Copy Web Chat bearer credential" disabled={!connectorVerified} onClick={() => copySetupValue("credential")} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#dcd8cf] bg-white px-3 text-[11px] hover:bg-[#f3f2ee] disabled:opacity-40">
-                          <KeyRound size={12} /> Credential
-                        </button>
-                        {connectorVerified ? <span className="inline-flex items-center gap-1 text-[10px] text-[#3f8f62]"><CheckCircle2 size={12} /> {connectorSetup.serverName || "MCP server"}</span> : null}
+                        {tunnel.connectorMode === "tunnel" ? (
+                          <button type="button" aria-label="Copy OpenAI tunnel ID" disabled={!tunnelRuntimeReady} onClick={() => copySetupValue("tunnel_id")} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#dcd8cf] bg-white px-3 text-[11px] hover:bg-[#f3f2ee] disabled:opacity-40">
+                            <Copy size={12} /> Tunnel ID
+                          </button>
+                        ) : (
+                          <>
+                            <button type="button" aria-label="Copy Web Chat connector URL" disabled={!connectorVerified} onClick={() => copySetupValue("endpoint")} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#dcd8cf] bg-white px-3 text-[11px] hover:bg-[#f3f2ee] disabled:opacity-40">
+                              <Copy size={12} /> URL
+                            </button>
+                            <button type="button" aria-label="Copy Web Chat bearer credential" disabled={!connectorVerified} onClick={() => copySetupValue("credential")} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#dcd8cf] bg-white px-3 text-[11px] hover:bg-[#f3f2ee] disabled:opacity-40">
+                              <KeyRound size={12} /> Credential
+                            </button>
+                          </>
+                        )}
+                        {connectorSetupReady ? <span className="inline-flex items-center gap-1 text-[10px] text-[#3f8f62]"><CheckCircle2 size={12} /> {connectorSetup.serverName || "MCP server"}</span> : null}
                       </div>
                       {connectorSetup.error || setupNotice ? <p className={`mt-2 text-[10px] ${connectorSetup.error ? "text-[#a6483e]" : "text-[#6f6b63]"}`}>{connectorSetup.error || setupNotice}</p> : null}
                     </div>

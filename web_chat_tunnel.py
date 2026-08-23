@@ -5,18 +5,23 @@ import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+from pathlib import Path
 import queue
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from typing import Any, Callable
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
+from urllib.request import urlopen
 
 
 MCP_PROTOCOL_VERSION = "2025-06-18"
 _CLOUDFLARE_URL = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
+_OPENAI_TUNNEL_ID = re.compile(r"^tunnel_[0-9a-f]{32}$")
 
 
 def _utc_now() -> str:
@@ -125,6 +130,159 @@ class CloudflaredQuickTunnelAdapter:
         self._process_tree_killer(process)
 
 
+class OpenAISecureTunnelAdapter:
+    """Run the official outbound-only OpenAI tunnel client against the local MCP origin."""
+
+    connector_mode = "tunnel"
+    _INHERITED_ENVIRONMENT = frozenset(
+        {
+            "APPDATA", "COMSPEC", "HOME", "HTTPS_PROXY", "HTTP_PROXY",
+            "LOCALAPPDATA", "NO_PROXY", "NUMBER_OF_PROCESSORS", "OS", "PATH",
+            "PATHEXT", "PROCESSOR_ARCHITECTURE", "PROGRAMDATA", "SSL_CERT_DIR",
+            "SSL_CERT_FILE", "SYSTEMDRIVE", "SYSTEMROOT", "TEMP", "TMP",
+            "USERPROFILE", "WINDIR",
+        }
+    )
+
+    def __init__(
+        self,
+        *,
+        executable_resolver: Callable[[], str | None] | None = None,
+        popen_factory: Callable[..., Any] | None = None,
+        process_tree_killer: Callable[[Any], None] | None = None,
+        readiness_waiter: Callable[[str, Any, float], str] | None = None,
+        tempdir_factory: Callable[[], str] | None = None,
+        startup_timeout_seconds: float = 30.0,
+    ):
+        self._executable_resolver = executable_resolver or self._resolve_executable
+        self._popen_factory = popen_factory or subprocess.Popen
+        self._process_tree_killer = process_tree_killer or CloudflaredQuickTunnelAdapter._kill_process_tree
+        self._readiness_waiter = readiness_waiter or self._wait_until_ready
+        self._tempdir_factory = tempdir_factory or (lambda: tempfile.mkdtemp(prefix="cowork-openai-tunnel-"))
+        self._startup_timeout = max(0.1, float(startup_timeout_seconds))
+        self._process: Any | None = None
+        self._runtime_dir = ""
+        self._ready_base_url = ""
+        self._credential = ""
+        self._runtime_api_key = ""
+        self.tunnel_id = ""
+
+    @staticmethod
+    def _resolve_executable() -> str | None:
+        configured = str(os.environ.get("COWORK_TUNNEL_CLIENT_PATH") or "").strip()
+        if configured and os.path.isfile(configured):
+            return configured
+        bundled = Path(__file__).resolve().parent / "tools" / "tunnel-client" / "windows-amd64" / "tunnel-client-runtime.exe"
+        if os.name == "nt" and bundled.is_file():
+            return str(bundled)
+        return shutil.which("tunnel-client") or shutil.which("tunnel-client-runtime")
+
+    def configure(self, *, credential: str, options: dict[str, Any] | None = None) -> None:
+        config = options if isinstance(options, dict) else {}
+        tunnel_id = str(config.get("tunnel_id") or config.get("tunnelId") or "").strip()
+        runtime_api_key = str(config.get("runtime_api_key") or config.get("runtimeApiKey") or "").strip()
+        if not _OPENAI_TUNNEL_ID.fullmatch(tunnel_id):
+            raise ValueError("OpenAI Secure Tunnel requires a valid tunnel ID beginning with tunnel_.")
+        if not runtime_api_key:
+            raise ValueError("OpenAI Secure Tunnel requires a runtime API key with Tunnels Read + Use permission.")
+        if not str(credential or ""):
+            raise ValueError("OpenAI Secure Tunnel requires local MCP authentication.")
+        self.tunnel_id = tunnel_id
+        self._runtime_api_key = runtime_api_key
+        self._credential = str(credential)
+
+    def start(self, local_endpoint: str) -> str:
+        executable = self._executable_resolver()
+        if not executable:
+            raise RuntimeError(
+                "tunnel-client is not installed. Download the official OpenAI tunnel-client runtime "
+                "or configure COWORK_TUNNEL_CLIENT_PATH."
+            )
+        if not self.tunnel_id or not self._runtime_api_key or not self._credential:
+            raise RuntimeError("OpenAI Secure Tunnel adapter was not configured before startup.")
+        runtime_dir = Path(self._tempdir_factory())
+        runtime_dir.mkdir(parents=True, exist_ok=True)
+        profile_path = runtime_dir / "runtime-profile.yaml"
+        health_url_path = runtime_dir / "health.url"
+        profile = {
+            "control_plane": {
+                "base_url": "https://api.openai.com",
+                "api_key": "env:CONTROL_PLANE_API_KEY",
+                "tunnel_id": self.tunnel_id,
+            },
+            "health": {"listen_addr": "127.0.0.1:0", "url_file": str(health_url_path)},
+            "admin_ui": {"open_browser": False},
+            "mcp": {
+                "server_urls": [{"channel": "main", "url": str(local_endpoint)}],
+                "extra_headers": {"X-Cowork-Tunnel-Auth": "env:COWORK_WEB_CHAT_LOCAL_AUTH"},
+                "discovery_extra_headers": {"X-Cowork-Tunnel-Auth": "env:COWORK_WEB_CHAT_LOCAL_AUTH"},
+                "startup_wait_timeout": "10s",
+            },
+        }
+        profile_path.write_text(json.dumps(profile, ensure_ascii=True, indent=2), encoding="utf-8")
+        environment = {
+            key: value
+            for key, value in os.environ.items()
+            if key.upper() in self._INHERITED_ENVIRONMENT
+        }
+        environment["CONTROL_PLANE_API_KEY"] = self._runtime_api_key
+        environment["COWORK_WEB_CHAT_LOCAL_AUTH"] = f"Bearer {self._credential}"
+        command = [executable, "run", "--config", str(profile_path)]
+        popen_kwargs = {
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "stdin": subprocess.DEVNULL,
+            "env": environment,
+        }
+        if os.name == "nt":
+            popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        self._runtime_dir = str(runtime_dir)
+        self._process = self._popen_factory(command, **popen_kwargs)
+        try:
+            self._ready_base_url = self._readiness_waiter(str(health_url_path), self._process, self._startup_timeout)
+        except Exception:
+            self.stop()
+            raise
+        self._runtime_api_key = ""
+        self._credential = ""
+        return f"https://api.openai.com/v1/mcp/{self.tunnel_id}"
+
+    @staticmethod
+    def _wait_until_ready(health_url_path: str, process: Any, timeout_seconds: float) -> str:
+        deadline = time.monotonic() + max(0.1, float(timeout_seconds))
+        last_error = ""
+        while time.monotonic() < deadline:
+            if process.poll() is not None:
+                raise RuntimeError("tunnel-client exited before its runtime became ready.")
+            try:
+                base_url = Path(health_url_path).read_text(encoding="utf-8").strip().rstrip("/")
+                if base_url:
+                    with urlopen(f"{base_url}/readyz", timeout=0.75) as response:
+                        if response.status == 200:
+                            return base_url
+            except (FileNotFoundError, HTTPError, URLError, OSError) as exc:
+                last_error = str(exc)
+            time.sleep(0.1)
+        detail = f" ({last_error})" if last_error else ""
+        raise RuntimeError(f"tunnel-client did not become ready before the startup timeout{detail}.")
+
+    def health(self) -> bool:
+        return bool(self._ready_base_url) and self._process is not None and self._process.poll() is None
+
+    def stop(self) -> None:
+        process = self._process
+        runtime_dir = self._runtime_dir
+        self._process = None
+        self._runtime_dir = ""
+        self._ready_base_url = ""
+        self._runtime_api_key = ""
+        self._credential = ""
+        if process is not None and process.poll() is None:
+            self._process_tree_killer(process)
+        if runtime_dir:
+            shutil.rmtree(runtime_dir, ignore_errors=True)
+
+
 class StaticTestTunnelAdapter:
     """Explicit smoke-test seam; it never opens a public network connection."""
 
@@ -148,8 +306,8 @@ class StaticTestTunnelAdapter:
 def _default_adapter_factories() -> dict[str, Callable[[], Any]]:
     test_endpoint = str(os.environ.get("COWORK_WEB_CHAT_TEST_TUNNEL_ENDPOINT") or "").strip()
     if test_endpoint:
-        return {"cloudflare": lambda: StaticTestTunnelAdapter(test_endpoint)}
-    return {"cloudflare": CloudflaredQuickTunnelAdapter}
+        return {"cloudflare": lambda: StaticTestTunnelAdapter(test_endpoint), "openai": OpenAISecureTunnelAdapter}
+    return {"cloudflare": CloudflaredQuickTunnelAdapter, "openai": OpenAISecureTunnelAdapter}
 
 
 class WebChatTunnelController:
@@ -189,6 +347,8 @@ class WebChatTunnelController:
             "tunnel_generation": 0,
             "workspace_path": "",
             "endpoint": "",
+            "connector_mode": "url",
+            "tunnel_id": "",
             "auth_required": False,
             "expires_at": "",
             "tool_count": 0,
@@ -203,6 +363,7 @@ class WebChatTunnelController:
         credential: str,
         expires_at: float,
         idle_timeout_seconds: float = 900.0,
+        provider_options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         provider_name = str(provider or "").strip().casefold()
         factory = self._adapter_factories.get(provider_name)
@@ -249,6 +410,9 @@ class WebChatTunnelController:
             local_endpoint = f"http://127.0.0.1:{server.server_address[1]}/mcp"
             server_thread = threading.Thread(target=server.serve_forever, name="web-chat-mcp-http", daemon=True)
             adapter = factory()
+            configure = getattr(adapter, "configure", None)
+            if callable(configure):
+                configure(credential=token, options=dict(provider_options or {}))
             with self._lock:
                 self._server = server
                 self._server_thread = server_thread
@@ -264,7 +428,15 @@ class WebChatTunnelController:
                     adapter.stop()
                 return self.public_state()
             with self._lock:
-                self._state = {**self._state, "status": "connected", "endpoint": public_endpoint, "error": ""}
+                self._state = {
+                    **self._state,
+                    "status": "connected",
+                    "endpoint": public_endpoint,
+                    "connector_mode": str(getattr(adapter, "connector_mode", "url") or "url"),
+                    "tunnel_id": str(getattr(adapter, "tunnel_id", "") or ""),
+                    "auth_required": str(getattr(adapter, "connector_mode", "url") or "url") == "url",
+                    "error": "",
+                }
             self._audit("web_chat_tunnel_started", {"provider": provider_name, "grant_id": str(gateway.grant_id)})
             self._publish_state()
             self._monitor_thread = threading.Thread(
@@ -365,7 +537,11 @@ class WebChatTunnelController:
                 if self.path.rstrip("/") != "/mcp":
                     self.send_error(404)
                     return
-                authorization = str(self.headers.get("Authorization") or "")
+                authorization = str(
+                    self.headers.get("X-Cowork-Tunnel-Auth")
+                    or self.headers.get("Authorization")
+                    or ""
+                )
                 with controller._lock:
                     expected = f"Bearer {controller._credential}"
                     expired = time.time() >= controller._expires_at

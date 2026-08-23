@@ -198,6 +198,75 @@ describe("WebChatPanel", () => {
     await waitFor(() => expect(stopWebChatTunnel).toHaveBeenCalledOnce());
   });
 
+  it("connects an OpenAI Secure Tunnel and shows current plugin registration steps", async () => {
+    global.ResizeObserver = ResizeObserverStub;
+    const startWebChatTunnel = vi.fn().mockResolvedValue({ ok: true });
+    const probeWebChatConnector = vi.fn().mockResolvedValue({ ok: true });
+    const copyWebChatConnectorValue = vi.fn().mockResolvedValue({ ok: true, copied: "tunnel_id" });
+    let grantListener;
+    const bridge = {
+      showWebChat: vi.fn().mockResolvedValue({ ok: true }),
+      hideWebChat: vi.fn().mockResolvedValue({ ok: true }),
+      controlWebChat: vi.fn().mockResolvedValue({ ok: true }),
+      getWebChatState: vi.fn().mockResolvedValue({ loading: false, url: "https://chatgpt.com/" }),
+      subscribeWebChatState: () => () => {},
+      getWebChatGrantState: vi.fn().mockResolvedValue({
+        grant: { id: "grant-1", workspacePath: "C:/Work/A", workspaceName: "A", permissionMode: "manual" },
+        toolsEnabled: true,
+        tunnelConnected: false,
+        localGateway: { status: "ready", toolCount: 3, tools: [{ name: "read_file" }] },
+        tunnel: { status: "off", provider: "", endpoint: "", authRequired: false },
+      }),
+      subscribeWebChatGrantState: (listener) => { grantListener = listener; return () => {}; },
+      startWebChatTunnel,
+      probeWebChatConnector,
+      copyWebChatConnectorValue,
+    };
+
+    render(<WebChatPanel bridge={bridge} />);
+    fireEvent.click(screen.getByRole("button", { name: "Web Chat workspace access" }));
+    fireEvent.change(await screen.findByLabelText("Web Chat tunnel provider"), { target: { value: "openai" } });
+    fireEvent.change(screen.getByLabelText("OpenAI tunnel ID"), { target: { value: "tunnel_0123456789abcdef0123456789abcdef" } });
+    fireEvent.change(screen.getByLabelText("OpenAI tunnel runtime API key"), { target: { value: "sk-runtime-secret" } });
+    expect(screen.getByRole("button", { name: "Connect Web Chat tunnel" })).toHaveTextContent("Start secure tunnel");
+    fireEvent.click(screen.getByRole("button", { name: "Connect Web Chat tunnel" }));
+
+    await waitFor(() => expect(startWebChatTunnel).toHaveBeenCalledWith({
+      provider: "openai",
+      tunnelId: "tunnel_0123456789abcdef0123456789abcdef",
+      runtimeApiKey: "sk-runtime-secret",
+    }));
+    grantListener({
+      grant: { id: "grant-1", workspacePath: "C:/Work/A", workspaceName: "A", permissionMode: "manual" },
+      toolsEnabled: true,
+      tunnelConnected: true,
+      localGateway: { status: "ready", toolCount: 3, tools: [{ name: "read_file" }] },
+      tunnel: {
+        status: "connected",
+        provider: "openai",
+        endpoint: "https://api.openai.com/v1/mcp/tunnel_0123456789abcdef0123456789abcdef",
+        connectorMode: "tunnel",
+        tunnelId: "tunnel_0123456789abcdef0123456789abcdef",
+        authRequired: false,
+      },
+      connectorSetup: {
+        status: "runtime_ready",
+        endpoint: "https://api.openai.com/v1/mcp/tunnel_0123456789abcdef0123456789abcdef",
+        authentication: "openai-tunnel",
+        serverName: "OpenAI Secure MCP Tunnel",
+        toolCount: 3,
+      },
+    });
+
+    expect(await screen.findByText(/Create a plugin/i)).toBeInTheDocument();
+    expect(screen.getByText("Runtime ready")).toBeInTheDocument();
+    expect(screen.queryByText(/Verified:/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Select Tunnel/i)).toBeInTheDocument();
+    expect(probeWebChatConnector).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Copy OpenAI tunnel ID" }));
+    await waitFor(() => expect(copyWebChatConnectorValue).toHaveBeenCalledWith("tunnel_id"));
+  });
+
   it("verifies the public connector and offers explicit copy-only setup actions", async () => {
     global.ResizeObserver = ResizeObserverStub;
     const probeWebChatConnector = vi.fn().mockResolvedValue({ ok: true });

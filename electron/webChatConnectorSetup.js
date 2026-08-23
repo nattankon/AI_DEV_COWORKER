@@ -1,4 +1,4 @@
-const ALLOWED_STATUS = new Set(["unverified", "verifying", "verified", "error"]);
+const ALLOWED_STATUS = new Set(["unverified", "verifying", "runtime_ready", "verified", "error"]);
 
 export function emptyWebChatConnectorSetupState(status = "unverified") {
   return {
@@ -19,13 +19,21 @@ export function normalizeWebChatConnectorSetupState(value) {
   return {
     status: ALLOWED_STATUS.has(String(raw.status || "")) ? String(raw.status) : "error",
     endpoint: endpoint.startsWith("https://") ? endpoint : "",
-    authentication: raw.authentication === "bearer" ? "bearer" : "bearer",
+    authentication: raw.authentication === "openai-tunnel" ? "openai-tunnel" : "bearer",
     serverName: String(raw.serverName ?? raw.server_name ?? ""),
     protocolVersion: String(raw.protocolVersion ?? raw.protocol_version ?? ""),
     toolCount: Math.max(0, Number(raw.toolCount ?? raw.tool_count ?? 0) || 0),
     checkedAt: String(raw.checkedAt ?? raw.checked_at ?? ""),
     error: String(raw.error || ""),
   };
+}
+
+export function canCopyConnectorSetupValue({ kind, connectorMode, status }) {
+  const requested = String(kind || "");
+  if (connectorMode === "tunnel") {
+    return status === "runtime_ready" && requested === "tunnel_id";
+  }
+  return status === "verified" && (requested === "endpoint" || requested === "credential");
 }
 
 function publicError(endpoint, message) {

@@ -2553,3 +2553,23 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.35`.
 - Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.35`.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-23 - Add OpenAI Secure MCP Tunnel connector path
+
+- Added a provider-neutral second tunnel route for Web Chat using OpenAI's official `tunnel-client` runtime while preserving the existing Cloudflare Server URL route. Both routes expose the same bounded local MCP gateway and reuse canonical workspace grants, permission profiles, approvals, expiry, idle cleanup, and tunnel-generation revalidation.
+- The OpenAI route accepts a canonical `tunnel_` ID plus a Runtime API key, launches the runtime from the packaged app resource, waits on its loopback `/readyz` endpoint, and stops its full process tree on disconnect, error, expiry, idle timeout, gateway replacement, or application quit.
+- Secret handling is intentionally narrow: the Runtime API key and local bearer exist only in transient UI/main/sidecar call state and the child process environment. The child inherits only an allowlist of operating-system, certificate, and proxy variables; unrelated provider credentials are excluded. Public IPC/tunnel state contains the tunnel ID but never either secret.
+- Bundled official runtime: `tunnel-client-runtime` `v0.0.12` for Windows amd64. The downloaded archive matched upstream SHA-256 `0721098f9edda72cc36f938adcb12cd6a0c49c6c0be7ad6ab6e412f966585f2e`; license, notice, third-party inventory, and SPDX metadata are included and covered by the packaging contract.
+- UI terminology now matches ChatGPT's current plugin form: OpenAI Secure Tunnel maps to the `Tunnel` connection tab and uses the tunnel ID; Cloudflare maps to `Server URL` and retains explicit bearer-copy setup. The OpenAI key field explains that the key comes from OpenAI Platform, is local-process-only, and is not saved.
+- Fresh focused verification passed backend `17/17` and frontend `19/19`. The pre-hardening full run passed backend `475/475`, frontend `234/234`, and the production build; a final full run is required after the last validation/environment changes and before release publication.
+- Skills used: `writing-plans`, `systematic-debugging`, `test-driven-development`, `webapp-testing`, `requesting-code-review`, and `verification-before-completion`.
+
+## 2026-08-23 - Harden and prepare OpenAI Secure MCP Tunnel update v0.1.36
+
+- Resolved both security/correctness findings from the independent review before release. The tunnel runtime now authenticates its loopback MCP hop with `X-Cowork-Tunnel-Auth`, leaving connector OAuth `Authorization` untouched; a regression test sends both headers and proves the request succeeds. Cloudflare retains its bearer `Authorization` fallback.
+- Split OpenAI runtime readiness from product-side connector verification. OpenAI reports `Runtime ready`, copies only the tunnel ID, and labels its action `Start secure tunnel`; the trusted Electron handler rejects attempts to copy the local bearer or endpoint for this route. Cloudflare still requires a verified endpoint before URL or credential copy.
+- Final fresh verification passed: backend `477/477`; frontend `33/33` files and `236/236` tests; production build; official packaged runtime `0.0.12` execution; and packaged release smoke loading `app.asar/dist/index.html` at `v0.1.36`.
+- `npm run dist` produced installer `AI-Dev-Co-worker-Setup-0.1.36.exe` (`116104222` bytes), blockmap (`121552` bytes), and `latest.yml` (`364` bytes). SHA-256 values are installer `449D4E6449BAF8F219154AE6225F069ABAE2033E8F84F10B28B623985811ABA6`, blockmap `5F75D212563C05EAC318EA6B5BDAE299E667E649BD2CF0F864636A9506506B1F`, and updater manifest `B25A9E1E6C6698F4D5787EA67F0945352B9F926E4F7A69A63751FB3D08E85613`.
+- Independent review verdict after the final patch: custom local auth no longer collides with OAuth; key handling, process cleanup, resource packaging, and Cloudflare compatibility passed. The review's final copy-gate finding was resolved with a provider-specific helper plus tests.
+- Release candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification. A live OpenAI control-plane connection remains credential-gated and was not attempted without a user-supplied Tunnel ID/runtime key.
+- Skills used: `systematic-debugging`, `test-driven-development`, `requesting-code-review`, `webapp-testing`, and `verification-before-completion`.

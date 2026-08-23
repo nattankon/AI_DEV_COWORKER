@@ -76,4 +76,22 @@ describe("webChatGatewayState", () => {
     const stale = normalizeWebChatTunnelState({ ...tunnel, grant_id: "old", status: "connected" });
     expect(mergeWebChatGatewayState(grantState, gateway, stale).tunnelConnected).toBe(false);
   });
+
+  it("preserves only non-secret OpenAI tunnel registration metadata", () => {
+    const normalized = normalizeWebChatTunnelState({
+      status: "connected",
+      provider: "openai",
+      endpoint: "https://api.openai.com/v1/mcp/tunnel_0123456789abcdef0123456789abcdef",
+      connector_mode: "tunnel",
+      tunnel_id: "tunnel_0123456789abcdef0123456789abcdef",
+      runtime_api_key: "must-not-survive",
+    });
+    expect(normalized).toMatchObject({
+      provider: "openai",
+      connectorMode: "tunnel",
+      tunnelId: "tunnel_0123456789abcdef0123456789abcdef",
+      authRequired: false,
+    });
+    expect(JSON.stringify(normalized)).not.toContain("must-not-survive");
+  });
 });

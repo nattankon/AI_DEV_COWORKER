@@ -2563,6 +2563,13 @@ class IpcSidecar:
                 credential=str(payload.get("credential") or ""),
                 expires_at=float(payload.get("expires_at") or payload.get("expiresAt") or 0),
                 idle_timeout_seconds=float(payload.get("idle_timeout_seconds") or payload.get("idleTimeoutSeconds") or 900),
+                provider_options=(
+                    dict(payload.get("provider_options"))
+                    if isinstance(payload.get("provider_options"), dict)
+                    else dict(payload.get("providerOptions"))
+                    if isinstance(payload.get("providerOptions"), dict)
+                    else {}
+                ),
             )
         except Exception as exc:
             gateway = self._web_chat_gateway

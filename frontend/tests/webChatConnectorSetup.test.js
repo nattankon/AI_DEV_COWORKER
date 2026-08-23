@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  canCopyConnectorSetupValue,
   emptyWebChatConnectorSetupState,
   normalizeWebChatConnectorSetupState,
   probeRemoteMcp,
@@ -145,6 +146,25 @@ describe("web chat connector setup", () => {
       toolCount: 3,
       checkedAt: "2026-08-22T10:00:00.000Z",
     });
+  });
+
+  it("keeps tunnel runtime readiness distinct from product-side verification", () => {
+    expect(normalizeWebChatConnectorSetupState({
+      status: "runtime_ready",
+      endpoint: "https://api.openai.com/v1/mcp/tunnel_0123456789abcdef0123456789abcdef",
+      authentication: "openai-tunnel",
+      serverName: "OpenAI Secure MCP Tunnel",
+      toolCount: 3,
+    }).status).toBe("runtime_ready");
+  });
+
+  it("allows only the provider-specific setup values for each truthful state", () => {
+    expect(canCopyConnectorSetupValue({ kind: "tunnel_id", connectorMode: "tunnel", status: "runtime_ready" })).toBe(true);
+    expect(canCopyConnectorSetupValue({ kind: "credential", connectorMode: "tunnel", status: "runtime_ready" })).toBe(false);
+    expect(canCopyConnectorSetupValue({ kind: "endpoint", connectorMode: "tunnel", status: "runtime_ready" })).toBe(false);
+    expect(canCopyConnectorSetupValue({ kind: "endpoint", connectorMode: "server_url", status: "verified" })).toBe(true);
+    expect(canCopyConnectorSetupValue({ kind: "credential", connectorMode: "server_url", status: "verified" })).toBe(true);
+    expect(canCopyConnectorSetupValue({ kind: "tunnel_id", connectorMode: "server_url", status: "verified" })).toBe(false);
   });
 
   it("copies a credential without returning it and clears only the unchanged clipboard", () => {

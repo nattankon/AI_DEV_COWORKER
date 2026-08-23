@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import io
 import json
+import os
+from pathlib import Path
+import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from web_chat_tunnel import CloudflaredQuickTunnelAdapter, WebChatTunnelController
+from web_chat_tunnel import CloudflaredQuickTunnelAdapter, OpenAISecureTunnelAdapter, WebChatTunnelController
 
 
 class FakeGateway:
@@ -151,6 +155,22 @@ class WebChatTunnelControllerTests(unittest.TestCase):
         self.assertEqual(len(self.gateway.activated), 1)
         self.assertEqual(self.gateway.calls, [("read_file", {"path": "README.md"}, "grant-1", 7, self.gateway.activated[0])])
 
+    def test_internal_tunnel_auth_does_not_conflict_with_connector_authorization(self):
+        self.start()
+        request = Request(
+            self.adapter.local_endpoint,
+            data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer connector-oauth-token",
+                "X-Cowork-Tunnel-Auth": "Bearer secret-token",
+            },
+            method="POST",
+        )
+        with urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(payload["result"]["serverInfo"]["name"], "AI Dev Co-worker Web Chat Gateway")
+
     def test_idle_timeout_stops_listener_and_adapter(self):
         self.start(idle_timeout=0.05)
         deadline = time.time() + 1
@@ -204,7 +224,8 @@ class CloudflaredAdapterTests(unittest.TestCase):
             process_tree_killer=lambda target: target.terminate(),
             startup_timeout_seconds=0.2,
         )
-        endpoint = adapter.start("http://127.0.0.1:1234/mcp")
+        with mock.patch.dict(os.environ, {"UNRELATED_PROVIDER_SECRET": "must-not-leak"}):
+            endpoint = adapter.start("http://127.0.0.1:1234/mcp")
         self.assertEqual(endpoint, "https://random.trycloudflare.com/mcp")
         self.assertIn("--no-autoupdate", commands[0][0])
         self.assertNotIn("windowsHide", commands[0][1])
@@ -224,6 +245,100 @@ class CloudflaredAdapterTests(unittest.TestCase):
         adapter.start("http://127.0.0.1:1234/mcp")
         adapter.stop()
         self.assertEqual(cleaned, [process])
+
+
+class OpenAISecureTunnelAdapterTests(unittest.TestCase):
+    def test_rejects_noncanonical_tunnel_id_before_launch(self):
+        adapter = OpenAISecureTunnelAdapter(executable_resolver=lambda: "tunnel-client-runtime.exe")
+
+        with self.assertRaisesRegex(ValueError, "valid tunnel ID"):
+            adapter.configure(
+                credential="local-bearer",
+                options={"tunnel_id": "tunnel_not-canonical", "runtime_api_key": "sk-runtime"},
+            )
+
+    def test_missing_binary_fails_with_actionable_error(self):
+        adapter = OpenAISecureTunnelAdapter(executable_resolver=lambda: None)
+        adapter.configure(
+            credential="local-bearer",
+            options={"tunnel_id": "tunnel_0123456789abcdef0123456789abcdef", "runtime_api_key": "sk-runtime"},
+        )
+        with self.assertRaisesRegex(RuntimeError, "tunnel-client"):
+            adapter.start("http://127.0.0.1:1234/mcp")
+
+    def test_launches_with_environment_backed_secrets_and_waits_for_ready(self):
+        process = FakeProcess("")
+        launches = []
+        profiles = []
+
+        def launch(command, **kwargs):
+            profile_path = Path(command[command.index("--config") + 1])
+            profiles.append(json.loads(profile_path.read_text(encoding="utf-8")))
+            launches.append((command, kwargs))
+            return process
+
+        adapter = OpenAISecureTunnelAdapter(
+            executable_resolver=lambda: "C:/Tools/tunnel-client.exe",
+            popen_factory=launch,
+            readiness_waiter=lambda *_args: "http://127.0.0.1:43210",
+            process_tree_killer=lambda target: target.terminate(),
+            tempdir_factory=lambda: tempfile.mkdtemp(prefix="cowork-openai-tunnel-test-"),
+        )
+        adapter.configure(
+            credential="local-bearer",
+            options={"tunnel_id": "tunnel_0123456789abcdef0123456789abcdef", "runtime_api_key": "sk-runtime-secret"},
+        )
+        endpoint = adapter.start("http://127.0.0.1:1234/mcp")
+
+        self.assertEqual(endpoint, "https://api.openai.com/v1/mcp/tunnel_0123456789abcdef0123456789abcdef")
+        command, kwargs = launches[0]
+        self.assertNotIn("sk-runtime-secret", json.dumps(command))
+        self.assertNotIn("local-bearer", json.dumps(command))
+        self.assertEqual(kwargs["env"]["CONTROL_PLANE_API_KEY"], "sk-runtime-secret")
+        self.assertEqual(kwargs["env"]["COWORK_WEB_CHAT_LOCAL_AUTH"], "Bearer local-bearer")
+        self.assertNotIn("UNRELATED_PROVIDER_SECRET", kwargs["env"])
+        self.assertEqual(profiles[0]["control_plane"]["tunnel_id"], "tunnel_0123456789abcdef0123456789abcdef")
+        self.assertEqual(profiles[0]["control_plane"]["api_key"], "env:CONTROL_PLANE_API_KEY")
+        self.assertEqual(profiles[0]["mcp"]["extra_headers"]["X-Cowork-Tunnel-Auth"], "env:COWORK_WEB_CHAT_LOCAL_AUTH")
+        self.assertEqual(profiles[0]["mcp"]["discovery_extra_headers"]["X-Cowork-Tunnel-Auth"], "env:COWORK_WEB_CHAT_LOCAL_AUTH")
+        self.assertNotIn("Authorization", profiles[0]["mcp"]["extra_headers"])
+        self.assertTrue(adapter.health())
+        adapter.stop()
+        self.assertTrue(process.terminated)
+
+    def test_controller_exposes_tunnel_reference_but_not_runtime_key(self):
+        class FakeSecureAdapter(FakeAdapter):
+            connector_mode = "tunnel"
+            tunnel_id = ""
+
+            def configure(self, *, credential, options):
+                self.tunnel_id = options["tunnel_id"]
+                self.received_credential = credential
+                self.received_options = dict(options)
+
+            def start(self, local_endpoint):
+                self.local_endpoint = local_endpoint
+                return f"https://api.openai.com/v1/mcp/{self.tunnel_id}"
+
+        secure = FakeSecureAdapter()
+        controller = WebChatTunnelController(adapter_factories={"openai": lambda: secure})
+        try:
+            state = controller.start(
+                gateway=FakeGateway(),
+                provider="openai",
+                credential="local-bearer",
+                expires_at=time.time() + 60,
+                provider_options={
+                    "tunnel_id": "tunnel_0123456789abcdef0123456789abcdef",
+                    "runtime_api_key": "sk-runtime-secret",
+                },
+            )
+            self.assertEqual(state["connector_mode"], "tunnel")
+            self.assertEqual(state["tunnel_id"], "tunnel_0123456789abcdef0123456789abcdef")
+            self.assertNotIn("sk-runtime-secret", json.dumps(state))
+            self.assertNotIn("local-bearer", json.dumps(state))
+        finally:
+            controller.stop("test-cleanup")
 
 
 if __name__ == "__main__":
