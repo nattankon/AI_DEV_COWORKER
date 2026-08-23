@@ -207,6 +207,7 @@ class CloudflaredAdapterTests(unittest.TestCase):
         endpoint = adapter.start("http://127.0.0.1:1234/mcp")
         self.assertEqual(endpoint, "https://random.trycloudflare.com/mcp")
         self.assertIn("--no-autoupdate", commands[0][0])
+        self.assertNotIn("windowsHide", commands[0][1])
         self.assertTrue(adapter.health())
         adapter.stop()
         self.assertTrue(process.terminated)

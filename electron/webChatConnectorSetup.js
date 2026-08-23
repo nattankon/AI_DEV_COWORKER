@@ -60,6 +60,8 @@ export async function probeRemoteMcp({
   credential,
   fetchImpl = globalThis.fetch,
   timeoutMs = 8_000,
+  retryAttempts = 3,
+  retryDelayMs = 500,
   now = () => new Date(),
 }) {
   const remoteEndpoint = String(endpoint || "").trim();
@@ -75,8 +77,24 @@ export async function probeRemoteMcp({
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
   };
+  const fetchReachable = async (options) => {
+    const retries = Math.max(0, Number(retryAttempts) || 0);
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await fetchImpl(remoteEndpoint, options);
+      } catch (error) {
+        if (error?.name === "AbortError" || attempt >= retries) throw error;
+        await new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(retryDelayMs) || 0)));
+        if (controller.signal.aborted) {
+          const aborted = new Error("Connector probe aborted.");
+          aborted.name = "AbortError";
+          throw aborted;
+        }
+      }
+    }
+  };
   try {
-    const initializeResponse = await fetchImpl(remoteEndpoint, {
+    const initializeResponse = await fetchReachable({
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -95,7 +113,7 @@ export async function probeRemoteMcp({
     const sessionId = String(initializeResponse.headers?.get?.("mcp-session-id") || "");
     const listHeaders = { ...headers };
     if (sessionId) listHeaders["Mcp-Session-Id"] = sessionId;
-    const toolsResponse = await fetchImpl(remoteEndpoint, {
+    const toolsResponse = await fetchReachable({
       method: "POST",
       headers: listHeaders,
       body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }),

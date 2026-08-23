@@ -117,10 +117,11 @@ describe("WebChatPanel", () => {
     await waitFor(() => expect(revokeWebChatGrant).toHaveBeenCalledOnce());
   });
 
-  it("starts and stops an authenticated tunnel only after local tools are ready", async () => {
+  it("connects and automatically verifies an authenticated tunnel after local tools are ready", async () => {
     global.ResizeObserver = ResizeObserverStub;
     const startWebChatTunnel = vi.fn().mockResolvedValue({ ok: true });
     const stopWebChatTunnel = vi.fn().mockResolvedValue({ ok: true });
+    const probeWebChatConnector = vi.fn().mockResolvedValue({ ok: true });
     let grantListener;
     const bridge = {
       showWebChat: vi.fn().mockResolvedValue({ ok: true }),
@@ -138,11 +139,13 @@ describe("WebChatPanel", () => {
       subscribeWebChatGrantState: (listener) => { grantListener = listener; return () => {}; },
       startWebChatTunnel,
       stopWebChatTunnel,
+      probeWebChatConnector,
     };
     render(<WebChatPanel bridge={bridge} />);
     fireEvent.click(screen.getByRole("button", { name: "Web Chat workspace access" }));
     const connect = await screen.findByRole("button", { name: "Connect Web Chat tunnel" });
     expect(connect).toBeEnabled();
+    expect(connect).toHaveTextContent("Connect & verify");
     fireEvent.click(connect);
     await waitFor(() => expect(startWebChatTunnel).toHaveBeenCalledWith({ provider: "cloudflare" }));
 
@@ -153,6 +156,7 @@ describe("WebChatPanel", () => {
       localGateway: { status: "ready", toolCount: 3, tools: [{ name: "read_file" }] },
       tunnel: { status: "connected", provider: "cloudflare", endpoint: "https://random.trycloudflare.com/mcp", authRequired: true, expiresAt: "2026-08-21T23:00:00+00:00" },
     });
+    await waitFor(() => expect(probeWebChatConnector).toHaveBeenCalledOnce());
     const disconnect = await screen.findByRole("button", { name: "Disconnect Web Chat tunnel" });
     expect(screen.getByText("Tunnel connected")).toBeInTheDocument();
     expect(screen.getByText("random.trycloudflare.com")).toBeInTheDocument();

@@ -50,6 +50,7 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
   const [tunnelError, setTunnelError] = useState("");
   const [setupBusy, setSetupBusy] = useState(false);
   const [setupNotice, setSetupNotice] = useState("");
+  const autoVerifyTunnelRef = useRef(false);
 
   const syncBounds = useCallback(() => {
     if (approvalPending) {
@@ -132,11 +133,13 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
     if (tunnelBusy || tunnel.status === "starting" || !grantState.grant || !grantState.toolsEnabled) return;
     setTunnelBusy(true);
     setTunnelError("");
+    autoVerifyTunnelRef.current = true;
     try {
       const result = await bridge?.startWebChatTunnel?.({ provider: "cloudflare" });
       if (!result?.ok) throw new Error(result?.error || "Unable to connect the Web Chat tunnel.");
       setGrantState((current) => ({ ...current, ...result }));
     } catch (error) {
+      autoVerifyTunnelRef.current = false;
       setTunnelError(error instanceof Error ? error.message : String(error));
     } finally {
       setTunnelBusy(false);
@@ -144,6 +147,7 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
   };
   const disconnectTunnel = async () => {
     if (tunnelBusy) return;
+    autoVerifyTunnelRef.current = false;
     setTunnelBusy(true);
     setTunnelError("");
     try {
@@ -156,7 +160,7 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
       setTunnelBusy(false);
     }
   };
-  const verifyConnector = async () => {
+  const verifyConnector = useCallback(async () => {
     if (setupBusy || !grantState.tunnelConnected) return;
     setSetupBusy(true);
     setSetupNotice("");
@@ -169,7 +173,12 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
     } finally {
       setSetupBusy(false);
     }
-  };
+  }, [bridge, grantState.tunnelConnected, setupBusy]);
+  useEffect(() => {
+    if (!autoVerifyTunnelRef.current || !grantState.tunnelConnected || grantState.connectorSetup?.status === "verified") return;
+    autoVerifyTunnelRef.current = false;
+    void verifyConnector();
+  }, [grantState.connectorSetup?.status, grantState.tunnelConnected, verifyConnector]);
   const copySetupValue = async (kind) => {
     setSetupNotice("");
     try {
@@ -311,7 +320,7 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
                       </button>
                     ) : (
                       <button type="button" aria-label="Connect Web Chat tunnel" disabled={tunnelBusy || tunnel.status === "starting" || !grantState.toolsEnabled} onClick={connectTunnel} className="mt-auto h-8 rounded-md bg-[#2f2e2a] px-3 text-white hover:bg-black disabled:opacity-40">
-                        {tunnel.status === "starting" || tunnelBusy ? "Connecting..." : "Connect"}
+                        {tunnel.status === "starting" || tunnelBusy ? "Connecting..." : "Connect & verify"}
                       </button>
                     )}
                     {grantState.tunnelConnected && tunnel.endpoint ? <span className="mt-auto rounded bg-[#eceae4] px-2 py-1 font-mono text-[10px]">{displayHost(tunnel.endpoint)}</span> : null}

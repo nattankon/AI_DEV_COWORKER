@@ -70,6 +70,36 @@ describe("web chat connector setup", () => {
     expect(JSON.stringify(result)).not.toContain("never-return-this");
   });
 
+  it("retries a newly-created tunnel while its public endpoint becomes reachable", async () => {
+    const fetchImpl = vi.fn()
+      .mockRejectedValueOnce(new TypeError("getaddrinfo failed"))
+      .mockResolvedValueOnce(jsonResponse({
+        jsonrpc: "2.0",
+        id: 1,
+        result: {
+          protocolVersion: "2025-06-18",
+          serverInfo: { name: "AI Dev Co-worker Web Chat Gateway", version: "1.0" },
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        jsonrpc: "2.0",
+        id: 2,
+        result: { tools: [{ name: "read_file" }] },
+      }));
+
+    const result = await probeRemoteMcp({
+      endpoint: "https://new-tunnel.trycloudflare.com/mcp",
+      credential: "top-secret",
+      fetchImpl,
+      retryAttempts: 2,
+      retryDelayMs: 0,
+    });
+
+    expect(result.status).toBe("verified");
+    expect(result.toolCount).toBe(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
   it("bounds a stalled public probe with an actionable timeout", async () => {
     vi.useFakeTimers();
     const fetchImpl = vi.fn((_url, options) => new Promise((_resolve, reject) => {

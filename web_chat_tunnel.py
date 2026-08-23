@@ -54,16 +54,17 @@ class CloudflaredQuickTunnelAdapter:
         parsed = urlsplit(local_endpoint)
         local_origin = f"{parsed.scheme}://{parsed.netloc}"
         command = [executable, "tunnel", "--no-autoupdate", "--url", local_origin]
-        self._process = self._popen_factory(
-            command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            stdin=subprocess.DEVNULL,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            windowsHide=True,
-        )
+        popen_kwargs = {
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.PIPE,
+            "stdin": subprocess.DEVNULL,
+            "text": True,
+            "encoding": "utf-8",
+            "errors": "replace",
+        }
+        if os.name == "nt":
+            popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        self._process = self._popen_factory(command, **popen_kwargs)
         lines: queue.Queue[str | None] = queue.Queue()
 
         def read_stderr() -> None:
