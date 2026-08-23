@@ -2544,3 +2544,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both the startup updater gate and in-app top-right Update control remain unchanged.
 - Release candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-23 - Published Web Chat folder-selection update v0.1.35
+
+- Published source commit `483e932` and annotated tag `v0.1.35` to `origin/main` and GitHub Releases.
+- The public release is neither a draft nor a prerelease. GitHub asset sizes and SHA-256 digests match the verified local installer, blockmap, and updater manifest exactly.
+- The public latest-release manifest returned version `0.1.35`, installer `AI-Dev-Co-worker-Setup-0.1.35.exe`, size `111050036`, and exact local manifest SHA-256 `355D057EA50E252F52C5292BF4B8333638D2D62919A8009CA06B425BBAD766D1`.
+- Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.35`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.35`.
+- Skills used: `verification-before-completion`.
