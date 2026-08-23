@@ -2573,3 +2573,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Independent review verdict after the final patch: custom local auth no longer collides with OAuth; key handling, process cleanup, resource packaging, and Cloudflare compatibility passed. The review's final copy-gate finding was resolved with a provider-specific helper plus tests.
 - Release candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification. A live OpenAI control-plane connection remains credential-gated and was not attempted without a user-supplied Tunnel ID/runtime key.
 - Skills used: `systematic-debugging`, `test-driven-development`, `requesting-code-review`, `webapp-testing`, and `verification-before-completion`.
+
+## 2026-08-23 - Published OpenAI Secure MCP Tunnel update v0.1.36
+
+- Published source commit `6c64f4d` and annotated tag `v0.1.36` to `origin/main` and GitHub Releases.
+- The public release is neither a draft nor a prerelease. GitHub asset sizes and SHA-256 digests exactly match the locally verified installer, blockmap, and updater manifest.
+- The public latest-release manifest returned version `0.1.36`, installer `AI-Dev-Co-worker-Setup-0.1.36.exe`, size `116104222`, and exact local manifest SHA-256 `B25A9E1E6C6698F4D5787EA67F0945352B9F926E4F7A69A63751FB3D08E85613`.
+- Both established delivery paths remain active and unchanged: the pre-window startup updater and the in-app top-right Update control can discover and install `v0.1.36`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.36`.
+- Skills used: `verification-before-completion`.
