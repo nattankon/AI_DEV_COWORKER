@@ -2518,3 +2518,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.34.exe` (`111050008` bytes), SHA-256 `0DE4E551219F5224838C5487EA562B68711067CB5E1EE4A9081D2AED500EE5D1`; blockmap `117125` bytes, SHA-256 `18F7EF91439D52D7B587B29BA4FCF2C98C4F025FDFE9C67C497571AC580049EE`; updater manifest `364` bytes, SHA-256 `1C21BFABD045BA1F5F88D1119BC1BBAA08E5DA47E300D3870FF24BD9D7095A80`.
 - Release candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification.
 - Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-23 - Published native-overlay update v0.1.34
+
+- Published source commit `607e932` and annotated tag `v0.1.34` to `origin/main` and GitHub Releases.
+- The public release is neither a draft nor a prerelease. GitHub reports exact local sizes and SHA-256 digests for the installer, blockmap, and updater manifest.
+- The public latest-release manifest returned version `0.1.34`, installer `AI-Dev-Co-worker-Setup-0.1.34.exe`, size `111050008`, and the exact local manifest SHA-256 `1C21BFABD045BA1F5F88D1119BC1BBAA08E5DA47E300D3870FF24BD9D7095A80`.
+- Both established delivery paths remain active: the pre-window startup update gate and the in-app top-right Update control can discover and install `v0.1.34`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.34`.
+- Skills used: `verification-before-completion`.
