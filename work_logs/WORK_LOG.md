@@ -2499,3 +2499,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both established delivery paths remain active: the pre-window startup update gate and the in-app top-right Update control can discover and install `v0.1.33`.
 - Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.33`.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-23 - Prevent Web Chat from covering native settings overlays
+
+- Root cause: the ChatGPT surface is an Electron `WebContentsView`, which renders above the React renderer regardless of CSS z-index. `WebChatPanel` already hid it for approval prompts and unmounts, but the parent did not tell it when Settings or Memory Manager overlays were open.
+- Added an explicit `overlayOpen` input from `CoworkApp` to `WebChatPanel`. Settings and Memory Manager now hide the native Web view while visible; closing the overlay restores the view through the existing bounds synchronization without navigating or discarding the persistent ChatGPT session.
+- TDD evidence: a new CoworkApp regression opened Web Chat, opened Settings, and initially failed because `hideWebChat` was never called. The test passed after the parent/child visibility seam was added and also proves closing Settings calls `showWebChat` again.
+- Fresh verification passed: focused Web/CoworkApp tests `48/48`; full frontend `33/33` files and `230/230` tests; production build passed with only the existing non-blocking chunk-size advisory.
+- Release decision: source-only post-`v0.1.33` fix, queued for the next batch release rather than publishing another desktop update immediately.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.

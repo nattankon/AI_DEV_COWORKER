@@ -217,6 +217,42 @@ describe("CoworkApp", () => {
     await waitFor(() => expect(hideWebChat).toHaveBeenCalledOnce());
   });
 
+  it("hides the native Web Chat surface while Settings is open and restores it after closing", async () => {
+    const showWebChat = vi.fn().mockResolvedValue({ ok: true });
+    const hideWebChat = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = {
+      getWebChatState: vi.fn().mockResolvedValue({ loading: false, title: "ChatGPT", url: "https://chatgpt.com/" }),
+      showWebChat,
+      hideWebChat,
+      subscribe: () => () => {},
+      subscribeWebChatState: () => () => {},
+    };
+
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="local:qwen/qwen3.5-9b"
+        coworkModelLabel="qwen/qwen3.5-9b"
+        coworkUiState="idle"
+        bridge={bridge}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Mode Web Chat" }));
+    await waitFor(() => expect(showWebChat).toHaveBeenCalled());
+    showWebChat.mockClear();
+    hideWebChat.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Account and settings" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Settings" }));
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    await waitFor(() => expect(hideWebChat).toHaveBeenCalled());
+    expect(showWebChat).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+    await waitFor(() => expect(showWebChat).toHaveBeenCalled());
+  });
+
   it("surfaces Web Chat tool approvals above the native browser and restores it after denial", async () => {
     let eventListener;
     const showWebChat = vi.fn().mockResolvedValue({ ok: true });

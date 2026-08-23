@@ -1195,7 +1195,12 @@ export default function CoworkApp({
           {activeView === "projects" ? (
             <ProjectsView projects={projects} onChooseFolder={selectWorkspace} onOpenProject={openProject} />
           ) : activeView === "web-chat" ? (
-            <WebChatPanel bridge={coworkBridge} projects={projects} approvalPending={Boolean(pendingApproval)} />
+            <WebChatPanel
+              bridge={coworkBridge}
+              projects={projects}
+              approvalPending={Boolean(pendingApproval)}
+              overlayOpen={settingsOpen || memoryManagerOpen}
+            />
           ) : activeView === "workspace" ? (
             <WorkspacePanel bridge={coworkBridge} mode={activeMode} workspacePath={workingDirectory} />
           ) : activeView === "artifacts" ? (

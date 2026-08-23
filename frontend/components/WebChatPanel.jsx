@@ -38,7 +38,7 @@ function displayExpiry(value) {
   return Number.isFinite(timestamp) ? new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
 }
 
-export default function WebChatPanel({ bridge, projects = [], approvalPending = false }) {
+export default function WebChatPanel({ bridge, projects = [], approvalPending = false, overlayOpen = false }) {
   const viewportRef = useRef(null);
   const [state, setState] = useState(initialState);
   const [grantState, setGrantState] = useState(initialGrantState);
@@ -53,7 +53,7 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
   const autoVerifyTunnelRef = useRef(false);
 
   const syncBounds = useCallback(() => {
-    if (approvalPending) {
+    if (approvalPending || overlayOpen) {
       void bridge?.hideWebChat?.();
       return;
     }
@@ -61,7 +61,7 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
     if (!node || typeof bridge?.showWebChat !== "function") return;
     const rect = node.getBoundingClientRect();
     void bridge.showWebChat({ x: rect.x, y: rect.y, width: rect.width, height: rect.height });
-  }, [approvalPending, bridge]);
+  }, [approvalPending, bridge, overlayOpen]);
 
   useEffect(() => {
     let disposed = false;
