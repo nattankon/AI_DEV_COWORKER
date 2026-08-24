@@ -2617,3 +2617,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.38.exe` (`116104616` bytes), SHA-256 `FC00E3A4AF33D3E8B9F707F050DD3785E388C86C99BFAB950E27743CFC0C1537`; blockmap (`121389` bytes), SHA-256 `6DEB6997C1AFA1025D62CE6B39728333BA5E373CC9ADCAEC6E3922CD119D1CF3`; updater manifest (`364` bytes), SHA-256 `00589573FFBF5BDF2849E2180F725D281D9D306AE4C695D5D9517C3BAECD1AB7`.
 - Both updater paths remain unchanged. The candidate is ready for source commit, annotated tag, GitHub Release upload, and public manifest verification.
 - Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-24 - Published OpenAI tunnel OAuth discovery fix v0.1.38
+
+- Published source commit `f48b80d` and annotated tag `v0.1.38` to `origin/main` and GitHub Releases.
+- The public release is neither a draft nor a prerelease. Assets downloaded back from GitHub exactly matched the locally verified sizes and SHA-256 digests for the installer, blockmap, and updater manifest.
+- The public latest-release manifest returned version `0.1.38`, installer `AI-Dev-Co-worker-Setup-0.1.38.exe`, size `116104616`, and exact local manifest SHA-256 `00589573FFBF5BDF2849E2180F725D281D9D306AE4C695D5D9517C3BAECD1AB7`.
+- Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.38`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.38`.
+- Skills used: `verification-before-completion`.
