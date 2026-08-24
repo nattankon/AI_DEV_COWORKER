@@ -584,7 +584,10 @@ class WebChatTunnelController:
                     self._json_response(status, response)
 
             def do_GET(self):  # noqa: N802
-                self.send_error(405)
+                # The local gateway uses a private static header, not OAuth. The
+                # tunnel runtime treats 404 discovery responses as "not
+                # advertised" and continues with the plain MCP startup probe.
+                self._json_response(404, {"error": "not_found"})
 
             def log_message(self, _format, *_args):
                 return

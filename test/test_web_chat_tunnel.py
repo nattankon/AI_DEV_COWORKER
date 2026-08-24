@@ -171,6 +171,20 @@ class WebChatTunnelControllerTests(unittest.TestCase):
             payload = json.loads(response.read().decode("utf-8"))
         self.assertEqual(payload["result"]["serverInfo"]["name"], "AI Dev Co-worker Web Chat Gateway")
 
+    def test_oauth_discovery_is_not_advertised_for_static_header_gateway(self):
+        self.start()
+        origin = self.adapter.local_endpoint.rsplit("/mcp", 1)[0]
+
+        for path in (
+            "/.well-known/oauth-protected-resource/mcp",
+            "/.well-known/oauth-protected-resource",
+        ):
+            with self.subTest(path=path):
+                with self.assertRaises(HTTPError) as raised:
+                    urlopen(origin + path, timeout=2)
+                self.assertEqual(raised.exception.code, 404)
+                raised.exception.close()
+
     def test_idle_timeout_stops_listener_and_adapter(self):
         self.start(idle_timeout=0.05)
         deadline = time.time() + 1

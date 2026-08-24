@@ -2607,3 +2607,13 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.37`.
 - Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.37`.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-24 - Fix OpenAI tunnel OAuth discovery compatibility and prepare v0.1.38
+
+- Investigated the live `oauth discovery invalid metadata ... invalid character '<'` readiness failure against the bundled official OpenAI `tunnel-client-runtime` `0.0.12` and the current upstream source.
+- Root cause: the local gateway returned `405 Method Not Allowed` with an HTML body for OAuth Protected Resource Metadata GET probes. The official runtime accepts a plain/static-header MCP server only when all derived discovery URLs return `404`; the HTML `405` was therefore parsed as malformed metadata and blocked readiness before the MCP initialize probe.
+- Added a failing regression test first for both `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-protected-resource`, then changed unsupported GET requests to bounded JSON `404` responses. POST `/mcp`, private `X-Cowork-Tunnel-Auth`, permission profiles, and approval enforcement remain unchanged.
+- Bumped the desktop package to `0.1.38`. Fresh verification passed: backend `479/479`; frontend `33/33` files and `236/236` tests; release helper tests `2/2`; production Vite build; `npm run dist`; packaged smoke loading `app.asar/dist/index.html` at `v0.1.38`; and packaged official runtime version `0.0.12` execution.
+- Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.38.exe` (`116104616` bytes), SHA-256 `FC00E3A4AF33D3E8B9F707F050DD3785E388C86C99BFAB950E27743CFC0C1537`; blockmap (`121389` bytes), SHA-256 `6DEB6997C1AFA1025D62CE6B39728333BA5E373CC9ADCAEC6E3922CD119D1CF3`; updater manifest (`364` bytes), SHA-256 `00589573FFBF5BDF2849E2180F725D281D9D306AE4C695D5D9517C3BAECD1AB7`.
+- Both updater paths remain unchanged. The candidate is ready for source commit, annotated tag, GitHub Release upload, and public manifest verification.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
