@@ -2598,3 +2598,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.37.exe` (`116104549` bytes), SHA-256 `884EA66DD459C65944E46FF8816BB5EB27802C94CA6FD83116E45877FF1C9D92`; blockmap (`121467` bytes), SHA-256 `2A3B5C673E4FF2D71CDBB2D7866784766FDBA71066C484F7CBAABEAB0093A693`; updater manifest (`364` bytes), SHA-256 `4819C03DAFA587037FA6E257247A421CDAC26454D505753E4E55B0881C63E826`.
 - Both the startup update gate and in-app top-right Update control remain unchanged. The candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification.
 - Skills used: `systematic-debugging`, `test-driven-development`, `openai-docs`, and `verification-before-completion`.
+
+## 2026-08-24 - Published OpenAI tunnel diagnostics update v0.1.37
+
+- Published source commit `fd7b5a4` and annotated tag `v0.1.37` to `origin/main` and GitHub Releases.
+- The public release is neither a draft nor a prerelease. GitHub asset sizes and SHA-256 digests match the verified local installer, blockmap, and updater manifest exactly.
+- The public latest-release manifest returned version `0.1.37`, installer `AI-Dev-Co-worker-Setup-0.1.37.exe`, size `116104549`, and exact local manifest SHA-256 `4819C03DAFA587037FA6E257247A421CDAC26454D505753E4E55B0881C63E826`.
+- Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.37`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.37`.
+- Skills used: `verification-before-completion`.
