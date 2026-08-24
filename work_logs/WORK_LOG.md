@@ -2582,3 +2582,19 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both established delivery paths remain active and unchanged: the pre-window startup updater and the in-app top-right Update control can discover and install `v0.1.36`.
 - Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.36`.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-23 - Preserve actionable OpenAI tunnel readiness diagnostics
+
+- Investigated a live OpenAI Secure Tunnel startup that remained live but not ready and surfaced only `HTTP Error 503: Service Unavailable` after the bounded startup wait.
+- Root cause in the application was diagnostic loss: `urllib` exposed the runtime's detailed `/readyz` response body through `HTTPError`, but the adapter retained only `str(error)`. The runtime process and its key handoff had already started successfully, so extending the timeout would have hidden rather than identified the failing readiness gate.
+- Added a regression test before the implementation. The OpenAI adapter now retains a bounded single-line readiness response, redacts API-key and bearer-shaped values, and prefers that actionable detail over a later generic repeat status. No runtime credential is persisted or logged.
+- Fresh verification: `python -m unittest discover -s test -p "test_*.py" -v` passed `478/478` in 19.732 seconds.
+- Skills used: `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-24 - Prepare OpenAI tunnel diagnostics update v0.1.37
+
+- Bumped the desktop package to `0.1.37` so installed copies can receive the readiness-diagnostic fix without modifying the running installation in place.
+- Fresh verification passed: backend `478/478`; frontend `33/33` files and `236/236` tests; release helper tests `2/2`; production Vite build; `npm run dist`; packaged smoke loading `app.asar/dist/index.html` at `v0.1.37`; and bundled official `tunnel-client-runtime` version `0.0.12` execution.
+- Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.37.exe` (`116104549` bytes), SHA-256 `884EA66DD459C65944E46FF8816BB5EB27802C94CA6FD83116E45877FF1C9D92`; blockmap (`121467` bytes), SHA-256 `2A3B5C673E4FF2D71CDBB2D7866784766FDBA71066C484F7CBAABEAB0093A693`; updater manifest (`364` bytes), SHA-256 `4819C03DAFA587037FA6E257247A421CDAC26454D505753E4E55B0881C63E826`.
+- Both the startup update gate and in-app top-right Update control remain unchanged. The candidate is ready for source commit, annotated tag, GitHub Release upload, and public updater-manifest verification.
+- Skills used: `systematic-debugging`, `test-driven-development`, `openai-docs`, and `verification-before-completion`.

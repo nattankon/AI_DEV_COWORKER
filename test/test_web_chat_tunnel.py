@@ -248,6 +248,28 @@ class CloudflaredAdapterTests(unittest.TestCase):
 
 
 class OpenAISecureTunnelAdapterTests(unittest.TestCase):
+    def test_readiness_error_includes_sanitized_response_detail(self):
+        process = FakeProcess("")
+        health_file = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False)
+        try:
+            health_file.write("http://127.0.0.1:43123")
+            health_file.close()
+            response = io.BytesIO(b"mcp probe failed: bearer sk-sensitive-runtime-key was rejected")
+            error = HTTPError(
+                "http://127.0.0.1:43123/readyz",
+                503,
+                "Service Unavailable",
+                {},
+                response,
+            )
+            with mock.patch("web_chat_tunnel.urlopen", side_effect=error):
+                with self.assertRaisesRegex(RuntimeError, "mcp probe failed") as raised:
+                    OpenAISecureTunnelAdapter._wait_until_ready(health_file.name, process, 0.11)
+            self.assertNotIn("sk-sensitive-runtime-key", str(raised.exception))
+            self.assertIn("...redacted", str(raised.exception))
+        finally:
+            Path(health_file.name).unlink(missing_ok=True)
+
     def test_rejects_noncanonical_tunnel_id_before_launch(self):
         adapter = OpenAISecureTunnelAdapter(executable_resolver=lambda: "tunnel-client-runtime.exe")
 

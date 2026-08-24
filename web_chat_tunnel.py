@@ -260,11 +260,27 @@ class OpenAISecureTunnelAdapter:
                     with urlopen(f"{base_url}/readyz", timeout=0.75) as response:
                         if response.status == 200:
                             return base_url
-            except (FileNotFoundError, HTTPError, URLError, OSError) as exc:
+            except HTTPError as exc:
+                detail = OpenAISecureTunnelAdapter._http_error_detail(exc)
+                if detail and not (last_error and detail.startswith("HTTP Error")):
+                    last_error = detail
+            except (FileNotFoundError, URLError, OSError) as exc:
                 last_error = str(exc)
             time.sleep(0.1)
         detail = f" ({last_error})" if last_error else ""
         raise RuntimeError(f"tunnel-client did not become ready before the startup timeout{detail}.")
+
+    @staticmethod
+    def _http_error_detail(error: HTTPError) -> str:
+        try:
+            body = error.read(4096).decode("utf-8", errors="replace").strip()
+        except (AttributeError, OSError):
+            body = ""
+        detail = body or str(error)
+        detail = " ".join(detail.split())[:1000]
+        detail = re.sub(r"(?i)\bsk-[a-z0-9_-]{8,}\b", "sk-...redacted", detail)
+        detail = re.sub(r"(?i)\bbearer\s+[^\s,;]+", "Bearer ...redacted", detail)
+        return detail
 
     def health(self) -> bool:
         return bool(self._ready_base_url) and self._process is not None and self._process.poll() is None
