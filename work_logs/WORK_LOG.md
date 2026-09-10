@@ -2650,3 +2650,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.39.exe` (`116105597` bytes), SHA-256 `D868493251EB0E511D9D1D32BD2F135EEA55AADA0A967E11E7BEA8836DF5442D`; blockmap (`121573` bytes), SHA-256 `DEE3B30DB30049EF4DFE74F8BD81BB3F55B1B58411AFD230E038DAEC04017D59`; updater manifest (`364` bytes), SHA-256 `243159E1B36659EBD0BF79E48D10615318C20CBDAC5D5D5D1B1ADADBEADE9B5F`.
 - Both established update paths remain unchanged: the startup update gate and the in-app top-right Update control. The candidate is ready for source commit, annotated tag, GitHub Release upload, and public asset verification.
 - Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.
+
+## 2026-09-11 - Published New chat logo and tunnel guidance update v0.1.39
+
+- Published source commit `6c4c889` and annotated tag `v0.1.39` to `origin/main` and GitHub Releases.
+- The public release is neither a draft nor a prerelease. Assets downloaded back from GitHub exactly matched the locally verified sizes and SHA-256 digests for the installer, blockmap, and updater manifest.
+- The public updater manifest returned version `0.1.39`, installer `AI-Dev-Co-worker-Setup-0.1.39.exe`, and size `116105597` with exact local manifest SHA-256 `243159E1B36659EBD0BF79E48D10615318C20CBDAC5D5D5D1B1ADADBEADE9B5F`.
+- Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.39`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.39`.
+- Skills used: `verification-before-completion`.
