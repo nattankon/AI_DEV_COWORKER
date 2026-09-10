@@ -23,6 +23,7 @@ import { buildContextUsage } from "./model/contextUsage";
 import { coworkReducer, createInitialCoworkState } from "./model/coworkReducer";
 import { selectCompletionEvidence, selectTimeline, selectTransientStatus } from "./model/coworkSelectors";
 import { ArrowDown, BookOpen, Code2, HeartHandshake, PenLine, Sparkles } from "lucide-react";
+import appLogoUrl from "../assets/app-icon.png";
 
 function createId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -1236,10 +1237,7 @@ export default function CoworkApp({
             <section className="grid min-h-full place-items-center px-5 py-10">
               <div className="w-full max-w-[720px] -translate-y-3">
                 <div className="mb-7 flex items-center justify-center gap-4 text-[#3b3a36]">
-                  <span aria-hidden="true" className="relative hidden h-7 w-7 shrink-0 rounded-full sm:block">
-                    <span className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0_8deg,#d96b4a_8deg_18deg,transparent_18deg_30deg)]" />
-                    <span className="absolute inset-1 rounded-full bg-[conic-gradient(from_11deg,transparent_0_8deg,#d96b4a_8deg_18deg,transparent_18deg_30deg)] opacity-90" />
-                  </span>
+                  <img src={appLogoUrl} alt="AI Dev Co-worker" className="h-10 w-10 shrink-0 object-contain" />
                   <h1 className="font-serif text-[clamp(34px,4vw,46px)] font-normal leading-tight text-[#3b3a36]">
                     Good afternoon, arm
                   </h1>

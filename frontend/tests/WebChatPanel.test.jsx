@@ -262,6 +262,8 @@ describe("WebChatPanel", () => {
     expect(screen.getByText("Runtime ready")).toBeInTheDocument();
     expect(screen.queryByText(/Verified:/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Select Tunnel/i)).toBeInTheDocument();
+    expect(screen.getByText(/Authentication: choose No authentication/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Select bearer authentication/i)).not.toBeInTheDocument();
     expect(probeWebChatConnector).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Copy OpenAI tunnel ID" }));
     await waitFor(() => expect(copyWebChatConnectorValue).toHaveBeenCalledWith("tunnel_id"));

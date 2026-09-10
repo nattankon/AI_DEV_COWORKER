@@ -1,6 +1,6 @@
 # Cowork Project State
 
-Last updated: 2026-08-23
+Last updated: 2026-09-11
 
 ## Core Product Architecture Decision
 
@@ -111,6 +111,7 @@ Effort controls reasoning, generation, retrieval, source, and tool-loop budgets.
 - The latest published desktop release is `v0.1.38`. It fixes OpenAI Secure Tunnel startup for the private-header local MCP gateway by explicitly returning JSON `404` for unsupported OAuth metadata discovery, allowing the official runtime to continue to its authenticated MCP initialize probe. It is delivered through both established updater paths. The OpenAI Secure MCP Tunnel and Cloudflare Server URL paths remain separate, and the bundled official runtime still reports only runtime readiness rather than claiming ChatGPT-side plugin verification. Cowork/Code streaming deltas, status telemetry, verification evidence, and approval request/resolution events remain transient runtime state rather than persisted conversation events.
 - Post-`v0.1.36` source preserves the detailed OpenAI tunnel `/readyz` response when startup returns HTTP 503, sanitizes API-key and bearer-shaped values, and surfaces the bounded diagnostic through the existing tunnel error state. This distinguishes control-plane, OAuth-discovery, and local MCP-probe failures instead of collapsing them into a generic HTTP status.
 - Published in `v0.1.38`: the private-header local MCP gateway explicitly declines OAuth Protected Resource Metadata discovery with JSON `404` responses. The official tunnel runtime treats all-404 discovery as an unauthenticated/static-header MCP server and proceeds to its authenticated MCP initialize probe; the previous generic `405` HTML response was parsed as malformed OAuth metadata and blocked readiness. POST `/mcp`, private tunnel authentication, workspace containment, and approval behavior are unchanged.
+- Post-`v0.1.38` source corrects the ChatGPT custom-plugin handoff for OpenAI Secure Tunnel: the in-app instructions explicitly require `No authentication` rather than OAuth. This is provider-specific; the Cloudflare Server URL path continues to require bearer authentication and its copied credential. No gateway, permission, or approval boundary changed.
 - Release `v0.1.27` turns a reached Cowork tool-loop limit into one tool-free, best-effort final response instead of reporting `Agent loop exceeded ... iterations`. That forced response may only use gathered evidence and still passes the existing verification-before-report hook, so it cannot bypass the write/verification gate. Chat model-turn timeouts are effort-scaled: Low 90 seconds, Medium 180 seconds, and High 300 seconds. `COWORK_CHAT_MODEL_TIMEOUT` remains a longer global floor for installations that need more time. The selected Chat effort is applied to plain Chat, tool research, and the optional vision helper call. The same release prevents top-level Chat `New chat` from inheriting Cowork/Code project context and ships the approved companion-mark desktop/taskbar icon.
 - Release `v0.1.28` persists registered projects independently from session history, makes zero-session projects immediately visible and selectable from the Projects view and left rail, and keeps Cowork/Code elapsed-work status visible through intermediate model streams until the task actually completes. Chat project isolation and its research-status-to-answer-stream transition remain unchanged.
 - Release `v0.1.29` adds three permission profiles without weakening workspace containment, plans Chat continuity from each selected model's context window, adds official Anthropic Claude support, and adds explicit Custom Anthropic-compatible endpoints with model import and separate credential storage.
@@ -387,6 +388,7 @@ Continue the Chat capability stack before returning to Cowork and Code:
 - Pending: deeper live MCP execution UI and user-visible Playwright fallback controls.
 
 6. **Chat Presentation Layer**
+   - Completed (2026-08-24): the native New chat empty state now displays the approved transparent monochrome companion logo from `assets/app-icon.png` on desktop and mobile. Vite imports and fingerprints the asset so packaged builds do not depend on an absolute source path.
    - Completed: assistant Chat markdown rendering with `react-markdown`, `remark-gfm`, `rehype-highlight`, and a highlight.js theme.
    - Completed: assistant Chat fenced code blocks, GFM tables, bold text, and safe external links render as structured elements.
    - Completed: user/system Chat messages and Cowork/non-Chat messages remain plain text.

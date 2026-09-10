@@ -145,7 +145,7 @@ describe("CoworkApp", () => {
     );
 
     expect(screen.getByLabelText("Session sidebar")).toHaveAttribute("data-state", "closed");
-    expect(screen.getByRole("heading", { name: /Good afternoon/i }).previousElementSibling).toHaveClass("hidden", "sm:block");
+    expect(screen.getByRole("img", { name: "AI Dev Co-worker" })).toBeVisible();
     Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
   });
 
@@ -171,6 +171,7 @@ describe("CoworkApp", () => {
     expect(screen.getByRole("button", { name: /new chat/i })).toBeInTheDocument();
     expect(screen.getByText("Recents")).toBeInTheDocument();
     expect(screen.getByText(/Good afternoon/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "AI Dev Co-worker" })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("How can I help you today?")).toBeInTheDocument();
     expect(screen.getByText(/Manual control/i)).toBeInTheDocument();
     expect(screen.getByText(/Server:/i)).toBeInTheDocument();

@@ -2626,3 +2626,27 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.38`.
 - Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.38`.
 - Skills used: `verification-before-completion`.
+
+## 2026-08-24 - Correct OpenAI Tunnel plugin authentication guidance
+
+- Investigated a live ChatGPT custom-plugin error stating that the connected OpenAI tunnel MCP server did not implement OAuth. The tunnel runtime itself was healthy (`Tunnel connected` and `Runtime ready`); the product form had been left on OAuth even though this gateway intentionally uses the supported no-auth connector mode at the product boundary and a private authenticated local hop inside the tunnel runtime.
+- Found the onboarding defect in `WebChatPanel`: the OpenAI Tunnel steps did not state an authentication mode, while the neighboring Server URL path correctly described bearer authentication. Updated only the OpenAI Tunnel instructions to require `No authentication (not OAuth)` before saving and scanning tools. The Cloudflare/Server URL bearer flow remains unchanged.
+- Added a regression assertion before the implementation to prove OpenAI Tunnel displays the no-auth instruction and does not display the bearer instruction.
+- Fresh verification passed: targeted `WebChatPanel` tests `7/7`; complete frontend suite `33/33` files and `236/236` tests; production Vite build. The existing bundle-size advisory remains non-blocking.
+- Skills used: `openai-docs`, `systematic-debugging`, `test-driven-development`, and `verification-before-completion`.
+
+## 2026-08-24 - Show the approved logo on New chat
+
+- Replaced the temporary CSS activity mark in the native New chat empty state with the approved transparent monochrome companion logo from `assets/app-icon.png`.
+- Imported the image through Vite so development, production, and packaged builds resolve a fingerprinted bundled asset instead of relying on an absolute source path. The logo keeps a stable 40-by-40 layout and remains visible on desktop and narrow screens.
+- Added UI regression assertions for the logo in the standard shell and narrow-screen New chat state.
+- Fresh verification passed: targeted `CoworkApp` tests `43/43`; complete frontend suite `33/33` files and `236/236` tests; production Vite build. The build emitted `dist/assets/app-icon-CR7YLJLv.png`; headless Edge screenshots confirmed the transparent logo renders in the New chat heading at desktop and narrow viewport sizes. The existing bundle-size advisory remains non-blocking.
+- Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.
+
+## 2026-09-11 - Prepare New chat logo and tunnel guidance update v0.1.39
+
+- Bumped the desktop package to `0.1.39` to deliver the approved New chat companion logo and the corrected ChatGPT plugin instruction for OpenAI Secure Tunnel (`No authentication`, not OAuth). The Cloudflare Server URL bearer flow and all workspace permission boundaries remain unchanged.
+- Fresh verification passed: backend `479/479`; frontend `33/33` files and `236/236` tests; release helper tests `2/2`; production Vite build; `npm run dist`; and packaged smoke loading `app.asar/dist/index.html` at `v0.1.39`.
+- Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.39.exe` (`116105597` bytes), SHA-256 `D868493251EB0E511D9D1D32BD2F135EEA55AADA0A967E11E7BEA8836DF5442D`; blockmap (`121573` bytes), SHA-256 `DEE3B30DB30049EF4DFE74F8BD81BB3F55B1B58411AFD230E038DAEC04017D59`; updater manifest (`364` bytes), SHA-256 `243159E1B36659EBD0BF79E48D10615318C20CBDAC5D5D5D1B1ADADBEADE9B5F`.
+- Both established update paths remain unchanged: the startup update gate and the in-app top-right Update control. The candidate is ready for source commit, annotated tag, GitHub Release upload, and public asset verification.
+- Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.

@@ -413,7 +413,7 @@ export default function WebChatPanel({ bridge, projects = [], approvalPending = 
                         <div className="mt-2 grid gap-1.5 text-[11px] text-[#6f6b63]">
                           <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">1</span><span>In ChatGPT, create a plugin and choose the Tunnel connection tab.</span></div>
                           <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">2</span><span>Select Tunnel, then choose or paste this tunnel ID.</span></div>
-                          <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">3</span><span>Save the plugin and scan tools while this runtime remains connected.</span></div>
+                          <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded bg-[#eceae4] text-[10px]">3</span><span>Authentication: choose No authentication (not OAuth), then save and scan tools.</span></div>
                         </div>
                       ) : (
                         <div className="mt-2 grid gap-1.5 text-[11px] text-[#6f6b63]">
