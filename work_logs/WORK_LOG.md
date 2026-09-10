@@ -2659,3 +2659,13 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.39`.
 - Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.39`.
 - Skills used: `verification-before-completion`.
+
+## 2026-09-11 - Prepare unified Role and conversation UI update v0.1.40
+
+- Promoted the persistent global Role in Cowork and Code to a dedicated system message, matching Chat. Role text is no longer concatenated into the current user prompt or attachment payload, while workspace containment, approval, verification, audit, and rollback enforcement remain code-level boundaries that Role cannot override.
+- Unified Chat, Cowork, and Code around one conversation presentation: user bubbles align right; assistant and system bubbles align left; assistant Markdown, mode labels, attachments, and Copy controls share the same UI. Chat-only Edit and web-source behavior remain mode-scoped.
+- Added backend regressions for clean user prompts and separate system context, plus frontend regressions for Cowork/Code alignment, labels, Markdown, and Copy. Updated older Cowork selectors to reflect the shared Markdown renderer.
+- Fresh verification passed: focused backend Role tests `3/3` and approval/Role checks `2/2`; focused frontend Timeline/CoworkApp tests `60/60`; complete backend suite `480/480`; complete frontend suite `33/33` files and `238/238` tests; release helper tests `2/2`; production Vite build; `npm run dist`; and packaged smoke loading `app.asar/dist/index.html` at `v0.1.40`. Desktop and 390-by-844 renderer previews showed correct user alignment, wrapping, and no overlap. The existing Vite chunk-size advisory remains non-blocking.
+- Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.40.exe` (`116105663` bytes), SHA-256 `6A8EBBAF0B450A57C666182765D0DCC88FEACCE66D697737BF63E78370F6E176`; blockmap (`121575` bytes), SHA-256 `4BB3D95CBF7968D91046778D43386249D3A33C2A185A9F057C997F9DF7059382`; updater manifest (`364` bytes), SHA-256 `A5A52E13D47EE3B39EFC317BF72CCDCBDA0ED0872D86C501309CC551D47B0A7D`.
+- Reviewed the final scoped diff and left unrelated untracked `TUNER.txt` untouched. The candidate is ready for source commit, annotated tag, GitHub Release upload, and public asset verification.
+- Skills used: `writing-plans`, `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.

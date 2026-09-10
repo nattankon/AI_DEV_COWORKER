@@ -1402,7 +1402,7 @@ describe("CoworkApp", () => {
     fireEvent.click(screen.getByRole("button", { name: /^mode chat$/i }));
     fireEvent.click(screen.getByRole("button", { name: /^mode cowork$/i }));
 
-    expect(await screen.findByText("Final answer", { selector: ".whitespace-pre-wrap" })).toBeInTheDocument();
+    expect(await screen.findByText("Final answer")).toBeInTheDocument();
     expect(screen.queryByText("A", { exact: true })).not.toBeInTheDocument();
     expect(screen.queryByText("B", { exact: true })).not.toBeInTheDocument();
     expect(screen.queryByText("verification.finished", { exact: true })).not.toBeInTheDocument();
@@ -1726,12 +1726,12 @@ describe("CoworkApp", () => {
       },
     });
 
-    expect(screen.queryByText("Cowork-only answer", { selector: ".whitespace-pre-wrap" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Cowork-only answer")).not.toBeInTheDocument();
     expect(screen.queryByText("Approve verification run")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^mode cowork$/i }));
 
-    expect(await screen.findByText("Cowork-only answer", { selector: ".whitespace-pre-wrap" })).toBeInTheDocument();
+    expect(await screen.findByText("Cowork-only answer")).toBeInTheDocument();
     expect(screen.getByText("Approve verification run")).toBeInTheDocument();
   });
 

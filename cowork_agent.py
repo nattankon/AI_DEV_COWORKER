@@ -239,6 +239,7 @@ class CoworkAgent:
         on_stream_reset: Callable[[], None] | None = None,
         on_evidence: Callable[[dict], None] | None = None,
         user_content: Any | None = None,
+        system_context: str = "",
     ) -> str:
         normalized_prompt = str(prompt or "").strip()
         if not normalized_prompt:
@@ -258,11 +259,10 @@ class CoworkAgent:
             base_dir=str(self.workspace),
             shared_state={"output_dir": str(self.workspace)},
         )
-        messages = [
-            {"role": "system", "content": build_cowork_system_prompt(memory_context)},
-            *self._history,
-            {"role": "user", "content": request_content},
-        ]
+        messages = [{"role": "system", "content": build_cowork_system_prompt(memory_context)}]
+        if str(system_context or "").strip():
+            messages.append({"role": "system", "content": str(system_context).strip()})
+        messages.extend([*self._history, {"role": "user", "content": request_content}])
         self.recorder.start(self.model_name, self.workspace)
         self.recorder.record("message_user", {"content": normalized_prompt})
         run_state = _coerce_run_state(initial_run_state)

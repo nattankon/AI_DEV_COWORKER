@@ -436,7 +436,7 @@ class IpcSidecar:
                 )
             else:
                 self._raise_if_cancelled(client_session_id)
-                role_prompt = self._format_mode_role_prompt(prompt, client_session_id, mode)
+                role_context = self._mode_role_context(prompt, client_session_id, mode)
                 vision_assist = self._run_vision_assist(
                     prompt=prompt,
                     attachments=attachments,
@@ -452,9 +452,9 @@ class IpcSidecar:
                         vision_assist["attachment_model"],
                         context_name=mode,
                     )
-                    content_prompt = role_prompt
+                    content_prompt = prompt
                     if attachment_prompt:
-                        content_prompt = f"{role_prompt}\n\n{attachment_prompt}"
+                        content_prompt = f"{prompt}\n\n{attachment_prompt}"
                     evidence_message = str(vision_assist.get("evidence_message") or "").strip()
                     if evidence_message:
                         content_prompt = f"{content_prompt}\n\n{evidence_message}"
@@ -505,7 +505,7 @@ class IpcSidecar:
                     )
 
                 answer, used_model = self._run_with_fallback(
-                    role_prompt,
+                    prompt,
                     model,
                     client_session_id,
                     mode,
@@ -514,6 +514,7 @@ class IpcSidecar:
                     on_stream_reset=on_cowork_reset,
                     on_evidence=on_cowork_evidence,
                     user_content_factory=cowork_user_content if attachments else None,
+                    system_context=role_context,
                 )
                 web_sources = []
             self._raise_if_cancelled(client_session_id)
@@ -703,12 +704,18 @@ class IpcSidecar:
         on_stream_reset: Callable[[], None] | None = None,
         on_evidence: Callable[[dict], None] | None = None,
         user_content_factory: Callable[[str], Any] | None = None,
+        system_context: str = "",
     ) -> tuple[str, str]:
         candidates = self._model_candidates(requested_model)
         failures: list[str] = []
         for index, model in enumerate(candidates):
             try:
                 agent = self._create_agent(model)
+                optional_context: dict[str, Any] = {}
+                if str(system_context or "").strip():
+                    optional_context["system_context"] = str(system_context).strip()
+                if user_content_factory:
+                    optional_context["user_content"] = user_content_factory(model)
                 return str(
                     agent.run(
                         prompt,
@@ -716,7 +723,7 @@ class IpcSidecar:
                         on_status=on_status,
                         on_stream_reset=on_stream_reset,
                         on_evidence=on_evidence,
-                        **({"user_content": user_content_factory(model)} if user_content_factory else {}),
+                        **optional_context,
                     )
                 ), model
             except Exception as exc:
@@ -743,7 +750,7 @@ class IpcSidecar:
         workspace = getattr(self.dependencies, "workspace", None)
         return str(workspace) if workspace else ""
 
-    def _format_mode_role_prompt(self, prompt: str, client_session_id: str, mode: str) -> str:
+    def _mode_role_context(self, prompt: str, client_session_id: str, mode: str) -> str:
         role_prompt = self._chat_memory_store().format_for_prompt(
             query=prompt,
             source_session_id=client_session_id,
@@ -751,9 +758,7 @@ class IpcSidecar:
             project=self._active_project(),
             include_personal_memory=True,
         )
-        if not role_prompt.strip():
-            return prompt
-        return f"{role_prompt}\n\n## User Request\n{prompt}"
+        return role_prompt.strip()
 
     def _run_plain_chat(
         self,

@@ -8,7 +8,7 @@ const MESSAGE_LABELS = {
 };
 
 function labelFor(event, mode) {
-  if (mode === "Chat" && event.type === "message.assistant") return "Chat";
+  if (event.type === "message.assistant") return mode;
   return MESSAGE_LABELS[event.type] ?? "Message";
 }
 
@@ -133,74 +133,59 @@ function AttachmentPreviews({ attachments = [], align = "end" }) {
 export default function MessageEntry({ event, mode = "Cowork", onEditUserMessage }) {
   const isChatMode = mode === "Chat";
   const isUser = event.type === "message.user";
-  const align = isChatMode && isUser ? "right" : "left";
+  const align = isUser ? "right" : "left";
   const label = labelFor(event, mode);
   const time = new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const attachments = Array.isArray(event.payload?.attachments) ? event.payload.attachments : [];
-  const useMarkdown = isChatMode && event.type === "message.assistant";
+  const useMarkdown = event.type === "message.assistant";
   const webSources = isChatMode && event.type === "message.assistant" && Array.isArray(event.payload?.webSources)
     ? event.payload.webSources
     : [];
 
-  if (isChatMode) {
-    return (
-      <article className={`flex py-1 ${isUser ? "justify-end" : "justify-start"}`} data-align={align}>
-        <div className={`max-w-[78%] ${isUser ? "items-end" : "items-start"} flex flex-col gap-1`}>
-          <div className={`flex items-center gap-2 ${isUser ? "flex-row-reverse" : ""}`}>
-            <span className="text-[11px] font-medium text-[#6f6b63]">{label}</span>
-            <span className="text-[10px] text-[#aaa79f]">{time}</span>
-          </div>
-          <div
-            className={`${useMarkdown ? "" : "whitespace-pre-wrap"} break-words rounded-2xl px-4 py-2.5 text-[14px] leading-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${
-              isUser
-                ? "rounded-br-md bg-[#2f2f2d] text-white"
-                : event.type === "message.system"
-                  ? "rounded-bl-md border border-[#ead7d2] bg-[#fff4f2] text-[#9d3e39]"
-                  : "rounded-bl-md border border-[#e7e2d8] bg-[#f7f5f0] text-[#3d3c39]"
-            }`}
-          >
-            {useMarkdown ? (
-              <MarkdownMessage text={event.payload?.text ?? ""} webSources={webSources} />
-            ) : (
-              event.payload?.text ?? ""
-            )}
-          </div>
-          {webSources.length > 0 && <SourceCards sources={webSources} />}
-          {isUser && attachments.length > 0 && <AttachmentPreviews attachments={attachments} />}
-          {isUser && typeof onEditUserMessage === "function" && (
-            <button
-              type="button"
-              onClick={() => onEditUserMessage(event)}
-              className="text-[11px] font-medium text-[#8a877f] hover:text-[#2f2f2d]"
-            >
-              Edit
-            </button>
-          )}
-          {!isUser && event.type === "message.assistant" && (
-            <button
-              type="button"
-              aria-label="Copy answer"
-              onClick={() => navigator.clipboard?.writeText(String(event.payload?.text ?? ""))}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-[#8a877f] hover:text-[#2f2f2d]"
-            >
-              <Copy size={12} /> Copy
-            </button>
+  return (
+    <article className={`flex py-1 ${isUser ? "justify-end" : "justify-start"}`} data-align={align}>
+      <div className={`flex max-w-[88%] flex-col gap-1 sm:max-w-[82%] ${isUser ? "items-end" : "items-start"}`}>
+        <div className={`flex items-center gap-2 ${isUser ? "flex-row-reverse" : ""}`}>
+          <span className="text-[11px] font-medium text-[#6f6b63]">{label}</span>
+          <span className="text-[10px] text-[#aaa79f]">{time}</span>
+        </div>
+        <div
+          className={`${useMarkdown ? "" : "whitespace-pre-wrap"} max-w-full break-words rounded-2xl px-4 py-2.5 text-[14px] leading-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${
+            isUser
+              ? "rounded-br-md bg-[#2f2f2d] text-white"
+              : event.type === "message.system"
+                ? "rounded-bl-md border border-[#ead7d2] bg-[#fff4f2] text-[#9d3e39]"
+                : "rounded-bl-md border border-[#e7e2d8] bg-[#f7f5f0] text-[#3d3c39]"
+          }`}
+        >
+          {useMarkdown ? (
+            <MarkdownMessage text={event.payload?.text ?? ""} webSources={webSources} />
+          ) : (
+            event.payload?.text ?? ""
           )}
         </div>
-      </article>
-    );
-  }
-
-  return (
-    <article className="py-5">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="text-xs font-semibold text-[#2f2f2d]">{label}</span>
-        <span className="text-[10px] text-[#aaa79f]">{time}</span>
+        {webSources.length > 0 && <SourceCards sources={webSources} />}
+        {isUser && attachments.length > 0 && <AttachmentPreviews attachments={attachments} />}
+        {isChatMode && isUser && typeof onEditUserMessage === "function" && (
+          <button
+            type="button"
+            onClick={() => onEditUserMessage(event)}
+            className="text-[11px] font-medium text-[#8a877f] hover:text-[#2f2f2d]"
+          >
+            Edit
+          </button>
+        )}
+        {!isUser && event.type === "message.assistant" && (
+          <button
+            type="button"
+            aria-label="Copy answer"
+            onClick={() => navigator.clipboard?.writeText(String(event.payload?.text ?? ""))}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-[#8a877f] hover:text-[#2f2f2d]"
+          >
+            <Copy size={12} /> Copy
+          </button>
+        )}
       </div>
-      <div className="whitespace-pre-wrap break-words text-[14px] leading-6 text-[#3d3c39]">
-        {event.payload?.text ?? ""}
-      </div>
-      {isUser && attachments.length > 0 && <AttachmentPreviews attachments={attachments} align="start" />}
     </article>
   );
 }

@@ -107,6 +107,27 @@ class CoworkAgentTests(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
+    def test_role_context_is_a_system_message_and_user_prompt_stays_clean(self):
+        model = FakeModel([{"content": "Done.", "tool_calls": []}])
+        agent = CoworkAgent(
+            model=model,
+            model_name="local:test-model",
+            workspace=self.workspace,
+            tools=self.tools,
+            recorder=self.recorder,
+        )
+
+        reply = agent.run(
+            "Fix the failing test.",
+            system_context="## Active Role\n- Work like a careful TDD project agent.",
+        )
+
+        self.assertEqual(reply, "Done.")
+        messages = model.requests[0]["messages"]
+        self.assertEqual(messages[1]["role"], "system")
+        self.assertIn("## Active Role", messages[1]["content"])
+        self.assertEqual(messages[-1], {"role": "user", "content": "Fix the failing test."})
+
     def test_openai_chat_model_strips_provider_prefix_and_sends_extra_body(self):
         fake_client = FakeOpenAIClient()
         captured_timeout = []

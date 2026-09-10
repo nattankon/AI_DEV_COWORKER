@@ -157,6 +157,42 @@ describe("Timeline", () => {
     expect(assistantMessage).toHaveAttribute("data-align", "left");
   });
 
+  it.each(["Cowork", "Code"])("renders %s with the shared left/right conversation UI", (mode) => {
+    const { container } = render(
+      <Timeline
+        mode={mode}
+        events={[
+          {
+            id: "u-shared",
+            type: "message.user",
+            timestamp: "2026-09-11T00:00:00.000Z",
+            payload: { text: "Inspect the project", mode },
+          },
+          {
+            id: "a-shared",
+            type: "message.assistant",
+            timestamp: "2026-09-11T00:00:02.000Z",
+            payload: { text: "**Inspection complete**", mode },
+          },
+          {
+            id: "s-shared",
+            type: "message.system",
+            timestamp: "2026-09-11T00:00:03.000Z",
+            payload: { text: "Connection failed", mode },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Inspect the project").closest("article")).toHaveAttribute("data-align", "right");
+    expect(screen.getByText("Inspection complete").closest("article")).toHaveAttribute("data-align", "left");
+    expect(screen.getByText("Connection failed").closest("article")).toHaveAttribute("data-align", "left");
+    expect(screen.getByText(mode)).toBeInTheDocument();
+    expect(container.querySelector("strong")).toHaveTextContent("Inspection complete");
+    expect(screen.getByRole("button", { name: "Copy answer" })).toBeInTheDocument();
+    expect(screen.queryByText("Edit")).not.toBeInTheDocument();
+  });
+
   it("renders Chat attachment chips on user messages without exposing attachment content", () => {
     render(
       <Timeline
