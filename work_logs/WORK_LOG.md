@@ -2669,3 +2669,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.40.exe` (`116105663` bytes), SHA-256 `6A8EBBAF0B450A57C666182765D0DCC88FEACCE66D697737BF63E78370F6E176`; blockmap (`121575` bytes), SHA-256 `4BB3D95CBF7968D91046778D43386249D3A33C2A185A9F057C997F9DF7059382`; updater manifest (`364` bytes), SHA-256 `A5A52E13D47EE3B39EFC317BF72CCDCBDA0ED0872D86C501309CC551D47B0A7D`.
 - Reviewed the final scoped diff and left unrelated untracked `TUNER.txt` untouched. The candidate is ready for source commit, annotated tag, GitHub Release upload, and public asset verification.
 - Skills used: `writing-plans`, `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.
+
+## 2026-09-11 - Published unified Role and conversation UI update v0.1.40
+
+- Published source commit `fe6f51a` and annotated tag `v0.1.40` to `origin/main` and GitHub Releases.
+- The public release is neither a draft nor a prerelease. Assets downloaded back from GitHub exactly matched the locally verified sizes and SHA-256 digests for the installer, blockmap, and updater manifest.
+- The public updater manifest returned version `0.1.40`, installer `AI-Dev-Co-worker-Setup-0.1.40.exe`, and size `116105663` with exact local manifest SHA-256 `A5A52E13D47EE3B39EFC317BF72CCDCBDA0ED0872D86C501309CC551D47B0A7D`.
+- Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.40`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.40`.
+- Skills used: `verification-before-completion`.
