@@ -322,6 +322,36 @@ describe("Timeline", () => {
     expect(screen.queryByText("**Bold answer**")).not.toBeInTheDocument();
   });
 
+  it("copies only the fenced code block from its own control", () => {
+    const markdown = [
+      "Keep this explanation out of the clipboard.",
+      "",
+      "```python",
+      "updateUI()",
+      "print('Auto Attach loaded')",
+      "```",
+    ].join("\n");
+
+    render(
+      <Timeline
+        mode="Cowork"
+        events={[{
+          id: "a-code-copy",
+          type: "message.assistant",
+          timestamp: "2026-09-11T00:00:00.000Z",
+          payload: { text: markdown, mode: "Cowork" },
+        }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy code" }));
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      "updateUI()\nprint('Auto Attach loaded')",
+    );
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalledWith(markdown);
+  });
+
   it("keeps user Chat messages as plain text instead of markdown", () => {
     const { container } = render(
       <Timeline

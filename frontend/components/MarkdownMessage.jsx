@@ -1,6 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
+import { Copy } from "lucide-react";
 
 const markdownClass =
   "max-w-full break-words text-[14px] leading-6 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-[#355db8] [&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-[#d8d2c4] [&_blockquote]:pl-3 [&_blockquote]:text-[#5d5a52] [&_code]:rounded [&_code]:bg-[#ebe7dc] [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_pre]:my-3 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-[#262521] [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-[#f5f0e6] [&_table]:my-3 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_td]:border [&_td]:border-[#ded8ca] [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-[#d4ccbc] [&_th]:bg-[#eee9de] [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5";
@@ -18,6 +19,31 @@ function linkCitations(text, webSources) {
   });
 }
 
+function textFromNode(node) {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textFromNode).join("");
+  return textFromNode(node?.props?.children);
+}
+
+function CodeBlock({ children }) {
+  const code = textFromNode(children).replace(/\n$/, "");
+  return (
+    <div className="group relative my-3 max-w-full">
+      <button
+        type="button"
+        aria-label="Copy code"
+        title="Copy code"
+        onClick={() => navigator.clipboard?.writeText(code)}
+        className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md border border-white/15 bg-[#3a3934] text-[#ded9cf] transition hover:bg-[#4a4943] hover:text-white"
+      >
+        <Copy size={13} />
+      </button>
+      <pre className="!my-0 !pr-12">{children}</pre>
+    </div>
+  );
+}
+
 export default function MarkdownMessage({ text = "", webSources = [] }) {
   const markdown = linkCitations(text, webSources);
   return (
@@ -26,6 +52,10 @@ export default function MarkdownMessage({ text = "", webSources = [] }) {
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
         components={{
+          pre({ children, node, ...props }) {
+            void node;
+            return <CodeBlock {...props}>{children}</CodeBlock>;
+          },
           a({ href, children, node, ...props }) {
             void node;
             const citationMatch = String(href || "").match(/^#source-web-(\d+)$/);
