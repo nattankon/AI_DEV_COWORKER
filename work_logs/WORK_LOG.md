@@ -2697,3 +2697,13 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.41`.
 - Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.41`.
 - Skills used: `verification-before-completion`.
+
+## 2026-09-11 - Limit long code-block height
+
+- Capped fenced assistant code blocks at `18rem`, approximately 11-12 visible lines at the current line height, and enabled contained vertical scrolling for longer code. Existing horizontal scrolling for long lines and the per-block Copy control remain available.
+- Added the regression test first and observed the expected missing-height-class failure; focused Timeline verification then passed `19/19`.
+- Desktop and 390-by-844 visual fixtures using the real Markdown component and stylesheet showed 30-line code collapsed to the intended reading area, with the vertical scrollbar inside the black frame and no overlap with the Copy control. The temporary fixtures were removed after inspection.
+- Bumped the desktop package candidate to `0.1.42` for complete verification, packaging, and release.
+- Fresh complete verification passed: backend `480/480`; frontend `33/33` files and `240/240` tests; release helpers `2/2`; production Vite build; `npm run dist`; and packaged smoke loading `app.asar/dist/index.html` at `v0.1.42`. The existing Vite chunk-size and Python MCP deprecation advisories remain non-blocking.
+- Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.42.exe` (`116105759` bytes), SHA-256 `6E21B40A9D29A046CEA3EE5C8FFA8E594497D25411F36CC19F0FBBCA04B10430`; blockmap (`121538` bytes), SHA-256 `611CED303DBD2722DF8714ECBAA2600D3D1A24E1BB0667A324EB8753FF491C53`; updater manifest (`364` bytes), SHA-256 `D7D4113E1CAF632E6F04CDDC339BC4B9E6F4EC8440633C8A78A9F358BD25ADD0`.
+- Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.

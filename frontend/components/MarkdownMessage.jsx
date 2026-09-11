@@ -39,7 +39,7 @@ function CodeBlock({ children }) {
       >
         <Copy size={13} />
       </button>
-      <pre className="!my-0 !pr-12">{children}</pre>
+      <pre className="!my-0 max-h-72 overflow-y-auto overscroll-contain !pr-12">{children}</pre>
     </div>
   );
 }

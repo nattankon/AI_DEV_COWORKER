@@ -352,6 +352,26 @@ describe("Timeline", () => {
     expect(navigator.clipboard.writeText).not.toHaveBeenCalledWith(markdown);
   });
 
+  it("limits tall fenced code blocks to a scrollable reading area", () => {
+    const code = Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join("\n");
+    const { container } = render(
+      <Timeline
+        mode="Code"
+        events={[{
+          id: "a-tall-code",
+          type: "message.assistant",
+          timestamp: "2026-09-11T00:00:00.000Z",
+          payload: { text: `\`\`\`text\n${code}\n\`\`\``, mode: "Code" },
+        }]}
+      />,
+    );
+
+    const codeFrame = container.querySelector("pre");
+    expect(codeFrame).toHaveClass("max-h-72", "overflow-y-auto");
+    expect(codeFrame).toHaveTextContent("line 1");
+    expect(codeFrame).toHaveTextContent("line 30");
+  });
+
   it("keeps user Chat messages as plain text instead of markdown", () => {
     const { container } = render(
       <Timeline
