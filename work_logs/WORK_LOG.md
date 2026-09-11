@@ -2727,3 +2727,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Fresh complete verification passed: backend `480/480`; frontend `33/33` files and `241/241` tests; release helpers `2/2`; production Vite build; `npm run dist`; and packaged smoke loading `app.asar/dist/index.html` at `v0.1.43`. The existing Vite chunk-size and Python MCP deprecation advisories remain non-blocking.
 - Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.43.exe` (`116105860` bytes), SHA-256 `79CF77B58F2B4818A46068825DF6AE57E2C6E5451642163E0F3348086C9B4449`; blockmap (`121507` bytes), SHA-256 `0CCE8E9F6DFCBB90A3C787E6FC67F2B1C4FDEDA6C64FB05009452421F934BEF1`; updater manifest (`364` bytes), SHA-256 `B3A667F9B4598DF8490A1F6089B95C48F50607655E1C8B4919323D0540005AF9`.
 - Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.
+
+## 2026-09-11 - Published code-block TXT download v0.1.43
+
+- Published source commit `9ca1809` and annotated tag `v0.1.43` to `origin/main` and GitHub Releases.
+- Downloaded all public release assets back from GitHub; their sizes and SHA-256 digests exactly matched the locally verified installer, blockmap, and updater manifest.
+- The public updater manifest returned version `0.1.43`, installer `AI-Dev-Co-worker-Setup-0.1.43.exe`, and size `116105860` with exact manifest SHA-256 `B3A667F9B4598DF8490A1F6089B95C48F50607655E1C8B4919323D0540005AF9`.
+- Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.43`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.43`.
+- Skills used: `verification-before-completion`.
