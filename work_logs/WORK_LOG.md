@@ -2688,3 +2688,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Bumped the desktop package candidate to `0.1.41`. `npm run dist` and packaged smoke passed with `app.asar/dist/index.html` reporting `v0.1.41`.
 - Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.41.exe` (`116105714` bytes), SHA-256 `2A358126B8C8A5EA84E7F765AC66758B8DED6BBCF86E3D51438A5FB1C5D24C15`; blockmap (`121564` bytes), SHA-256 `6370D967E76806CD141602F0D7790E5FCC6B46CD7282DBB33F997C42440711BE`; updater manifest (`364` bytes), SHA-256 `54DA6F08E62589691C922BDC9F708E8AD3F7F33D0E0B1BA7198960DFEE5DBAF8`.
 - Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.
+
+## 2026-09-11 - Published code-block copy update v0.1.41
+
+- Published source commit `2bc8737` and annotated tag `v0.1.41` to `origin/main` and GitHub Releases.
+- The public release is neither a draft nor a prerelease. Assets downloaded back from GitHub exactly matched the locally verified sizes and SHA-256 digests for the installer, blockmap, and updater manifest.
+- The public updater manifest returned version `0.1.41`, installer `AI-Dev-Co-worker-Setup-0.1.41.exe`, and size `116105714` with exact local manifest SHA-256 `54DA6F08E62589691C922BDC9F708E8AD3F7F33D0E0B1BA7198960DFEE5DBAF8`.
+- Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.41`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.41`.
+- Skills used: `verification-before-completion`.
