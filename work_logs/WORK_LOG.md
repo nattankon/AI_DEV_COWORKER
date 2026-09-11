@@ -2765,3 +2765,12 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Fresh release verification passed: backend `492/492`; frontend `33/33` files and `246/246` tests; release helper tests `2/2`; Electron main/preload syntax checks; production Vite build; `npm run dist`; and packaged smoke loading `app.asar/dist/index.html` at `v0.1.44`. The existing Python MCP deprecation and Vite chunk-size advisories remain non-blocking.
 - Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.44.exe` (`116108237` bytes), SHA-256 `86EA10CAD4434E5E33A019C89BFF50393D6C568C978E8CADEA5F5F5FB44AA0D6`; blockmap (`121565` bytes), SHA-256 `B2FCC314D95052FCCD031FECC303F101756B2021B54AEA277306E0C2FDFD5F5A`; updater manifest (`364` bytes), SHA-256 `DE77211761F555835FBA35BB799BD858B297C7BFC4E2D35BB180B54CA9A8D9A7`.
 - Skills used: `writing-plans`, `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.
+
+## 2026-09-12 - Published adaptive Chat context update v0.1.44
+
+- Published source commit `5344ba8` and annotated tag `v0.1.44` to `origin/main` and GitHub Releases. The public release is neither a draft nor a prerelease.
+- Downloaded all public release assets back from GitHub; their sizes and SHA-256 digests exactly matched the locally verified installer, blockmap, and updater manifest.
+- The public updater manifest returned version `0.1.44`, installer `AI-Dev-Co-worker-Setup-0.1.44.exe`, and size `116108237` with exact manifest SHA-256 `DE77211761F555835FBA35BB799BD858B297C7BFC4E2D35BB180B54CA9A8D9A7`.
+- Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.44`.
+- Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.44`.
+- Skills used: `verification-before-completion` and `requesting-code-review` (review performed from the scoped staged diff because no reviewer subagent tool was available in this session).
