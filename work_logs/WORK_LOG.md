@@ -2716,3 +2716,14 @@ This file is append-only. Runtime conversation details are stored separately in 
 - Both established delivery paths remain active: the startup update gate and the in-app top-right Update control can discover and install `v0.1.42`.
 - Release URL: `https://github.com/nattankon/AI_DEV_COWORKER/releases/tag/v0.1.42`.
 - Skills used: `verification-before-completion`.
+
+## 2026-09-11 - Add code-block TXT download
+
+- Added an icon-only Download control beside Copy in every fenced assistant code block across Chat, Cowork, and Code. It creates a local UTF-8 `generated-code.txt` containing only that block's rendered code, excluding the surrounding explanation and Markdown fences.
+- Reused the existing browser Blob-download pattern from Artifacts, so this user-initiated export does not grant Chat direct workspace-write access or change Cowork/Code permission boundaries.
+- Added the regression test first and observed the expected missing-button failure; focused Timeline verification then passed `20/20`.
+- A temporary visual fixture using the real Markdown component and stylesheet showed Copy and Download controls grouped inside the black frame without overlapping code or the vertical scrollbar. The fixture was removed after inspection.
+- Bumped the desktop package candidate to `0.1.43` for complete verification, packaging, and release.
+- Fresh complete verification passed: backend `480/480`; frontend `33/33` files and `241/241` tests; release helpers `2/2`; production Vite build; `npm run dist`; and packaged smoke loading `app.asar/dist/index.html` at `v0.1.43`. The existing Vite chunk-size and Python MCP deprecation advisories remain non-blocking.
+- Release artifacts: installer `AI-Dev-Co-worker-Setup-0.1.43.exe` (`116105860` bytes), SHA-256 `79CF77B58F2B4818A46068825DF6AE57E2C6E5451642163E0F3348086C9B4449`; blockmap (`121507` bytes), SHA-256 `0CCE8E9F6DFCBB90A3C787E6FC67F2B1C4FDEDA6C64FB05009452421F934BEF1`; updater manifest (`364` bytes), SHA-256 `B3A667F9B4598DF8490A1F6089B95C48F50607655E1C8B4919323D0540005AF9`.
+- Skills used: `systematic-debugging`, `test-driven-development`, `webapp-testing`, and `verification-before-completion`.

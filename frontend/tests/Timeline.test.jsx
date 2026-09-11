@@ -9,6 +9,8 @@ describe("Timeline", () => {
         writeText: vi.fn(),
       },
     });
+    URL.createObjectURL = vi.fn(() => "blob:generated-code");
+    URL.revokeObjectURL = vi.fn();
   });
 
   it("renders only the most recent slice of a very long session and notes hidden messages", () => {
@@ -350,6 +352,36 @@ describe("Timeline", () => {
       "updateUI()\nprint('Auto Attach loaded')",
     );
     expect(navigator.clipboard.writeText).not.toHaveBeenCalledWith(markdown);
+  });
+
+  it("downloads only the fenced code block as a txt file", () => {
+    let downloadName = "";
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function clickAnchor() {
+      downloadName = this.download;
+    });
+    render(
+      <Timeline
+        mode="Chat"
+        events={[{
+          id: "a-code-download",
+          type: "message.assistant",
+          timestamp: "2026-09-11T00:00:00.000Z",
+          payload: {
+            text: "Explanation outside.\n\n```js\nconst ready = true;\n```",
+            mode: "Chat",
+          },
+        }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Download code as TXT" }));
+
+    expect(URL.createObjectURL).toHaveBeenCalledOnce();
+    expect(URL.createObjectURL.mock.calls[0][0]).toBeInstanceOf(Blob);
+    expect(URL.createObjectURL.mock.calls[0][0]).toHaveProperty("type", "text/plain;charset=utf-8");
+    expect(downloadName).toBe("generated-code.txt");
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:generated-code");
+    click.mockRestore();
   });
 
   it("limits tall fenced code blocks to a scrollable reading area", () => {
