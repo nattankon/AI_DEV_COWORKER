@@ -55,6 +55,13 @@ class ChatRuntimeConfigTests(unittest.TestCase):
         self.assertNotIn("must not read workspace files", CHAT_SYSTEM_PROMPT)
         self.assertNotIn("Cowork", CHAT_SYSTEM_PROMPT)
 
+    def test_context_recovery_ratios_are_bounded_and_keep_retry_smaller(self):
+        config = ChatRuntimeConfig()
+
+        self.assertEqual(config.conversation_context_target_ratio, 0.65)
+        self.assertEqual(config.conversation_context_retry_ratio, 0.45)
+        self.assertLess(config.conversation_context_retry_ratio, config.conversation_context_target_ratio)
+
 
 if __name__ == "__main__":
     unittest.main()

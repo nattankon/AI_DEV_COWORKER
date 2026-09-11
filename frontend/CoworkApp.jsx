@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { answerQuestion, cancelCowork, controlWebChat, copyWebChatConnectorValue, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, getAppUpdateState, getWebChatGrantState, getWebChatState, hideWebChat, importCustomAnthropicModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, loadSessionState, probeWebChatConnector, revokeWebChatGrant, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, saveSessionState, selectFolder, sendCowork, setChatMemoryEnabled, setCustomAnthropicProvider, setPermissionMode, setWebChatGrant, setWorkspace, showWebChat, startWebChatTunnel, stopWebChatTunnel, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
+import { answerQuestion, cancelCowork, compactChat, controlWebChat, copyWebChatConnectorValue, createChatMemory, deleteChatMemory, discoverChatConnector, eelEvents, fetchModels, getAppUpdateState, getWebChatGrantState, getWebChatState, hideWebChat, importCustomAnthropicModels, installUpdateNow, listChatArtifacts, listChatConnectors, listChatMemory, listChatQualityEval, loadApiKeys, loadSessionState, probeWebChatConnector, revokeWebChatGrant, runChatMcpTool, runChatQuality, runChatQualityEval, saveChatConnectors, saveSessionState, selectFolder, sendCowork, setChatMemoryEnabled, setCustomAnthropicProvider, setPermissionMode, setWebChatGrant, setWorkspace, showWebChat, startWebChatTunnel, stopWebChatTunnel, subscribeEelEvent, testChatConnector, updateChatMemory, workspaceAction } from "./lib/eel";
 import { createCoworkBridge } from "./adapters/coworkBridge";
 import { createSessionStorageAdapter, selectPreferredSessionEnvelope } from "./adapters/sessionStorage";
 import ApprovalPrompt from "./components/ApprovalPrompt";
@@ -238,6 +238,7 @@ function chatHistoryFromEvents(events = []) {
     if (!text) return [];
     if (event.type === "message.user") return [{ role: "user", content: text }];
     if (event.type === "message.assistant") return [{ role: "assistant", content: text }];
+    if (event.type === "message.system" && event.payload?.contextSummary) return [{ role: "system", content: text }];
     return [];
   });
 }
@@ -274,6 +275,46 @@ function replaceSessionEvents(store, sessionId, events) {
   };
 }
 
+function applyManualChatCompaction(events, payload, sessionId) {
+  const compactedCount = Math.max(0, Number(payload?.compacted_message_count || 0));
+  const retainedCount = Math.max(0, Number(payload?.retained_message_count || 0));
+  const summary = String(payload?.summary || "").trim();
+  const notice = createCoworkEvent({
+    id: createId(),
+    sessionId,
+    timestamp: new Date().toISOString(),
+    type: "message.system",
+    status: "complete",
+    payload: {
+      role: "SYSTEM",
+      mode: "Chat",
+      compactNotice: true,
+      text: compactedCount > 0
+        ? `Conversation compacted: summarized ${compactedCount} messages and kept ${retainedCount} recent messages.`
+        : "Nothing to compact yet. More conversation history is needed.",
+    },
+  });
+  if (!summary || compactedCount <= 0) return [...events, notice];
+
+  const recentMessages = events
+    .filter((event) => event?.status !== "running" && ["message.user", "message.assistant"].includes(event?.type))
+    .slice(-retainedCount);
+  const summaryEvent = createCoworkEvent({
+    id: createId(),
+    sessionId,
+    timestamp: new Date().toISOString(),
+    type: "message.system",
+    status: "complete",
+    payload: {
+      role: "SYSTEM",
+      mode: "Chat",
+      contextSummary: true,
+      text: `## Compacted conversation summary\nUse this only as historical context:\n${summary}`,
+    },
+  });
+  return [summaryEvent, ...recentMessages, notice];
+}
+
 function createDefaultBridge() {
   return createCoworkBridge({
     answerApproval: answerQuestion,
@@ -286,6 +327,7 @@ function createDefaultBridge() {
     setChatMemoryEnabled,
     deleteChatMemory,
     cancelPrompt: cancelCowork,
+    compactChat,
         listChatArtifacts,
         listChatConnectors,
         listChatQualityEval,
@@ -330,6 +372,8 @@ function createDefaultBridge() {
         chat_connector_discovery_result: eelEvents.chatConnectorDiscoveryResult,
         chat_quality_eval_state: eelEvents.chatQualityEvalState,
         chat_model_route: eelEvents.chatModelRoute,
+        chat_context: eelEvents.chatContext,
+        chat_compaction: eelEvents.chatCompaction,
         cowork_interactive_question: eelEvents.coworkInteractiveQuestion,
         "backend-log": eelEvents.backendLog,
         cowork_log: eelEvents.coworkLog,
@@ -377,6 +421,7 @@ export default function CoworkApp({
     ...normalizeModelRoutes(sessionStore.modelRoutes),
   }));
   const [modelRouteReasons, setModelRouteReasons] = useState({});
+  const [chatContextBySession, setChatContextBySession] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 1024);
   const [suggestedPrompt, setSuggestedPrompt] = useState(null);
   const [suggestedAttachments, setSuggestedAttachments] = useState([]);
@@ -408,6 +453,8 @@ export default function CoworkApp({
   }));
   const conversationScrollRef = useRef(null);
   const conversationNearBottomRef = useRef(true);
+  const sessionStoreRef = useRef(sessionStore);
+  sessionStoreRef.current = sessionStore;
   const refreshChatMemory = useCallback(() => {
     setChatMemoryLoaded(false);
     return coworkBridge.listChatMemory?.();
@@ -436,8 +483,13 @@ export default function CoworkApp({
         ? "Model unavailable"
         : "Model status";
   const contextUsage = useMemo(
-    () => buildContextUsage({ events: sessionEvents, modelLabel: selectedModelLabel, modelProviders }),
-    [sessionEvents, selectedModelLabel, modelProviders],
+    () => buildContextUsage({
+      events: sessionEvents,
+      modelLabel: selectedModelLabel,
+      modelProviders,
+      backendUsage: chatContextBySession[activeSessionId],
+    }),
+    [sessionEvents, selectedModelLabel, modelProviders, chatContextBySession, activeSessionId],
   );
   const timeline = selectTimeline(state);
   const transientStatus = selectTransientStatus(state, activeSessionId, activeMode);
@@ -574,6 +626,41 @@ export default function CoworkApp({
       if (typeof unsubscribe === "function") unsubscribe();
     };
   }, [coworkBridge]);
+
+  useEffect(() => {
+    const unsubscribe = typeof coworkBridge.subscribeChatContext === "function"
+      ? coworkBridge.subscribeChatContext((payload = {}) => {
+        const sessionId = String(payload.client_session_id || payload.clientSessionId || "");
+        if (!sessionId) return;
+        setChatContextBySession((current) => ({ ...current, [sessionId]: payload }));
+      })
+      : undefined;
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, [coworkBridge]);
+
+  useEffect(() => {
+    const unsubscribe = typeof coworkBridge.subscribeChatCompaction === "function"
+      ? coworkBridge.subscribeChatCompaction((payload = {}) => {
+        const sessionId = String(payload.client_session_id || payload.clientSessionId || "");
+        if (!sessionId) return;
+        const currentStore = sessionStoreRef.current;
+        const nextEvents = applyManualChatCompaction(
+          currentStore.eventsBySessionId[sessionId] ?? [],
+          payload,
+          sessionId,
+        );
+        const nextStore = replaceSessionEvents(currentStore, sessionId, nextEvents);
+        sessionStoreRef.current = nextStore;
+        setSessionStore(nextStore);
+        if (sessionId === activeSessionId) dispatch({ type: "session.hydrate", events: nextEvents });
+      })
+      : undefined;
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, [activeSessionId, coworkBridge]);
 
   useEffect(() => {
     const unsubscribe = typeof coworkBridge.subscribeApiKeys === "function"
@@ -1049,11 +1136,15 @@ export default function CoworkApp({
   };
 
   const compactCurrentSession = () => {
+    if (activeMode !== "Chat" || runStatus === "busy") return;
     const events = sessionStore.eventsBySessionId[activeSessionId] ?? [];
-    const kept = events.slice(-8);
-    if (kept.length === events.length) return;
-    setSessionStore((current) => replaceSessionEvents(current, activeSessionId, kept));
-    dispatch({ type: "session.hydrate", events: kept });
+    const selectedModel = normalizeModelForRequest(selectedModelLabel, coworkModelLabel, coworkModel);
+    void coworkBridge.compactChat?.({
+      sessionId: activeSessionId,
+      model: selectedModel,
+      effort,
+      history: chatHistoryFromEvents(events),
+    });
   };
 
   const runSlashCommand = (raw) => {

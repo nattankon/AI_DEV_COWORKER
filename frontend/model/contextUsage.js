@@ -65,16 +65,25 @@ export function resolveContextWindow(modelLabel, modelProviders = []) {
   return null;
 }
 
-export function buildContextUsage({ events = [], modelLabel = "", modelProviders = [] } = {}) {
-  const usedTokens = estimateTimelineTokens(events);
-  const contextWindowTokens = resolveContextWindow(modelLabel, modelProviders);
+export function buildContextUsage({ events = [], modelLabel = "", modelProviders = [], backendUsage = null } = {}) {
+  const selectedModel = String(modelLabel || "").trim();
+  const backendModel = String(backendUsage?.model || "").trim();
+  const backendMatches = Boolean(backendUsage && (selectedModel === "auto" || backendModel === selectedModel));
+  const backendTokens = numericField(backendUsage, ["estimated_input_tokens", "estimatedInputTokens"]);
+  const backendWindow = numericField(backendUsage, CONTEXT_WINDOW_FIELDS);
+  const usesBackend = backendMatches && backendTokens && backendWindow;
+  const usedTokens = usesBackend ? backendTokens : estimateTimelineTokens(events);
+  const contextWindowTokens = usesBackend ? backendWindow : resolveContextWindow(modelLabel, modelProviders);
   const percentFull = contextWindowTokens
     ? Math.min(999, Math.round((usedTokens / contextWindowTokens) * 100))
     : null;
   const usedLabel = compactTokens(usedTokens);
   const windowLabel = contextWindowTokens ? compactTokens(contextWindowTokens) : "unknown";
+  const compactedCount = Number(backendUsage?.compacted_history_messages || 0);
   const title = contextWindowTokens
-    ? `Context window:\n${percentFull}% full\n${usedLabel} / ${windowLabel} tokens used\nEstimated from this session; actual provider tokenization may differ.`
+    ? usesBackend
+      ? `Context window:\n${percentFull}% full\n${usedLabel} / ${windowLabel} tokens used\nBackend-planned prompt; provider tokenization may differ.${compactedCount > 0 ? `\n${compactedCount} older messages compacted.` : ""}`
+      : `Context window:\n${percentFull}% full\n${usedLabel} / ${windowLabel} tokens used\nEstimated from this session; actual provider tokenization may differ.`
     : `Context window unknown for ${modelLabel || "selected model"}.\n${usedLabel} tokens estimated from this session.\nAdd context_window_tokens to model metadata for an exact window.`;
 
   return {
@@ -84,5 +93,6 @@ export function buildContextUsage({ events = [], modelLabel = "", modelProviders
     usedLabel,
     windowLabel,
     title,
+    source: usesBackend ? "backend" : "local",
   };
 }

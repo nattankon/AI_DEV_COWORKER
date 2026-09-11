@@ -1025,6 +1025,54 @@ describe("CoworkApp", () => {
     expect(screen.getByLabelText("Context usage")).toHaveAttribute("title", expect.stringContaining("0 / 131k tokens used"));
   });
 
+  it("updates the composer context indicator from the matching Backend plan", async () => {
+    let modelsListener;
+    let contextListener;
+    const sessionStorage = createSessionStorageAdapter(createMemoryStorage());
+    sessionStorage.save({
+      activeSessionIdsByMode: { Chat: "context-chat", Cowork: null, Code: null },
+      sessions: [{ id: "context-chat", mode: "Chat", title: "Context chat" }],
+      projects: [],
+      eventsBySessionId: { "context-chat": [] },
+    });
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="zai:glm-4.5-flash"
+        coworkModelLabel="zai:glm-4.5-flash"
+        coworkUiState="idle"
+        bridge={{
+          fetchModels: vi.fn(),
+          subscribe: () => () => {},
+          subscribeModels(listener) {
+            modelsListener = listener;
+            return () => {};
+          },
+          subscribeChatContext(listener) {
+            contextListener = listener;
+            return () => {};
+          },
+        }}
+        sessionStorageAdapter={sessionStorage}
+      />,
+    );
+
+    modelsListener(["zai:glm-4.5-flash"], {
+      providers: [{ id: "zai", models: [{ id: "zai:glm-4.5-flash", context_window_tokens: 131072 }] }],
+    });
+    contextListener({
+      client_session_id: "context-chat",
+      model: "zai:glm-4.5-flash",
+      context_window_tokens: 131072,
+      estimated_input_tokens: 32768,
+      target_context_tokens: 85196,
+      compacted_history_messages: 4,
+    });
+
+    expect(await screen.findByLabelText("Context usage")).toHaveTextContent("25%");
+    expect(screen.getByLabelText("Context usage")).toHaveAttribute("title", expect.stringContaining("Backend-planned prompt"));
+  });
+
   it("restores and switches between saved sessions", async () => {
     const storage = createMemoryStorage(
       JSON.stringify({
@@ -1087,6 +1135,81 @@ describe("CoworkApp", () => {
     fireEvent.change(textbox, { target: { value: "hello there" } });
     fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
     expect(sendPrompt).toHaveBeenCalledWith(expect.objectContaining({ prompt: "hello there" }));
+  });
+
+  it("uses backend semantic compaction and persists its summary as hidden Chat context", async () => {
+    const storage = createMemoryStorage();
+    const sessionStorageAdapter = createSessionStorageAdapter(storage);
+    const events = [];
+    for (let index = 0; index < 6; index += 1) {
+      events.push(
+        { id: `u-${index}`, sessionId: "compact-chat", timestamp: `2026-09-11T00:0${index}:00.000Z`, type: "message.user", status: "complete", payload: { text: `question ${index}`, mode: "Chat" } },
+        { id: `a-${index}`, sessionId: "compact-chat", timestamp: `2026-09-11T00:0${index}:30.000Z`, type: "message.assistant", status: "complete", payload: { text: `answer ${index}`, mode: "Chat" } },
+      );
+    }
+    sessionStorageAdapter.save({
+      activeSessionIdsByMode: { Chat: "compact-chat", Cowork: null, Code: null },
+      sessions: [{ id: "compact-chat", mode: "Chat", title: "Long chat" }],
+      projects: [],
+      eventsBySessionId: { "compact-chat": events },
+    });
+    let compactionListener;
+    const compactChat = vi.fn();
+    const sendPrompt = vi.fn();
+    render(
+      <CoworkApp
+        bridgeState="connected"
+        coworkModel="zai:glm-4.5-flash"
+        coworkModelLabel="GLM-4.5-Flash"
+        coworkUiState="idle"
+        bridge={{
+          compactChat,
+          sendPrompt,
+          subscribe: () => () => {},
+          subscribeChatCompaction(listener) {
+            compactionListener = listener;
+            return () => {};
+          },
+        }}
+        sessionStorageAdapter={sessionStorageAdapter}
+      />,
+    );
+
+    const textbox = await screen.findByPlaceholderText("How can I help you today?");
+    fireEvent.change(textbox, { target: { value: "/compact" } });
+    fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
+
+    expect(sendPrompt).not.toHaveBeenCalled();
+    expect(compactChat).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: "compact-chat",
+      model: "zai:glm-4.5-flash",
+      history: expect.arrayContaining([{ role: "user", content: "question 0" }]),
+    }));
+
+    compactionListener({
+      client_session_id: "compact-chat",
+      summary: "The user chose Bangkok and wants concise replies.",
+      original_message_count: 12,
+      compacted_message_count: 4,
+      retained_message_count: 8,
+    });
+
+    const compactNotice = await screen.findByText("Conversation compacted: summarized 4 messages and kept 8 recent messages.");
+    expect(compactNotice).toBeInTheDocument();
+    expect(compactNotice).toHaveClass("text-[#35764e]");
+    expect(screen.queryByText("question 0")).not.toBeInTheDocument();
+    expect(screen.getByText("question 2", { selector: ".whitespace-pre-wrap" })).toBeInTheDocument();
+    expect(screen.queryByText(/The user chose Bangkok/)).not.toBeInTheDocument();
+
+    fireEvent.change(textbox, { target: { value: "continue" } });
+    fireEvent.keyDown(textbox, { key: "Enter", ctrlKey: true });
+    expect(sendPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: "continue",
+      history: expect.arrayContaining([{
+        role: "system",
+        content: expect.stringContaining("The user chose Bangkok"),
+      }]),
+    }));
   });
 
   it("sends prompts through the injected bridge", async () => {

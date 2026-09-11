@@ -48,7 +48,7 @@ describe("IPC channel allow-list", () => {
 
   it("includes the app-update and cowork observability channels", () => {
     const allowed = new Set(preloadInboundChannels());
-    for (const channel of ["app-update", "cowork_status", "cowork_log_delta", "cowork_completion"]) {
+    for (const channel of ["app-update", "cowork_status", "cowork_log_delta", "cowork_completion", "chat_compaction"]) {
       expect(allowed.has(channel), `missing ${channel}`).toBe(true);
     }
   });

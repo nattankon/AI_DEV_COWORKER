@@ -141,6 +141,7 @@ export default function MessageEntry({ event, mode = "Cowork", onEditUserMessage
   const webSources = isChatMode && event.type === "message.assistant" && Array.isArray(event.payload?.webSources)
     ? event.payload.webSources
     : [];
+  const isCompactNotice = event.type === "message.system" && event.payload?.compactNotice;
 
   return (
     <article className={`flex py-1 ${isUser ? "justify-end" : "justify-start"}`} data-align={align}>
@@ -154,7 +155,9 @@ export default function MessageEntry({ event, mode = "Cowork", onEditUserMessage
             isUser
               ? "rounded-br-md bg-[#2f2f2d] text-white"
               : event.type === "message.system"
-                ? "rounded-bl-md border border-[#ead7d2] bg-[#fff4f2] text-[#9d3e39]"
+                ? isCompactNotice
+                  ? "rounded-bl-md border border-[#d7e8dc] bg-[#f2f8f4] text-[#35764e]"
+                  : "rounded-bl-md border border-[#ead7d2] bg-[#fff4f2] text-[#9d3e39]"
                 : "rounded-bl-md border border-[#e7e2d8] bg-[#f7f5f0] text-[#3d3c39]"
           }`}
         >

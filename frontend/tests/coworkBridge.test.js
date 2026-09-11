@@ -99,6 +99,60 @@ describe("cowork bridge adapter", () => {
     });
   });
 
+  it("subscribes to sanitized Chat context diagnostics", () => {
+    let contextHandler;
+    const bridge = createCoworkBridge({
+      subscribe(eventName, handler) {
+        if (eventName === "chat_context") contextHandler = handler;
+        return () => {};
+      },
+    });
+    const listener = vi.fn();
+
+    bridge.subscribeChatContext(listener);
+    contextHandler({ detail: { client_session_id: "chat-1", model: "zai:glm-4.5-flash", estimated_input_tokens: 2000 } });
+
+    expect(listener).toHaveBeenCalledWith({
+      client_session_id: "chat-1",
+      model: "zai:glm-4.5-flash",
+      estimated_input_tokens: 2000,
+    });
+  });
+
+  it("sends manual Chat compaction requests and subscribes to their results", async () => {
+    let resultHandler;
+    const compactChat = vi.fn();
+    const bridge = createCoworkBridge({
+      compactChat,
+      subscribe(eventName, handler) {
+        if (eventName === "chat_compaction") resultHandler = handler;
+        return () => {};
+      },
+    });
+    const listener = vi.fn();
+
+    await bridge.compactChat({
+      sessionId: "chat-1",
+      model: "zai:glm-4.5-flash",
+      effort: "Medium",
+      history: [{ role: "user", content: "hello" }],
+    });
+    bridge.subscribeChatCompaction(listener);
+    resultHandler({ detail: { client_session_id: "chat-1", summary: "Durable summary", retained_message_count: 8 } });
+
+    expect(compactChat).toHaveBeenCalledWith({
+      sessionId: "chat-1",
+      model: "zai:glm-4.5-flash",
+      effort: "Medium",
+      history: [{ role: "user", content: "hello" }],
+    });
+    expect(listener).toHaveBeenCalledWith({
+      client_session_id: "chat-1",
+      summary: "Durable summary",
+      retained_message_count: 8,
+    });
+  });
+
   it("normalizes sidecar completion evidence into a verification.finished event", () => {
     let completionHandler;
     const bridge = createCoworkBridge({

@@ -34,6 +34,10 @@ def _env_float(name: str, *, default: float) -> float:
     return parsed if parsed > 0 else default
 
 
+def _env_ratio(name: str, *, default: float) -> float:
+    return min(0.9, max(0.4, _env_float(name, default=default)))
+
+
 def _env_int(name: str, *, default: int) -> int:
     value = os.environ.get(name)
     if value is None:
@@ -152,6 +156,12 @@ class ChatRuntimeConfig:
     )
     conversation_context_fallback_tokens: int = field(
         default_factory=lambda: _env_int("COWORK_CHAT_CONTEXT_WINDOW", default=32_768)
+    )
+    conversation_context_target_ratio: float = field(
+        default_factory=lambda: _env_ratio("COWORK_CHAT_CONTEXT_TARGET_RATIO", default=0.65)
+    )
+    conversation_context_retry_ratio: float = field(
+        default_factory=lambda: _env_ratio("COWORK_CHAT_CONTEXT_RETRY_RATIO", default=0.45)
     )
 
     @property

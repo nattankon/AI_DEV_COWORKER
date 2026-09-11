@@ -572,6 +572,17 @@ ipcMain.handle("cancel-cowork", async (_event, sessionId, mode) =>
   }),
 );
 
+ipcMain.handle("compact-chat", async (_event, payload) => {
+  const request = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+  return sendCommandToPython("compact_chat", {
+    client_session_id: typeof request.sessionId === "string" ? request.sessionId : "",
+    mode: "Chat",
+    model: typeof request.model === "string" ? request.model : "",
+    effort: typeof request.effort === "string" ? request.effort : "Medium",
+    history: Array.isArray(request.history) ? request.history : [],
+  });
+});
+
 ipcMain.handle("set-workspace", async (_event, workspacePath) => {
   const selectedPath = typeof workspacePath === "string" ? workspacePath : "";
   if (!approvedWorkspacePaths.has(normalizeWorkspacePath(selectedPath))) {

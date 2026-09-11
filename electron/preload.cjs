@@ -13,6 +13,8 @@ const inboundChannels = new Set([
   "chat_mcp_tool_result",
   "chat_quality_eval_state",
   "chat_model_route",
+  "chat_context",
+  "chat_compaction",
   "brainstorm_log",
   "brainstorm_ui_state",
   "cowork_interactive_question",
@@ -109,6 +111,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   selectFolder: () => ipcRenderer.invoke("select-folder"),
   sendCowork: (prompt, model, sessionId, mode, effort, attachments, webSettings, history, visionSettings) => ipcRenderer.invoke("send-cowork", prompt, model, sessionId, mode, effort, attachments, webSettings, history, visionSettings),
   cancelCowork: (sessionId, mode) => ipcRenderer.invoke("cancel-cowork", sessionId, mode),
+  compactChat: (payload) => ipcRenderer.invoke("compact-chat", payload),
   setWorkspace: (path) => ipcRenderer.invoke("set-workspace", path),
   workspaceAction: (payload) => ipcRenderer.invoke("workspace-action", payload),
   setApiKeys: (geminiKey, openaiKey, localAiBaseUrl, localAiApiKey) =>

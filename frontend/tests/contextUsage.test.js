@@ -45,4 +45,25 @@ describe("contextUsage", () => {
     expect(usage.windowLabel).toBe("unknown");
     expect(usage.title).toContain("Context window unknown");
   });
+
+  it("prefers a matching Backend context plan over the local timeline estimate", () => {
+    const usage = buildContextUsage({
+      modelLabel: "zai:glm-4.5-flash",
+      modelProviders: [{ id: "zai", models: [{ id: "zai:glm-4.5-flash", context_window_tokens: 131072 }] }],
+      events: [{ type: "message.user", payload: { text: "x".repeat(40_000) } }],
+      backendUsage: {
+        model: "zai:glm-4.5-flash",
+        context_window_tokens: 131072,
+        estimated_input_tokens: 32768,
+        target_context_tokens: 85196,
+        compacted_history_messages: 6,
+      },
+    });
+
+    expect(usage.percentFull).toBe(25);
+    expect(usage.usedTokens).toBe(32768);
+    expect(usage.source).toBe("backend");
+    expect(usage.title).toContain("Backend-planned prompt");
+    expect(usage.title).toContain("6 older messages compacted");
+  });
 });

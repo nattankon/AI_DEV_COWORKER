@@ -12,6 +12,8 @@ const eelEvents = {
   chatMcpToolResult: "eel:chat_mcp_tool_result",
   chatQualityEvalState: "eel:chat_quality_eval_state",
   chatModelRoute: "eel:chat_model_route",
+  chatContext: "eel:chat_context",
+  chatCompaction: "eel:chat_compaction",
   coworkInteractiveQuestion: "eel:cowork_interactive_question",
   brainstormUiState: "eel:brainstorm_ui_state",
   coworkLog: "eel:cowork_log",
@@ -42,6 +44,8 @@ const ipcEventMap = {
   chat_connector_discovery_result: eelEvents.chatConnectorDiscoveryResult,
   chat_mcp_tool_result: eelEvents.chatMcpToolResult,
   chat_quality_eval_state: eelEvents.chatQualityEvalState,
+  chat_context: eelEvents.chatContext,
+  chat_compaction: eelEvents.chatCompaction,
   brainstorm_log: eelEvents.brainstormLog,
   cowork_interactive_question: eelEvents.coworkInteractiveQuestion,
   brainstorm_ui_state: eelEvents.brainstormUiState,
@@ -238,6 +242,7 @@ function invokeBridgeMethod(method, args = []) {
     select_folder: bridge.selectFolder,
     send_brainstorm: bridge.sendBrainstorm,
     send_cowork: bridge.sendCowork,
+    compact_chat: bridge.compactChat,
     send_factory: bridge.sendFactory,
     set_api_keys: bridge.setApiKeys,
     snap_viewport: bridge.snapViewport,
@@ -284,6 +289,10 @@ export function sendCowork(prompt, model, sessionId, mode, effort, attachments, 
 
 export function cancelCowork(sessionId, mode) {
   return invokeBridgeMethod("cancel_cowork", [sessionId, mode]);
+}
+
+export function compactChat(payload) {
+  return invokeBridgeMethod("compact_chat", [payload]);
 }
 
 export function sendFactory(prompt, model) {

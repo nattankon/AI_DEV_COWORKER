@@ -218,6 +218,11 @@ export function createCoworkBridge(legacyBridge, overrides = {}) {
         await legacyBridge.cancelPrompt(sessionId, mode);
       }
     },
+    async compactChat(payload = {}) {
+      if (typeof legacyBridge?.compactChat === "function") {
+        await legacyBridge.compactChat(payload);
+      }
+    },
     async selectWorkspace() {
       if (typeof legacyBridge?.selectWorkspace !== "function") return "";
       const selected = await legacyBridge.selectWorkspace();
@@ -456,6 +461,16 @@ export function createCoworkBridge(legacyBridge, overrides = {}) {
       const subscribe = legacyBridge?.subscribe;
       if (typeof subscribe !== "function") return () => {};
       return subscribe("chat_model_route", (event) => listener(event?.detail ?? event ?? {}));
+    },
+    subscribeChatContext(listener) {
+      const subscribe = legacyBridge?.subscribe;
+      if (typeof subscribe !== "function") return () => {};
+      return subscribe("chat_context", (event) => listener(event?.detail ?? event ?? {}));
+    },
+    subscribeChatCompaction(listener) {
+      const subscribe = legacyBridge?.subscribe;
+      if (typeof subscribe !== "function") return () => {};
+      return subscribe("chat_compaction", (event) => listener(event?.detail ?? event ?? {}));
     },
     subscribeModels(listener) {
       const subscribe = legacyBridge?.subscribe;

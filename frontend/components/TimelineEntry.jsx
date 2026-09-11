@@ -2,6 +2,9 @@ import MessageEntry from "./MessageEntry";
 import McpResultCard from "./McpResultCard";
 
 export default function TimelineEntry({ event, mode = "Cowork", onEditUserMessage }) {
+  if (event.type === "message.system" && event.payload?.contextSummary) {
+    return null;
+  }
   if (event.type.startsWith("message.")) {
     return <MessageEntry event={event} mode={mode} onEditUserMessage={onEditUserMessage} />;
   }
